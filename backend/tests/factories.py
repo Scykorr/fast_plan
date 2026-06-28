@@ -1,6 +1,8 @@
 import factory
+from datetime import date
 from django.contrib.auth import get_user_model
 
+from birthdays.models import Birthday, Contact
 from kanban.models import Board, Card, Column
 from workspaces.models import Workspace, WorkspaceMember
 
@@ -68,3 +70,22 @@ class CardFactory(factory.django.DjangoModelFactory):
     title = "Test Card"
     description = ""
     position = 0
+
+
+class ContactFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Contact
+
+    workspace = factory.SubFactory(WorkspaceFactory)
+    name = factory.Sequence(lambda n: f"Contact {n}")
+    relation = "друг"
+
+    @factory.post_generation
+    def birthday(self, create, extracted, **kwargs):
+        if not create:
+            return
+        Birthday.objects.create(
+            contact=self,
+            birth_date=extracted if extracted is not None else date(1995, 6, 15),
+        )
+
