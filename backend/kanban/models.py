@@ -9,6 +9,13 @@ class Board(models.Model):
         on_delete=models.CASCADE,
         related_name="boards",
     )
+    project = models.OneToOneField(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="board",
+    )
     title = models.CharField(max_length=255)
     position = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -41,6 +48,13 @@ class Card(models.Model):
         Column,
         on_delete=models.CASCADE,
         related_name="cards",
+    )
+    wbs_node = models.OneToOneField(
+        "projects.WBSNode",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="card",
     )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)

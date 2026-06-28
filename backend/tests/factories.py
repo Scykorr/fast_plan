@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 
 from birthdays.models import Birthday, Contact
 from kanban.models import Board, Card, Column
+from projects.models import Project
 from workspaces.models import Workspace, WorkspaceMember
 
 User = get_user_model()
@@ -89,3 +90,12 @@ class ContactFactory(factory.django.DjangoModelFactory):
             birth_date=extracted if extracted is not None else date(1995, 6, 15),
         )
 
+
+class ProjectFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Project
+
+    workspace = factory.SubFactory(WorkspaceFactory)
+    name = factory.Sequence(lambda n: f"Project {n}")
+    description = "Test project"
+    manager = factory.SubFactory(UserFactory)

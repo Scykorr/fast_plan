@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "workspaces",
     "kanban",
     "birthdays",
+    "projects",
 ]
 
 MIDDLEWARE = [
