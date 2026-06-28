@@ -5,6 +5,7 @@ from projects.models import ActivityDependency, Project, ScheduleActivity, WBSNo
 
 class ProjectListSerializer(serializers.ModelSerializer):
     wbs_count = serializers.SerializerMethodField()
+    board_id = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
 
     class Meta:
@@ -21,8 +22,9 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "updated_at",
             "wbs_count",
             "progress",
+            "board_id",
         )
-        read_only_fields = ("id", "created_at", "updated_at", "wbs_count", "progress")
+        read_only_fields = ("id", "created_at", "updated_at", "wbs_count", "progress", "board_id")
 
     def get_wbs_count(self, obj):
         return obj.wbs_nodes.count()
@@ -32,6 +34,10 @@ class ProjectListSerializer(serializers.ModelSerializer):
         if not activities.exists():
             return 0
         return round(sum(a.progress for a in activities) / activities.count())
+
+    def get_board_id(self, obj):
+        board = getattr(obj, "board", None)
+        return board.id if board else None
 
 
 class ProjectWriteSerializer(serializers.ModelSerializer):

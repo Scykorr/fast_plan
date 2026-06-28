@@ -28,7 +28,9 @@ class WorkspaceMixin:
         return workspace
 
     def get_project_queryset(self):
-        return Project.objects.filter(workspace=self.get_workspace())
+        return Project.objects.filter(workspace=self.get_workspace()).select_related(
+            "board"
+        )
 
     def get_wbs_queryset(self):
         return WBSNode.objects.filter(project__workspace=self.get_workspace())

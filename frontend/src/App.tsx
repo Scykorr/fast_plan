@@ -7,6 +7,8 @@ import { CalendarPage } from "./pages/CalendarPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { KanbanPage } from "./pages/KanbanPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ProjectDetailPage } from "./pages/ProjectDetailPage";
+import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -39,6 +41,8 @@ export default function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="kanban" element={<KanbanPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="settings" element={<SettingsPage />} />

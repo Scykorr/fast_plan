@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import type { KanbanBoard } from "../api/kanban";
 import { parseApiError } from "../api/errors";
@@ -6,11 +7,17 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
 import { useAuth } from "../context/AuthContext";
 import { useKanbanApi } from "../hooks/useKanbanApi";
+import { useProjectsApi } from "../hooks/useProjectsApi";
 
 export function KanbanPage() {
   const { accessToken } = useAuth();
   const kanbanApi = useKanbanApi();
+  const projectsApi = useProjectsApi();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get("project");
+
   const [board, setBoard] = useState<KanbanBoard | null>(null);
+  const [boardTitle, setBoardTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -21,6 +28,15 @@ export function KanbanPage() {
     setLoading(true);
     setError("");
     try {
+      if (projectId && projectsApi) {
+        const project = await projectsApi.getProject(Number(projectId));
+        if (project.board_id) {
+          const detail = await kanbanApi.getBoard(project.board_id);
+          setBoard(detail);
+          setBoardTitle(project.name);
+          return;
+        }
+      }
       const boards = await kanbanApi.getBoards();
       if (boards.length === 0) {
         setBoard(null);
@@ -28,12 +44,13 @@ export function KanbanPage() {
       }
       const detail = await kanbanApi.getBoard(boards[0].id);
       setBoard(detail);
+      setBoardTitle(detail.title);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить доску"));
     } finally {
       setLoading(false);
     }
-  }, [kanbanApi]);
+  }, [kanbanApi, projectsApi, projectId]);
 
   useEffect(() => {
     void loadBoard();
@@ -54,10 +71,17 @@ export function KanbanPage() {
   }
 
   return (
-    <KanbanBoardView
-      board={board}
-      token={accessToken}
-      onBoardChange={setBoard}
-    />
+    <div>
+      {boardTitle && projectId && (
+        <p className="mb-4 text-sm text-text-muted">
+          Проектная доска: <span className="font-medium text-text">{boardTitle}</span>
+        </p>
+      )}
+      <KanbanBoardView
+        board={board}
+        token={accessToken}
+        onBoardChange={setBoard}
+      />
+    </div>
   );
 }

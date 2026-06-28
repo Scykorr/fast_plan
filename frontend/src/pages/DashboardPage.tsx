@@ -53,7 +53,17 @@ export function DashboardPage() {
         <UpcomingBirthdays items={upcoming} loading={loading} />
       </section>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
+          to="/projects"
+          className="rounded-xl border border-border bg-surface p-6 transition-shadow hover:shadow-md"
+        >
+          <h2 className="text-lg font-semibold text-primary">Проекты</h2>
+          <p className="mt-2 text-sm text-text-muted">
+            WBS, Gantt и Kanban по PMBOK
+          </p>
+        </Link>
+
         <Link
           to="/kanban"
           className="rounded-xl border border-border bg-surface p-6 transition-shadow hover:shadow-md"

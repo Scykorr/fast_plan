@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap");
 @import "tailwindcss";
+@import "../node_modules/frappe-gantt/dist/frappe-gantt.css";
 
 @theme {
   --font-sans: "DM Sans", system-ui, sans-serif;
@@ -56,4 +57,29 @@ body {
   border: none;
   padding: 2px 4px;
   font-size: 0.75rem;
+}
+
+.gantt-wrapper .bar {
+  fill: #c45c3e;
+}
+
+.gantt-wrapper .bar-progress {
+  fill: #a84b32;
+}
+
+.gantt-wrapper .bar-milestone .bar {
+  fill: #e8a838;
+}
+
+.gantt-wrapper .grid-header {
+  fill: #faf7f2;
+}
+
+.gantt-wrapper .grid-row {
+  fill: #ffffff;
+}
+
+.gantt-wrapper .today-highlight {
+  fill: #faf7f2;
+  opacity: 0.6;
 }
