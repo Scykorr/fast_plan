@@ -5,12 +5,20 @@
 
 ## Чеклист задач
 
-- [ ] Создать `backend/`: Django 6.0 + DRF + JWT + PostgreSQL + apps + pytest-django
-- [ ] Создать `frontend/`: Vite + React + TS + Tailwind + shadcn/ui + тёплая тема + Vitest
-- [ ] Регистрация/логин, Workspace, тесты auth и permissions + коммит
-- [ ] Board/Column/Card API, drag-and-drop, тесты Kanban + коммит
-- [ ] Contact/Birthday, FullCalendar, upcoming widget, тесты + коммит
-- [ ] Docker Compose, CI (pytest + vitest), адаптив, финальная полировка UI + коммит
+### Выполнено (MVP)
+- [x] Создать `backend/`: Django 6.0 + DRF + JWT + PostgreSQL + apps + pytest-django
+- [x] Создать `frontend/`: Vite + React + TS + Tailwind + тёплая тема + Vitest
+- [x] Регистрация/логин, Workspace, тесты auth и permissions + коммит
+- [x] Board/Column/Card API, drag-and-drop, тесты Kanban + коммит
+- [x] Contact/Birthday, FullCalendar, upcoming widget, тесты + коммит
+- [x] Docker Compose, CI (pytest + vitest), адаптив, финальная полировка UI + коммит
+
+### Фаза 5 — Управление проектами (PMBOK)
+- [ ] Модели Project, WBS, Schedule, связь с Kanban/календарём + backend tests
+- [ ] WBS: иерархическое дерево работ (CRUD, drag-reorder) + UI
+- [ ] Gantt: диаграмма Ганта, зависимости, drag дат + UI
+- [ ] Синхронизация WBS ↔ Gantt ↔ Kanban ↔ календарь + integration tests
+- [ ] PMBOK-модули: риски, стейкхолдеры, устав, RACI, baseline, отчёты
 
 ---
 
@@ -39,6 +47,8 @@ flowchart LR
         Theme[WarmTheme]
         DnD[dnd-kit для Kanban]
         Cal[FullCalendar]
+        Gantt[Gantt chart]
+        WBS[WBS tree]
         Vitest[Vitest + RTL]
     end
     subgraph server [Backend]
@@ -65,6 +75,8 @@ flowchart LR
 - **Frontend:** React + TypeScript + Vite + Tailwind CSS + [shadcn/ui](https://ui.shadcn.com)
 - **Kanban:** `@dnd-kit/core`
 - **Календарь:** `@fullcalendar/react`
+- **Gantt (фаза 5):** `frappe-gantt` или `gantt-task-react` (лёгкая OSS-альтернатива)
+- **WBS (фаза 5):** древовидный UI на `@dnd-kit` + custom tree / `react-arborist`
 - **БД:** PostgreSQL (SQLite — только для локальных pytest без Docker)
 - **Тесты backend:** `pytest` + `pytest-django` + `factory_boy`
 - **Тесты frontend:** `Vitest` + `@testing-library/react`
@@ -94,7 +106,7 @@ flowchart LR
 ### Принципы UX (логичность + приятность)
 
 1. **Одна главная задача на экран** — Kanban и календарь на отдельных страницах; дашборд — сводка (ближайшие ДР + быстрый доступ к доскам)
-2. **Предсказуемая навигация** — фиксированный sidebar: Dashboard | Kanban | Календарь | Настройки; активный пункт — terracotta-полоска слева
+2. **Предсказуемая навигация** — sidebar: Dashboard | Kanban | Календарь | **Проекты** | Настройки
 3. **Визуальная иерархия** — крупные заголовки, щедрые отступы (16–24px), скругления 10–12px, мягкие тени `shadow-sm` с тёплым оттенком
 4. **Типографика** — [Nunito Sans](https://fonts.google.com/specimen/Nunito+Sans) или [DM Sans](https://fonts.google.com/specimen/DM+Sans) (мягче Inter, хорошо с тёплой палитрой)
 5. **Kanban** — колонки на cream-фоне, карточки белые с тонкой border; drag — лёгкое поднятие и terracotta outline
@@ -135,9 +147,9 @@ erDiagram
 | `accounts` | Регистрация, login, JWT, профиль |
 | `workspaces` | Пространство, членство |
 | `kanban` | Board, Column, Card, reorder API |
-| `calendar` | Contact, Birthday, события |
-| *(позже)* `projects` | Задачи, этапы |
-| *(позже)* `finance` | Транзакции, бюджеты |
+| `birthdays` | Contact, Birthday, события ДР |
+| `projects` *(фаза 5)* | PMBOK: Project, WBS, Schedule, Risks, Stakeholders |
+| *(позже)* `finance` | Транзакции, бюджеты, EVM (связь с Cost Management) |
 
 ---
 
@@ -220,6 +232,7 @@ chore(ci): add GitHub Actions for pytest and vitest
 | 2 — Kanban | models + migrations → API + tests → frontend board + dnd + tests |
 | 3 — Календарь | models + API + tests → FullCalendar UI + upcoming widget + tests |
 | 4 — Полировка | Docker Compose → CI workflow → адаптив + error handling |
+| 5 — PMBOK Projects | 5.1 core → 5.2 WBS → 5.3 Gantt → 5.4 sync → 5.5 risks/stakeholders → 5.6 CPM |
 
 Правило: **тесты и код фичи — в одном или соседнем коммите**; не откладывать тесты «на потом».
 
@@ -248,16 +261,194 @@ chore(ci): add GitHub Actions for pytest and vitest
 - Тесты: upcoming, leap year, permissions
 - **Коммиты:** backend → frontend → dashboard widget
 
-### Фаза 4 — Полировка и деплой
-- Валидация, обработка ошибок, пагинация
-- Docker Compose (web + db + frontend build)
-- GitHub Actions CI
-- Адаптив (mobile sidebar → drawer)
-- Опционально: тёплая тёмная тема
+### Фаза 4 — Полировка и деплой ✅
+- Docker Compose, GitHub Actions CI, адаптив, обработка ошибок API
 - **Коммиты:** docker → ci → polish
 
-### Фаза 5 — Расширение (позже)
-- Проекты, учёт, shared workspaces, уведомления (Celery + Redis)
+### Фаза 5 — Управление проектами по PMBOK
+
+Цель: единый модуль управления проектами, где **WBS, Gantt, Kanban и календарь — разные представления одних и тех же работ**, а не четыре несвязанных инструмента.
+
+#### Ключевая идея: единый источник правды — Work Package
+
+Каждая исполняемая единица работы (пакет работ / activity) хранится один раз и отображается в четырёх видах:
+
+| Представление | Что показывает | PMBOK-область |
+|---------------|----------------|---------------|
+| **WBS** | Иерархия deliverables и work packages | Scope Management |
+| **Gantt** | Сроки, длительность, зависимости, critical path | Schedule Management |
+| **Kanban** | Статус исполнения (To Do → In Progress → Done) | Execution / Agile |
+| **Календарь** | Milestones, дедлайны, контрольные точки | Schedule Management |
+
+```mermaid
+flowchart TB
+    subgraph core [Единая модель]
+        Project[Project]
+        WBSNode[WBSNode]
+        Activity[ScheduleActivity]
+        Project --> WBSNode
+        WBSNode --> WBSNode
+        WBSNode --> Activity
+    end
+    subgraph views [Представления]
+        WBSView[WBS Tree UI]
+        GanttView[Gantt Chart UI]
+        KanbanView[Kanban Board]
+        CalView[Project Calendar]
+    end
+  Activity --> WBSView
+  Activity --> GanttView
+  Activity --> KanbanView
+  Activity --> CalView
+  KanbanView -.->|Card FK| Card[kanban.Card]
+```
+
+#### Модель данных (фаза 5)
+
+```mermaid
+erDiagram
+    Workspace ||--o{ Project : has
+    Project ||--o{ WBSNode : contains
+    WBSNode ||--o{ WBSNode : parent_of
+    WBSNode ||--o| ScheduleActivity : schedules
+    WBSNode ||--o| Card : kanban_link
+    Project ||--o{ Milestone : has
+    Project ||--o{ Risk : has
+    Project ||--o{ Stakeholder : has
+    Project ||--o{ ProjectBaseline : baselines
+    ScheduleActivity ||--o{ ActivityDependency : predecessor
+    ScheduleActivity ||--o{ ActivityDependency : successor
+    Project ||--o{ Board : project_board
+```
+
+**Основные сущности:**
+
+| Модель | Назначение |
+|--------|------------|
+| `Project` | Проект: название, описание, статус, даты, менеджер, workspace |
+| `WBSNode` | Узел WBS: `code` (1.1, 1.1.2), `title`, `parent`, `node_type` (deliverable / work_package / milestone), `position` |
+| `ScheduleActivity` | Расписание: `start_date`, `end_date`, `duration_days`, `progress_%`, `is_milestone`, связь 1:1 с work_package |
+| `ActivityDependency` | Зависимость: FS/SS/FF/SF + lag (как в PMBOK / MS Project) |
+| `Milestone` | Веха проекта (отображается в Gantt + FullCalendar) |
+| `ProjectBaseline` | Снимок расписания для сравнения plan vs actual |
+| `Risk` | Реестр рисков: описание, вероятность, влияние, статус, mitigation |
+| `Stakeholder` | Стейкхолдер: имя, роль, интерес/влияние, контакт |
+| `RACIEntry` | Матрица RACI: WBSNode × Stakeholder × R/A/C/I |
+| `ProjectCharter` | Устав проекта: цели, критерии успеха, ограничения, допущения |
+
+**Связь с существующим Kanban:**
+- У каждого `Project` — своя `Board` (создаётся signal при создании проекта)
+- `Card` получает опциональный `FK → WBSNode` (work package)
+- Смена колонки Kanban обновляет `ScheduleActivity.progress` и наоборот
+- Личная доска «Моя доска» остаётся для заметок вне проектов
+
+**Связь с календарём:**
+- `Milestone` и `ScheduleActivity` (с `is_milestone=True`) → события в `GET /api/projects/{id}/calendar/`
+- На общем календаре workspace — фильтр: личные ДР | проектные вехи
+- Дни рождения (`birthdays`) и проектный календарь — разные слои, один UI
+
+#### PMBOK: области знаний в продукте
+
+Не все 49 процессов PMBOK 7 нужны в личном PM-инструменте. Реалистичный набор для **полноценного, но практичного** управления:
+
+| Область PMBOK | Функции в Fast Plan | Приоритет |
+|---------------|---------------------|-----------|
+| **Integration** | Устав проекта, статус-отчёт, change log, dashboard проекта | P1 |
+| **Scope** | WBS, scope statement, requirements (чеклист на узле WBS) | P1 |
+| **Schedule** | Gantt, зависимости, milestones, baseline, critical path | P1 |
+| **Cost** | Бюджет проекта, planned vs actual cost *(связь с `finance` позже)* | P2 |
+| **Quality** | Definition of Done, quality checklist на work package | P2 |
+| **Resource** | Назначение участников workspace на activity, загрузка | P2 |
+| **Communications** | Журнал решений, комментарии к WBS/activity | P2 |
+| **Risk** | Risk register, матрица вероятность×влияние, план реагирования | P1 |
+| **Stakeholder** | Stakeholder register, RACI-матрица | P1 |
+| **Procurement** | — *(вне scope для личного инструмента)* | — |
+
+#### API (фаза 5, основное)
+
+**Проекты**
+- `GET/POST /api/projects/`
+- `GET/PATCH/DELETE /api/projects/{id}/`
+- `GET /api/projects/{id}/dashboard/` — сводка: прогресс, риски, ближайшие вехи
+
+**WBS**
+- `GET /api/projects/{id}/wbs/` — дерево
+- `POST /api/projects/{id}/wbs/` — создать узел
+- `PATCH /api/wbs/{id}/` — rename, move parent, reorder
+- `DELETE /api/wbs/{id}/`
+
+**Расписание / Gantt**
+- `GET /api/projects/{id}/schedule/` — activities + dependencies для Gantt
+- `PATCH /api/activities/{id}/` — даты, progress, duration
+- `POST /api/activities/{id}/dependencies/`
+- `GET /api/projects/{id}/critical-path/` — критический путь (CPM)
+
+**Синхронизация**
+- `POST /api/wbs/{id}/link-card/` — привязать к Kanban-карточке
+- `POST /api/projects/{id}/sync-kanban/` — пересобрать карточки из WBS work packages
+
+**PMBOK-дополнения**
+- `GET/POST /api/projects/{id}/risks/`
+- `GET/POST /api/projects/{id}/stakeholders/`
+- `GET/PATCH /api/projects/{id}/charter/`
+- `GET /api/projects/{id}/raci/`
+- `POST /api/projects/{id}/baselines/` — зафиксировать baseline
+
+**Календарь проекта**
+- `GET /api/projects/{id}/calendar/?year=&month=` — вехи и milestones для FullCalendar
+
+#### UI (фаза 5)
+
+Страница **`/projects/{id}`** с вкладками (tab navigation):
+
+1. **Обзор** — charter, KPI, % complete, риски top-3, ближайшие вехи
+2. **WBS** — collapsible tree, drag-reorder, код 1.1.1, тип узла, % готовности
+3. **Gantt** — интерактивная диаграмма: drag баров, зависимости стрелками, zoom week/month
+4. **Kanban** — доска проекта (существующий компонент, фильтр по project board)
+5. **Календарь** — FullCalendar с вехами проекта
+6. **Риски** — таблица + heat map вероятность×влияние
+7. **Стейкхолдеры** — список + RACI-матрица
+8. **Baseline** — сравнение plan vs actual (две линии на Gantt)
+
+**Сквозная навигация:** клик по узлу WBS → подсветка на Gantt и карточке Kanban; клик по бару Gantt → открытие деталей work package.
+
+#### Подфазы реализации (фаза 5)
+
+| Подфаза | Содержание | Коммиты |
+|---------|------------|---------|
+| **5.1 — Ядро** | Project, WBSNode, ScheduleActivity, API, тесты | models → API → tests |
+| **5.2 — WBS UI** | Дерево WBS, CRUD, drag-reorder | feat(wbs): tree UI |
+| **5.3 — Gantt** | Gantt chart, dependencies, drag dates | feat(gantt): chart UI |
+| **5.4 — Интеграция** | Связь WBS↔Gantt↔Kanban↔Calendar, sync signals | feat(projects): cross-view sync |
+| **5.5 — PMBOK** | Risks, stakeholders, charter, RACI, baseline | feat(pmbok): risk + stakeholder modules |
+| **5.6 — Аналитика** | Critical path, EVM-lite, project dashboard | feat(projects): CPM + dashboard |
+
+#### Тесты (фаза 5)
+
+| Область | Сценарии |
+|---------|----------|
+| WBS | create tree, move node, delete subtree, unique codes per project |
+| Schedule | dependency types FS/SS, date shift cascade, critical path calculation |
+| Sync | WBS progress ↔ Kanban column ↔ Gantt bar color |
+| Calendar | milestone appears in project calendar API |
+| Permissions | user A не видит проект user B |
+| PMBOK | risk register CRUD, RACI uniqueness per WBS node |
+
+#### Риски фазы 5
+
+| Риск | Решение |
+|------|---------|
+| Слишком сложная синхронизация | Одна модель `ScheduleActivity`; представления — read/write разных полей |
+| Gantt-библиотека ограничена | Начать с `frappe-gantt`; при нехватке — `gantt-task-react` |
+| Дублирование Kanban | Project board отдельно от личной доски; Card.wbs_node FK |
+| CPM сложен | MVP: только FS-зависимости; SS/FF/SF — подфаза 5.6 |
+| Scope creep PMBOK | Чёткие подфазы; Procurement не делаем |
+
+### Фаза 6 — Расширение (позже)
+- Модуль `finance`: Cost Management, EVM, связь бюджета проекта с транзакциями
+- Shared workspaces: приглашения, роли (owner/editor/viewer) на уровне проекта
+- Уведомления: Celery + Redis (дедлайны, риски, ДР)
+- Экспорт: PDF status report, MS Project XML / Primavera P6 (опционально)
 
 ---
 
@@ -270,13 +461,15 @@ chore(ci): add GitHub Actions for pytest and vitest
 | Тёплые цвета снижают контраст | Проверка WCAG AA для text/background; terracotta только для кнопок, не для мелкого текста |
 | Kanban lag | Optimistic UI + debounced PATCH |
 | Пропуск тестов | CI блокирует merge без green pytest + vitest |
+| Рассинхрон WBS/Gantt/Kanban | Единая модель Activity; Django signals + integration tests на sync |
+| Перегруз PMBOK | Подфазы 5.1–5.6; Procurement вне scope |
 
 ---
 
-## Первые шаги после подтверждения плана
+## Первые шаги (фаза 5 — после подтверждения)
 
-1. `backend/` — Django 6.0.6 + DRF + pytest-django → **коммит** `feat(backend): scaffold Django 6 project`
-2. Auth API + workspace signal + tests → **коммит** `feat(auth): ...`
-3. `frontend/` — Vite + React + warm theme → **коммит** `feat(frontend): ...`
-4. Layout + auth pages + tests → **коммит**
-5. Kanban models → API → UI (каждый шаг с тестами и коммитом)
+1. App `projects`: модели `Project`, `WBSNode`, `ScheduleActivity` → **коммит** `feat(projects): add core models`
+2. WBS tree API + тесты → **коммит** `feat(wbs): add tree API`
+3. Gantt schedule API + dependencies → **коммит** `feat(schedule): add gantt data API`
+4. Связь Project → Board, Card.wbs_node → **коммит** `feat(projects): integrate kanban`
+5. WBS tree UI → Gantt UI → вкладки проекта (по одному коммиту на подфазу)
