@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.db.models import Sum
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -7,7 +8,8 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from projects.models import ActivityDependency, Project, ScheduleActivity, WBSNode
+from projects.cpm import compute_critical_path, compute_evm_lite
+from projects.models import ActivityDependency, Project, ProjectCharter, ScheduleActivity, WBSNode
 from projects.calendar import project_milestone_events, workspace_milestone_events
 from projects.serializers import (
     ActivityDependencySerializer,
@@ -19,6 +21,7 @@ from projects.serializers import (
     WBSNodeUpdateSerializer,
     WBSNodeWriteSerializer,
 )
+from projects.serializers_pmbok import ProjectCharterSerializer, RiskSerializer
 from projects.services import build_wbs_tree, create_work_package
 from projects.sync import sync_card_from_activity
 from workspaces.services import get_user_workspace
@@ -87,12 +90,32 @@ class ProjectDetailView(WorkspaceMixin, APIView):
 
 class ProjectDashboardView(WorkspaceMixin, APIView):
     def get(self, request, project_id):
-        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
-        activities = ScheduleActivity.objects.filter(wbs_node__project=project)
-        milestones = activities.filter(is_milestone=True).order_by("start_date")[:5]
+        project = get_object_or_404(
+            self.get_project_queryset().select_related("charter"),
+            pk=project_id,
+        )
+        activities = list(
+            ScheduleActivity.objects.filter(wbs_node__project=project).select_related(
+                "wbs_node"
+            )
+        )
+        milestones = [a for a in activities if a.is_milestone][:5]
         avg_progress = 0
-        if activities.exists():
-            avg_progress = round(sum(a.progress for a in activities) / activities.count())
+        if activities:
+            avg_progress = round(sum(a.progress for a in activities) / len(activities))
+
+        from finance.models import Transaction
+
+        actual_cost = float(
+            Transaction.objects.filter(
+                project=project,
+                transaction_type=Transaction.TransactionType.EXPENSE,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+        cpm = compute_critical_path(project)
+        charter, _ = ProjectCharter.objects.get_or_create(project=project)
+        top_risks = project.risks.all()[:3]
 
         return Response(
             {
@@ -101,9 +124,18 @@ class ProjectDashboardView(WorkspaceMixin, APIView):
                 "status": project.status,
                 "progress": avg_progress,
                 "wbs_count": project.wbs_nodes.count(),
+                "budget": float(project.budget or 0),
                 "upcoming_milestones": ScheduleActivitySerializer(
                     milestones, many=True
                 ).data,
+                "charter": ProjectCharterSerializer(charter).data,
+                "top_risks": RiskSerializer(top_risks, many=True).data,
+                "evm": compute_evm_lite(project, activities, actual_cost),
+                "critical_path": {
+                    "project_duration": cpm["project_duration"],
+                    "critical_count": len(cpm["critical_path_ids"]),
+                    "critical_path_ids": cpm["critical_path_ids"],
+                },
             }
         )
 

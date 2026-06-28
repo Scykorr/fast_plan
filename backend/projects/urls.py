@@ -1,5 +1,18 @@
 from django.urls import path
 
+from projects.pmbok_views import (
+    BaselineDetailView,
+    BaselineListCreateView,
+    CriticalPathView,
+    ProjectCharterView,
+    ProjectExportView,
+    RACIDetailView,
+    RACIListCreateView,
+    RiskDetailView,
+    RiskListCreateView,
+    StakeholderDetailView,
+    StakeholderListCreateView,
+)
 from projects.views import (
     ActivityDependencyCreateView,
     ProjectCalendarView,
@@ -36,6 +49,53 @@ urlpatterns = [
         "projects/<int:project_id>/calendar/",
         ProjectCalendarView.as_view(),
         name="project-calendar",
+    ),
+    path(
+        "projects/<int:project_id>/critical-path/",
+        CriticalPathView.as_view(),
+        name="project-critical-path",
+    ),
+    path(
+        "projects/<int:project_id>/export/",
+        ProjectExportView.as_view(),
+        name="project-export",
+    ),
+    path(
+        "projects/<int:project_id>/risks/",
+        RiskListCreateView.as_view(),
+        name="project-risks",
+    ),
+    path("risks/<int:risk_id>/", RiskDetailView.as_view(), name="risk-detail"),
+    path(
+        "projects/<int:project_id>/stakeholders/",
+        StakeholderListCreateView.as_view(),
+        name="project-stakeholders",
+    ),
+    path(
+        "stakeholders/<int:stakeholder_id>/",
+        StakeholderDetailView.as_view(),
+        name="stakeholder-detail",
+    ),
+    path(
+        "projects/<int:project_id>/charter/",
+        ProjectCharterView.as_view(),
+        name="project-charter",
+    ),
+    path(
+        "projects/<int:project_id>/raci/",
+        RACIListCreateView.as_view(),
+        name="project-raci",
+    ),
+    path("raci/<int:raci_id>/", RACIDetailView.as_view(), name="raci-detail"),
+    path(
+        "projects/<int:project_id>/baselines/",
+        BaselineListCreateView.as_view(),
+        name="project-baselines",
+    ),
+    path(
+        "baselines/<int:baseline_id>/",
+        BaselineDetailView.as_view(),
+        name="baseline-detail",
     ),
     path(
         "calendar/milestones/",

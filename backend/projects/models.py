@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -24,6 +25,7 @@ class Project(models.Model):
     )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    budget = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -126,3 +128,162 @@ class ActivityDependency(models.Model):
 
     def __str__(self):
         return f"{self.predecessor} {self.dependency_type} {self.successor}"
+
+
+class Risk(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        MITIGATED = "mitigated", "Mitigated"
+        CLOSED = "closed", "Closed"
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="risks",
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    probability = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    impact = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.OPEN,
+    )
+    mitigation = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-probability", "-impact", "id"]
+
+    @property
+    def score(self):
+        return self.probability * self.impact
+
+    def __str__(self):
+        return self.title
+
+
+class Stakeholder(models.Model):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="stakeholders",
+    )
+    name = models.CharField(max_length=255)
+    role = models.CharField(max_length=255, blank=True)
+    interest = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    influence = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    contact_email = models.EmailField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class ProjectCharter(models.Model):
+    project = models.OneToOneField(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="charter",
+    )
+    goals = models.TextField(blank=True)
+    success_criteria = models.TextField(blank=True)
+    constraints = models.TextField(blank=True)
+    assumptions = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Charter: {self.project.name}"
+
+
+class RACIEntry(models.Model):
+    class RACIType(models.TextChoices):
+        RESPONSIBLE = "R", "Responsible"
+        ACCOUNTABLE = "A", "Accountable"
+        CONSULTED = "C", "Consulted"
+        INFORMED = "I", "Informed"
+
+    wbs_node = models.ForeignKey(
+        WBSNode,
+        on_delete=models.CASCADE,
+        related_name="raci_entries",
+    )
+    stakeholder = models.ForeignKey(
+        Stakeholder,
+        on_delete=models.CASCADE,
+        related_name="raci_entries",
+    )
+    raci_type = models.CharField(max_length=1, choices=RACIType.choices)
+
+    class Meta:
+        unique_together = [("wbs_node", "stakeholder")]
+        verbose_name_plural = "RACI entries"
+
+    def __str__(self):
+        return f"{self.wbs_node.code} — {self.stakeholder.name} ({self.raci_type})"
+
+
+class ProjectBaseline(models.Model):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="baselines",
+    )
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_baselines",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.project.name} — {self.name}"
+
+
+class BaselineActivity(models.Model):
+    baseline = models.ForeignKey(
+        ProjectBaseline,
+        on_delete=models.CASCADE,
+        related_name="activities",
+    )
+    activity = models.ForeignKey(
+        ScheduleActivity,
+        on_delete=models.CASCADE,
+        related_name="baseline_snapshots",
+    )
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    duration_days = models.PositiveIntegerField(default=1)
+    progress = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        unique_together = [("baseline", "activity")]
+        verbose_name_plural = "baseline activities"
+
+    def __str__(self):
+        return f"{self.baseline.name} — {self.activity}"
+

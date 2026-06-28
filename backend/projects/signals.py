@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from projects.models import Project
+from projects.models import Project, ProjectCharter
 from projects.services import create_project_board, create_root_wbs_node
 
 
@@ -11,3 +11,4 @@ def setup_project_defaults(sender, instance, created, **kwargs):
         return
     create_project_board(instance)
     create_root_wbs_node(instance)
+    ProjectCharter.objects.get_or_create(project=instance)

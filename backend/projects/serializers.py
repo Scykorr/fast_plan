@@ -17,6 +17,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "status",
             "start_date",
             "end_date",
+            "budget",
             "manager",
             "created_at",
             "updated_at",
@@ -49,6 +50,7 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             "status",
             "start_date",
             "end_date",
+            "budget",
             "manager",
         )
 

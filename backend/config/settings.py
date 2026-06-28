@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     "kanban",
     "birthdays",
     "projects",
+    "finance",
+    "notifications",
 ]
 
 MIDDLEWARE = [
