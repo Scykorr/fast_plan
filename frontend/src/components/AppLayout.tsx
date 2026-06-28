@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useState } from "react";
 
+import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "../context/AuthContext";
 
 const navItems = [
@@ -8,6 +9,7 @@ const navItems = [
   { to: "/projects", label: "Проекты" },
   { to: "/kanban", label: "Kanban" },
   { to: "/calendar", label: "Календарь" },
+  { to: "/finance", label: "Финансы" },
   { to: "/settings", label: "Настройки" },
 ];
 
@@ -93,7 +95,14 @@ export function AppLayout() {
           >
             ☰ Меню
           </button>
-          <span className="text-sm font-semibold text-primary">Fast Plan</span>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <span className="text-sm font-semibold text-primary">Fast Plan</span>
+          </div>
+        </header>
+
+        <header className="hidden items-center justify-end border-b border-border bg-surface px-8 py-3 md:flex">
+          <NotificationBell />
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-8">

@@ -5,6 +5,7 @@ import { GuestRoute, ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { FinancePage } from "./pages/FinancePage";
 import { KanbanPage } from "./pages/KanbanPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="kanban" element={<KanbanPage />} />
             <Route path="calendar" element={<CalendarPage />} />
+            <Route path="finance" element={<FinancePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

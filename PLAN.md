@@ -14,11 +14,17 @@
 - [x] Docker Compose, CI (pytest + vitest), адаптив, финальная полировка UI + коммит
 
 ### Фаза 5 — Управление проектами (PMBOK)
-- [ ] Модели Project, WBS, Schedule, связь с Kanban/календарём + backend tests
-- [ ] WBS: иерархическое дерево работ (CRUD, drag-reorder) + UI
-- [ ] Gantt: диаграмма Ганта, зависимости, drag дат + UI
-- [ ] Синхронизация WBS ↔ Gantt ↔ Kanban ↔ календарь + integration tests
-- [ ] PMBOK-модули: риски, стейкхолдеры, устав, RACI, baseline, отчёты
+- [x] Модели Project, WBS, Schedule, связь с Kanban/календарём + backend tests
+- [x] WBS: иерархическое дерево работ (CRUD, drag-reorder) + UI
+- [x] Gantt: диаграмма Ганта, зависимости, drag дат + UI
+- [x] Синхронизация WBS ↔ Gantt ↔ Kanban ↔ календарь + integration tests
+- [x] PMBOK-модули: риски, стейкхолдеры, устав, RACI, baseline, CPM/EVM
+
+### Фаза 6 — Расширение
+- [x] Модуль `finance`: транзакции, бюджет проекта, сводка
+- [x] Shared workspaces: приглашения, роли, участники
+- [x] Уведомления: in-app notifications (риски, вехи, ДР)
+- [x] Экспорт: JSON status report проекта
 
 ---
 

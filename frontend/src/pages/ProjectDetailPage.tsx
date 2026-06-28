@@ -4,21 +4,46 @@ import { Link, useParams } from "react-router-dom";
 import { parseApiError } from "../api/errors";
 import type { KanbanBoard } from "../api/kanban";
 import type {
+  CriticalPath,
   Project,
+  ProjectBaseline,
   ProjectDashboard,
   ProjectSchedule,
+  RACIEntry,
+  Risk,
+  Stakeholder,
   WBSNode,
 } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
+import {
+  BaselineView,
+  CriticalPathView,
+} from "../components/projects/BaselineView";
+import { CharterEditor } from "../components/projects/CharterEditor";
 import { GanttChart } from "../components/projects/GanttChart";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
+import { RiskRegister } from "../components/projects/RiskRegister";
+import { StakeholderPanel } from "../components/projects/StakeholderPanel";
 import { WBSTreeView } from "../components/projects/WBSTreeView";
 import { useAuth } from "../context/AuthContext";
 import { useKanbanApi } from "../hooks/useKanbanApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 
-type Tab = "overview" | "wbs" | "gantt" | "kanban" | "calendar";
+type Tab =
+  | "overview"
+  | "wbs"
+  | "gantt"
+  | "kanban"
+  | "calendar"
+  | "risks"
+  | "stakeholders"
+  | "baseline"
+  | "analytics";
+
+function flattenWBS(nodes: WBSNode[]): WBSNode[] {
+  return nodes.flatMap((node) => [node, ...flattenWBS(node.children)]);
+}
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -33,6 +58,11 @@ export function ProjectDetailPage() {
   const [wbs, setWbs] = useState<WBSNode[]>([]);
   const [schedule, setSchedule] = useState<ProjectSchedule | null>(null);
   const [board, setBoard] = useState<KanbanBoard | null>(null);
+  const [risks, setRisks] = useState<Risk[]>([]);
+  const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
+  const [raci, setRaci] = useState<RACIEntry[]>([]);
+  const [baselines, setBaselines] = useState<ProjectBaseline[]>([]);
+  const [criticalPath, setCriticalPath] = useState<CriticalPath | null>(null);
   const [selectedNode, setSelectedNode] = useState<WBSNode | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,16 +74,36 @@ export function ProjectDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [projectData, dashboardData, wbsData, scheduleData] = await Promise.all([
+      const [
+        projectData,
+        dashboardData,
+        wbsData,
+        scheduleData,
+        risksData,
+        stakeholdersData,
+        raciData,
+        baselinesData,
+        cpmData,
+      ] = await Promise.all([
         projectsApi.getProject(id),
         projectsApi.getDashboard(id),
         projectsApi.getWBS(id),
         projectsApi.getSchedule(id),
+        projectsApi.getRisks(id),
+        projectsApi.getStakeholders(id),
+        projectsApi.getRACI(id),
+        projectsApi.getBaselines(id),
+        projectsApi.getCriticalPath(id),
       ]);
       setProject(projectData);
       setDashboard(dashboardData);
       setWbs(wbsData);
       setSchedule(scheduleData);
+      setRisks(risksData);
+      setStakeholders(stakeholdersData);
+      setRaci(raciData);
+      setBaselines(baselinesData);
+      setCriticalPath(cpmData);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить проект"));
     } finally {
@@ -70,8 +120,7 @@ export function ProjectDetailPage() {
       return;
     }
     try {
-      const detail = await kanbanApi.getBoard(project.board_id);
-      setBoard(detail);
+      setBoard(await kanbanApi.getBoard(project.board_id));
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить Kanban-доску"));
     }
@@ -107,14 +156,11 @@ export function ProjectDetailPage() {
       return;
     }
     try {
-      const tree = await projectsApi.createWBSNode(id, {
+      await projectsApi.createWBSNode(id, {
         title: title.trim(),
         parent_id: parentId,
         node_type: "work_package",
       });
-      setWbs(tree);
-      const scheduleData = await projectsApi.getSchedule(id);
-      setSchedule(scheduleData);
       await loadAll();
     } catch (err) {
       setError(parseApiError(err, "Не удалось добавить узел WBS"));
@@ -133,6 +179,85 @@ export function ProjectDetailPage() {
     }
   };
 
+  const handleAddRisk = async () => {
+    if (!projectsApi) {
+      return;
+    }
+    const title = window.prompt("Название риска");
+    if (!title?.trim()) {
+      return;
+    }
+    try {
+      await projectsApi.createRisk(id, { title: title.trim(), probability: 3, impact: 3 });
+      setRisks(await projectsApi.getRisks(id));
+      setDashboard(await projectsApi.getDashboard(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать риск"));
+    }
+  };
+
+  const handleAddStakeholder = async () => {
+    if (!projectsApi) {
+      return;
+    }
+    const name = window.prompt("Имя стейкхолдера");
+    if (!name?.trim()) {
+      return;
+    }
+    try {
+      await projectsApi.createStakeholder(id, { name: name.trim(), role: "" });
+      setStakeholders(await projectsApi.getStakeholders(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось добавить стейкхолдера"));
+    }
+  };
+
+  const handleAddRACI = async () => {
+    if (!projectsApi) {
+      return;
+    }
+    const nodes = flattenWBS(wbs);
+    const node = nodes[1] ?? nodes[0];
+    const stakeholder = stakeholders[0];
+    if (!node || !stakeholder) {
+      return;
+    }
+    const raciType = window.prompt("RACI (R/A/C/I)", "R");
+    if (!raciType) {
+      return;
+    }
+    try {
+      await projectsApi.createRACI(id, {
+        wbs_node_id: node.id,
+        stakeholder_id: stakeholder.id,
+        raci_type: raciType.toUpperCase(),
+      });
+      setRaci(await projectsApi.getRACI(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать RACI"));
+    }
+  };
+
+  const handleExport = async () => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const data = await projectsApi.exportProject(id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `project-${id}-status.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось экспортировать отчёт"));
+    }
+  };
+
   if (loading) {
     return <p className="text-text-muted">Загрузка проекта...</p>;
   }
@@ -147,28 +272,41 @@ export function ProjectDetailPage() {
     { id: "gantt", label: "Gantt" },
     { id: "kanban", label: "Kanban" },
     { id: "calendar", label: "Календарь" },
+    { id: "risks", label: "Риски" },
+    { id: "stakeholders", label: "Стейкхолдеры" },
+    { id: "baseline", label: "Baseline" },
+    { id: "analytics", label: "CPM / EVM" },
   ];
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/projects" className="text-sm text-text-muted hover:text-primary">
-          ← Все проекты
-        </Link>
-        <h1 className="mt-2 text-3xl font-bold text-text">{project.name}</h1>
-        <p className="mt-1 text-sm text-text-muted">{project.description}</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link to="/projects" className="text-sm text-text-muted hover:text-primary">
+            ← Все проекты
+          </Link>
+          <h1 className="mt-2 text-3xl font-bold text-text">{project.name}</h1>
+          <p className="mt-1 text-sm text-text-muted">{project.description}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleExport()}
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text hover:bg-cream"
+        >
+          Экспорт JSON
+        </button>
       </div>
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
 
-      <div className="flex flex-wrap gap-2 border-b border-border">
+      <div className="flex flex-wrap gap-1 border-b border-border">
         {tabs.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
             className={[
-              "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+              "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               tab === item.id
                 ? "border-primary text-primary"
                 : "border-transparent text-text-muted hover:text-text",
@@ -181,22 +319,63 @@ export function ProjectDetailPage() {
 
       {tab === "overview" && dashboard && (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <p className="text-sm text-text-muted">Прогресс</p>
+              <p className="mt-1 text-3xl font-bold text-secondary">
+                {dashboard.progress}%
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <p className="text-sm text-text-muted">Бюджет</p>
+              <p className="mt-1 text-2xl font-bold text-text">
+                {dashboard.budget.toLocaleString("ru-RU")} ₽
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <p className="text-sm text-text-muted">Крит. путь</p>
+              <p className="mt-1 text-2xl font-bold text-primary">
+                {dashboard.critical_path.critical_count} задач
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <p className="text-sm text-text-muted">SPI / CPI</p>
+              <p className="mt-1 text-lg font-semibold text-text">
+                {dashboard.evm.spi ?? "—"} / {dashboard.evm.cpi ?? "—"}
+              </p>
+            </div>
+          </div>
+
           <div className="rounded-xl border border-border bg-surface p-5">
-            <p className="text-sm text-text-muted">Прогресс</p>
-            <p className="mt-1 text-3xl font-bold text-secondary">
-              {dashboard.progress}%
-            </p>
+            <h2 className="mb-4 text-lg font-semibold text-text">Устав проекта</h2>
+            <CharterEditor
+              charter={dashboard.charter}
+              onSave={async (data) => {
+                if (!projectsApi) {
+                  return;
+                }
+                const updated = await projectsApi.patchCharter(id, data);
+                setDashboard((current) =>
+                  current ? { ...current, charter: updated } : current,
+                );
+              }}
+            />
           </div>
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <p className="text-sm text-text-muted">Узлов WBS</p>
-            <p className="mt-1 text-3xl font-bold text-text">{dashboard.wbs_count}</p>
-          </div>
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <p className="text-sm text-text-muted">Статус</p>
-            <p className="mt-1 text-lg font-semibold text-primary">{dashboard.status}</p>
-          </div>
-          </div>
+
+          {dashboard.top_risks.length > 0 && (
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h2 className="mb-3 text-lg font-semibold text-text">Топ-риски</h2>
+              <ul className="space-y-2 text-sm">
+                {dashboard.top_risks.map((risk) => (
+                  <li key={risk.id} className="flex justify-between">
+                    <span>{risk.title}</span>
+                    <span className="font-medium text-primary">{risk.score}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {dashboard.upcoming_milestones.length > 0 && (
             <div className="rounded-xl border border-border bg-surface p-5">
               <h2 className="mb-3 text-lg font-semibold text-text">Ближайшие вехи</h2>
@@ -239,23 +418,11 @@ export function ProjectDetailPage() {
                   <dt className="text-text-muted">Название</dt>
                   <dd className="font-medium">{selectedNode.title}</dd>
                 </div>
-                <div>
-                  <dt className="text-text-muted">Тип</dt>
-                  <dd>{selectedNode.node_type}</dd>
-                </div>
                 {selectedNode.schedule && (
-                  <>
-                    <div>
-                      <dt className="text-text-muted">Период</dt>
-                      <dd>
-                        {selectedNode.schedule.start_date} — {selectedNode.schedule.end_date}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-text-muted">Прогресс</dt>
-                      <dd>{selectedNode.schedule.progress}%</dd>
-                    </div>
-                  </>
+                  <div>
+                    <dt className="text-text-muted">Прогресс</dt>
+                    <dd>{selectedNode.schedule.progress}%</dd>
+                  </div>
                 )}
                 {selectedNode.card_id && (
                   <div>
@@ -300,6 +467,81 @@ export function ProjectDetailPage() {
 
       {tab === "calendar" && accessToken && (
         <ProjectCalendar projectId={project.id} token={accessToken} />
+      )}
+
+      {tab === "risks" && (
+        <RiskRegister
+          risks={risks}
+          onAdd={() => void handleAddRisk()}
+          onDelete={async (riskId) => {
+            if (!projectsApi) {
+              return;
+            }
+            await projectsApi.deleteRisk(riskId);
+            setRisks(await projectsApi.getRisks(id));
+          }}
+        />
+      )}
+
+      {tab === "stakeholders" && (
+        <StakeholderPanel
+          stakeholders={stakeholders}
+          raci={raci}
+          wbs={wbs}
+          onAddStakeholder={() => void handleAddStakeholder()}
+          onDeleteStakeholder={async (stakeholderId) => {
+            if (!projectsApi) {
+              return;
+            }
+            await projectsApi.deleteStakeholder(stakeholderId);
+            setStakeholders(await projectsApi.getStakeholders(id));
+          }}
+          onAddRACI={() => void handleAddRACI()}
+          onDeleteRACI={async (entryId) => {
+            if (!projectsApi) {
+              return;
+            }
+            await projectsApi.deleteRACI(entryId);
+            setRaci(await projectsApi.getRACI(id));
+          }}
+        />
+      )}
+
+      {tab === "baseline" && (
+        <BaselineView
+          baselines={baselines}
+          schedule={schedule}
+          onCreate={async () => {
+            if (!projectsApi) {
+              return;
+            }
+            const name = window.prompt("Название baseline") ?? undefined;
+            await projectsApi.createBaseline(id, name);
+            setBaselines(await projectsApi.getBaselines(id));
+          }}
+        />
+      )}
+
+      {tab === "analytics" && (
+        <div className="space-y-6">
+          {dashboard && (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-sm text-text-muted">Earned Value</p>
+                <p className="text-xl font-bold">{dashboard.evm.earned_value} ₽</p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-sm text-text-muted">Planned Value</p>
+                <p className="text-xl font-bold">{dashboard.evm.planned_value} ₽</p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-sm text-text-muted">Actual Cost</p>
+                <p className="text-xl font-bold">{dashboard.evm.actual_cost} ₽</p>
+              </div>
+            </div>
+          )}
+          <CriticalPathView data={criticalPath} />
+        </div>
       )}
     </div>
   );
