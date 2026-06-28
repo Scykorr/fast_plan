@@ -1,9 +1,32 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
+import type { UpcomingBirthday } from "../api/calendar";
+import { UpcomingBirthdays } from "../components/calendar/UpcomingBirthdays";
 import { useAuth } from "../context/AuthContext";
+import { useCalendarApi } from "../hooks/useCalendarApi";
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const calendarApi = useCalendarApi();
+  const [upcoming, setUpcoming] = useState<UpcomingBirthday[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!calendarApi) {
+        return;
+      }
+      setLoading(true);
+      try {
+        const data = await calendarApi.getUpcoming(5);
+        setUpcoming(data);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
+  }, [calendarApi]);
 
   return (
     <div>
@@ -13,6 +36,16 @@ export function DashboardPage() {
       <p className="mt-2 text-text-muted">
         Добро пожаловать в ваше рабочее пространство
       </p>
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text">Ближайшие дни рождения</h2>
+          <Link to="/calendar" className="text-sm font-medium text-accent hover:underline">
+            Календарь →
+          </Link>
+        </div>
+        <UpcomingBirthdays items={upcoming} loading={loading} />
+      </section>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <Link

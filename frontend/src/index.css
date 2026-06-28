@@ -27,3 +27,33 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.birthday-calendar .fc {
+  --fc-border-color: #e8e2d9;
+  --fc-button-bg-color: #c45c3e;
+  --fc-button-border-color: #c45c3e;
+  --fc-button-hover-bg-color: #a84b32;
+  --fc-button-hover-border-color: #a84b32;
+  --fc-button-active-bg-color: #a84b32;
+  --fc-button-active-border-color: #a84b32;
+  --fc-today-bg-color: #faf7f2;
+  font-family: var(--font-sans);
+}
+
+.birthday-calendar .fc .fc-toolbar-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #2d2926;
+}
+
+.birthday-calendar .fc .fc-daygrid-day-number {
+  color: #6b6560;
+  padding: 6px;
+}
+
+.birthday-calendar .fc .fc-event {
+  border-radius: 6px;
+  border: none;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+}
