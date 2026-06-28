@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { KanbanBoard } from "../api/kanban";
+import { parseApiError } from "../api/errors";
+import { ErrorMessage } from "../components/ErrorMessage";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
 import { useAuth } from "../context/AuthContext";
 import { useKanbanApi } from "../hooks/useKanbanApi";
@@ -26,8 +28,8 @@ export function KanbanPage() {
       }
       const detail = await kanbanApi.getBoard(boards[0].id);
       setBoard(detail);
-    } catch {
-      setError("Не удалось загрузить доску");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось загрузить доску"));
     } finally {
       setLoading(false);
     }
@@ -42,7 +44,9 @@ export function KanbanPage() {
   }
 
   if (error) {
-    return <p className="text-primary">{error}</p>;
+    return (
+      <ErrorMessage message={error} onDismiss={() => void loadBoard()} />
+    );
   }
 
   if (!board || !accessToken) {

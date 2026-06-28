@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { parseApiError } from "../api/errors";
+import { ErrorMessage } from "../components/ErrorMessage";
 import type { Contact } from "../api/calendar";
 import { BirthdayCalendar } from "../components/calendar/BirthdayCalendar";
 import { ContactForm } from "../components/calendar/ContactForm";
@@ -12,13 +14,19 @@ export function CalendarPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [error, setError] = useState("");
 
   const loadContacts = useCallback(async () => {
     if (!calendarApi) {
       return;
     }
-    const data = await calendarApi.getContacts();
-    setContacts(data);
+    setError("");
+    try {
+      const data = await calendarApi.getContacts();
+      setContacts(data);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось загрузить контакты"));
+    }
   }, [calendarApi]);
 
   useEffect(() => {
@@ -34,19 +42,28 @@ export function CalendarPage() {
     if (!calendarApi) {
       return;
     }
-    await calendarApi.createContact(data);
-    await loadContacts();
-    setRefreshKey((value) => value + 1);
-    setShowForm(false);
+    try {
+      await calendarApi.createContact(data);
+      await loadContacts();
+      setRefreshKey((value) => value + 1);
+      setShowForm(false);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать контакт"));
+      throw err;
+    }
   };
 
   const handleDeleteContact = async (contactId: number) => {
     if (!calendarApi || !window.confirm("Удалить контакт?")) {
       return;
     }
-    await calendarApi.deleteContact(contactId);
-    await loadContacts();
-    setRefreshKey((value) => value + 1);
+    try {
+      await calendarApi.deleteContact(contactId);
+      await loadContacts();
+      setRefreshKey((value) => value + 1);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось удалить контакт"));
+    }
   };
 
   if (!accessToken) {
@@ -55,6 +72,9 @@ export function CalendarPage() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <ErrorMessage message={error} onDismiss={() => setError("")} />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-text">Календарь</h1>

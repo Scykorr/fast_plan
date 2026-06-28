@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 import type { UpcomingBirthday } from "../api/calendar";
+import { parseApiError } from "../api/errors";
+import { ErrorMessage } from "../components/ErrorMessage";
 import { UpcomingBirthdays } from "../components/calendar/UpcomingBirthdays";
 import { useAuth } from "../context/AuthContext";
 import { useCalendarApi } from "../hooks/useCalendarApi";
@@ -11,6 +13,7 @@ export function DashboardPage() {
   const calendarApi = useCalendarApi();
   const [upcoming, setUpcoming] = useState<UpcomingBirthday[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -21,6 +24,8 @@ export function DashboardPage() {
       try {
         const data = await calendarApi.getUpcoming(5);
         setUpcoming(data);
+      } catch (err) {
+        setError(parseApiError(err, "Не удалось загрузить дни рождения"));
       } finally {
         setLoading(false);
       }
@@ -44,6 +49,7 @@ export function DashboardPage() {
             Календарь →
           </Link>
         </div>
+        <ErrorMessage message={error} onDismiss={() => setError("")} />
         <UpcomingBirthdays items={upcoming} loading={loading} />
       </section>
 

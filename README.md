@@ -4,12 +4,13 @@
 
 ## Стек
 
-- **Backend:** Django 6 + DRF + JWT
+- **Backend:** Django 6 + DRF + JWT + PostgreSQL
 - **Frontend:** React + TypeScript + Vite + Tailwind
+- **Инфраструктура:** Docker Compose, GitHub Actions CI
 
-## Быстрый старт
+## Быстрый старт (локально)
 
-**Запуск всего проекта одной командой (Windows):**
+**Windows — одной командой:**
 
 ```bat
 run.bat
@@ -20,9 +21,7 @@ run.bat
 ### Backend
 
 ```bash
-# Активировать venv и установить зависимости
 pip install -r requirements.txt
-
 cd backend
 python manage.py migrate
 python manage.py runserver
@@ -36,9 +35,19 @@ npm install
 npm run dev
 ```
 
-Приложение: http://localhost:5173 (API проксируется на :8000)
+API проксируется на http://127.0.0.1:8000
 
-### Тесты
+## Docker Compose
+
+```bash
+docker compose up --build
+```
+
+- **Frontend:** http://localhost:8080
+- **Backend API:** http://localhost:8000
+- **PostgreSQL:** внутренняя сеть Docker
+
+## Тесты
 
 ```bash
 # Backend
@@ -47,5 +56,7 @@ cd backend && pytest
 # Frontend
 cd frontend && npm test
 ```
+
+CI запускает оба набора тестов на каждый push/PR в `main`.
 
 Подробный план разработки — в [PLAN.md](PLAN.md).
