@@ -9,6 +9,14 @@
 
 ## Быстрый старт
 
+**Запуск всего проекта одной командой (Windows):**
+
+```bat
+run.bat
+```
+
+Откроются два окна: backend и frontend. Сайт: http://localhost:5173
+
 ### Backend
 
 ```bash

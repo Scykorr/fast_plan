@@ -81,4 +81,4 @@ export const api = {
     }),
 };
 
-export { ApiError };
+export { ApiError, request };
