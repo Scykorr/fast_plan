@@ -62,6 +62,20 @@ export type ProjectSchedule = {
   dependencies: ActivityDependency[];
 };
 
+export type ProjectCalendarEvent = {
+  id: string;
+  title: string;
+  start: string;
+  allDay: boolean;
+  extendedProps: {
+    activity_id: number;
+    project_id: number;
+    project_name: string;
+    wbs_code: string;
+    event_type: "milestone";
+  };
+};
+
 export function createProjectsApi(token: string) {
   return {
     getProjects: () => request<Project[]>("/projects/", {}, token),
@@ -115,5 +129,12 @@ export function createProjectsApi(token: string) {
         method: "PATCH",
         body: JSON.stringify(body),
       }, token),
+
+    getProjectCalendar: (projectId: number, year: number, month: number) =>
+      request<ProjectCalendarEvent[]>(
+        `/projects/${projectId}/calendar/?year=${year}&month=${month}`,
+        {},
+        token,
+      ),
   };
 }

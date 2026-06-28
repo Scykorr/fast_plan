@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { parseApiError } from "../api/errors";
 import { ErrorMessage } from "../components/ErrorMessage";
 import type { Contact } from "../api/calendar";
-import { BirthdayCalendar } from "../components/calendar/BirthdayCalendar";
+import { WorkspaceCalendar } from "../components/calendar/WorkspaceCalendar";
 import { ContactForm } from "../components/calendar/ContactForm";
 import { useAuth } from "../context/AuthContext";
 import { useCalendarApi } from "../hooks/useCalendarApi";
@@ -14,6 +14,8 @@ export function CalendarPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showBirthdays, setShowBirthdays] = useState(true);
+  const [showMilestones, setShowMilestones] = useState(true);
   const [error, setError] = useState("");
 
   const loadContacts = useCallback(async () => {
@@ -79,7 +81,7 @@ export function CalendarPage() {
         <div>
           <h1 className="text-3xl font-bold text-text">Календарь</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Дни рождения друзей и близких
+            Дни рождения и вехи проектов
           </p>
         </div>
         <button
@@ -98,7 +100,33 @@ export function CalendarPage() {
         />
       )}
 
-      <BirthdayCalendar token={accessToken} refreshKey={refreshKey} />
+      <div className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2 text-text">
+          <input
+            type="checkbox"
+            checked={showBirthdays}
+            onChange={(event) => setShowBirthdays(event.target.checked)}
+            className="rounded border-border text-primary"
+          />
+          Дни рождения
+        </label>
+        <label className="flex items-center gap-2 text-text">
+          <input
+            type="checkbox"
+            checked={showMilestones}
+            onChange={(event) => setShowMilestones(event.target.checked)}
+            className="rounded border-border text-primary"
+          />
+          Вехи проектов
+        </label>
+      </div>
+
+      <WorkspaceCalendar
+        token={accessToken}
+        refreshKey={refreshKey}
+        showBirthdays={showBirthdays}
+        showMilestones={showMilestones}
+      />
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-text">Контакты</h2>

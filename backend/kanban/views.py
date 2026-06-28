@@ -16,6 +16,7 @@ from kanban.serializers import (
     ColumnWriteSerializer,
 )
 from kanban.services import move_card, reorder_positions
+from projects.sync import sync_activity_from_card
 from workspaces.services import get_user_workspace
 
 
@@ -158,4 +159,5 @@ class CardMoveView(WorkspaceMixin, APIView):
             target_column,
             serializer.validated_data["position"],
         )
+        sync_activity_from_card(card)
         return Response(CardSerializer(card).data)

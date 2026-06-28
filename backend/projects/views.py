@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -6,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from projects.models import ActivityDependency, Project, ScheduleActivity, WBSNode
+from projects.calendar import project_milestone_events, workspace_milestone_events
 from projects.serializers import (
     ActivityDependencySerializer,
     ActivityDependencyWriteSerializer,
@@ -17,6 +20,7 @@ from projects.serializers import (
     WBSNodeWriteSerializer,
 )
 from projects.services import build_wbs_tree, create_work_package
+from projects.sync import sync_card_from_activity
 from workspaces.services import get_user_workspace
 
 
@@ -210,19 +214,8 @@ class ScheduleActivityDetailView(WorkspaceMixin, APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        card = getattr(activity.wbs_node, "card", None)
-        if card and "progress" in request.data:
-            board = card.column.board
-            columns = list(board.columns.order_by("position", "id"))
-            if len(columns) >= 3:
-                progress = activity.progress
-                if progress >= 100:
-                    card.column = columns[2]
-                elif progress > 0:
-                    card.column = columns[1]
-                else:
-                    card.column = columns[0]
-                card.save(update_fields=["column"])
+        if "progress" in request.data:
+            sync_card_from_activity(activity)
 
         return Response(ScheduleActivitySerializer(activity).data)
 
@@ -256,4 +249,28 @@ class ActivityDependencyCreateView(WorkspaceMixin, APIView):
         return Response(
             ActivityDependencySerializer(dependency).data,
             status=status.HTTP_201_CREATED,
+        )
+
+
+def _parse_year_month(request):
+    try:
+        year = int(request.query_params.get("year", date.today().year))
+        month = int(request.query_params.get("month", date.today().month))
+    except (TypeError, ValueError):
+        raise ValidationError("Invalid year or month.")
+    return year, month
+
+
+class ProjectCalendarView(WorkspaceMixin, APIView):
+    def get(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        year, month = _parse_year_month(request)
+        return Response(project_milestone_events(project, year, month))
+
+
+class WorkspaceMilestonesCalendarView(WorkspaceMixin, APIView):
+    def get(self, request):
+        year, month = _parse_year_month(request)
+        return Response(
+            workspace_milestone_events(self.get_workspace(), year, month)
         )

@@ -2,6 +2,7 @@ from django.urls import path
 
 from projects.views import (
     ActivityDependencyCreateView,
+    ProjectCalendarView,
     ProjectDashboardView,
     ProjectDetailView,
     ProjectListCreateView,
@@ -9,6 +10,7 @@ from projects.views import (
     ScheduleActivityDetailView,
     WBSNodeDetailView,
     WBSTreeView,
+    WorkspaceMilestonesCalendarView,
 )
 
 urlpatterns = [
@@ -29,6 +31,16 @@ urlpatterns = [
         "projects/<int:project_id>/dependencies/",
         ActivityDependencyCreateView.as_view(),
         name="project-dependencies",
+    ),
+    path(
+        "projects/<int:project_id>/calendar/",
+        ProjectCalendarView.as_view(),
+        name="project-calendar",
+    ),
+    path(
+        "calendar/milestones/",
+        WorkspaceMilestonesCalendarView.as_view(),
+        name="workspace-milestones-calendar",
     ),
     path("wbs/<int:wbs_id>/", WBSNodeDetailView.as_view(), name="wbs-detail"),
     path(

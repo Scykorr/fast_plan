@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
+import type { KanbanBoard } from "../api/kanban";
 import type {
   Project,
   ProjectDashboard,
@@ -9,22 +10,29 @@ import type {
   WBSNode,
 } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
 import { GanttChart } from "../components/projects/GanttChart";
+import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { WBSTreeView } from "../components/projects/WBSTreeView";
+import { useAuth } from "../context/AuthContext";
+import { useKanbanApi } from "../hooks/useKanbanApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 
-type Tab = "overview" | "wbs" | "gantt";
+type Tab = "overview" | "wbs" | "gantt" | "kanban" | "calendar";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
+  const { accessToken } = useAuth();
   const id = Number(projectId);
   const projectsApi = useProjectsApi();
+  const kanbanApi = useKanbanApi();
 
   const [tab, setTab] = useState<Tab>("overview");
   const [project, setProject] = useState<Project | null>(null);
   const [dashboard, setDashboard] = useState<ProjectDashboard | null>(null);
   const [wbs, setWbs] = useState<WBSNode[]>([]);
   const [schedule, setSchedule] = useState<ProjectSchedule | null>(null);
+  const [board, setBoard] = useState<KanbanBoard | null>(null);
   const [selectedNode, setSelectedNode] = useState<WBSNode | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -56,6 +64,39 @@ export function ProjectDetailPage() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  const loadBoard = useCallback(async () => {
+    if (!kanbanApi || !project?.board_id) {
+      return;
+    }
+    try {
+      const detail = await kanbanApi.getBoard(project.board_id);
+      setBoard(detail);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось загрузить Kanban-доску"));
+    }
+  }, [kanbanApi, project?.board_id]);
+
+  useEffect(() => {
+    if (tab === "kanban") {
+      void loadBoard();
+    }
+  }, [tab, loadBoard]);
+
+  const handleBoardChange = async (updated: KanbanBoard) => {
+    setBoard(updated);
+    if (!projectsApi) {
+      return;
+    }
+    const [wbsData, scheduleData, dashboardData] = await Promise.all([
+      projectsApi.getWBS(id),
+      projectsApi.getSchedule(id),
+      projectsApi.getDashboard(id),
+    ]);
+    setWbs(wbsData);
+    setSchedule(scheduleData);
+    setDashboard(dashboardData);
+  };
 
   const handleAddWBS = async (parentId: number) => {
     if (!projectsApi) {
@@ -104,6 +145,8 @@ export function ProjectDetailPage() {
     { id: "overview", label: "Обзор" },
     { id: "wbs", label: "WBS" },
     { id: "gantt", label: "Gantt" },
+    { id: "kanban", label: "Kanban" },
+    { id: "calendar", label: "Календарь" },
   ];
 
   return (
@@ -134,16 +177,11 @@ export function ProjectDetailPage() {
             {item.label}
           </button>
         ))}
-        <Link
-          to={`/kanban?project=${project.id}`}
-          className="ml-auto self-center text-sm text-secondary hover:underline"
-        >
-          Kanban доска →
-        </Link>
       </div>
 
       {tab === "overview" && dashboard && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-surface p-5">
             <p className="text-sm text-text-muted">Прогресс</p>
             <p className="mt-1 text-3xl font-bold text-secondary">
@@ -158,6 +196,22 @@ export function ProjectDetailPage() {
             <p className="text-sm text-text-muted">Статус</p>
             <p className="mt-1 text-lg font-semibold text-primary">{dashboard.status}</p>
           </div>
+          </div>
+          {dashboard.upcoming_milestones.length > 0 && (
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h2 className="mb-3 text-lg font-semibold text-text">Ближайшие вехи</h2>
+              <ul className="space-y-2 text-sm">
+                {dashboard.upcoming_milestones.map((milestone) => (
+                  <li key={milestone.id} className="flex justify-between gap-4">
+                    <span>
+                      {milestone.code} {milestone.name}
+                    </span>
+                    <span className="text-text-muted">{milestone.start_date}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -207,12 +261,13 @@ export function ProjectDetailPage() {
                   <div>
                     <dt className="text-text-muted">Kanban</dt>
                     <dd>
-                      <Link
-                        to={`/kanban?project=${project.id}`}
+                      <button
+                        type="button"
+                        onClick={() => setTab("kanban")}
                         className="text-primary hover:underline"
                       >
                         Карточка #{selectedNode.card_id}
-                      </Link>
+                      </button>
                     </dd>
                   </div>
                 )}
@@ -229,6 +284,22 @@ export function ProjectDetailPage() {
           activities={schedule.activities}
           dependencies={schedule.dependencies}
         />
+      )}
+
+      {tab === "kanban" && board && accessToken && (
+        <KanbanBoardView
+          board={board}
+          token={accessToken}
+          onBoardChange={(updated) => void handleBoardChange(updated)}
+        />
+      )}
+
+      {tab === "kanban" && !board && (
+        <p className="text-sm text-text-muted">Kanban-доска проекта не найдена</p>
+      )}
+
+      {tab === "calendar" && accessToken && (
+        <ProjectCalendar projectId={project.id} token={accessToken} />
       )}
     </div>
   );

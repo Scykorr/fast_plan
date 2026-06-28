@@ -11,14 +11,19 @@ export type Contact = {
 };
 
 export type CalendarEvent = {
-  id: number;
+  id: number | string;
   title: string;
   start: string;
   allDay: boolean;
   extendedProps: {
-    contact_id: number;
-    relation: string;
-    name: string;
+    contact_id?: number;
+    relation?: string;
+    name?: string;
+    activity_id?: number;
+    project_id?: number;
+    project_name?: string;
+    wbs_code?: string;
+    event_type?: "birthday" | "milestone";
   };
 };
 
@@ -53,6 +58,13 @@ export function createCalendarApi(token: string) {
     getBirthdayEvents: (year: number, month: number) =>
       request<CalendarEvent[]>(
         `/calendar/birthdays/?year=${year}&month=${month}`,
+        {},
+        token,
+      ),
+
+    getMilestoneEvents: (year: number, month: number) =>
+      request<CalendarEvent[]>(
+        `/calendar/milestones/?year=${year}&month=${month}`,
         {},
         token,
       ),
