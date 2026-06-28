@@ -7,6 +7,27 @@ def reorder_positions(cards_queryset):
             Card.objects.filter(pk=card.pk).update(position=index)
 
 
+def reorder_column_positions(columns_queryset):
+    for index, column in enumerate(columns_queryset.order_by("position", "id")):
+        if column.position != index:
+            Column.objects.filter(pk=column.pk).update(position=index)
+
+
+def move_column(column: Column, position: int) -> Column:
+    columns = list(
+        column.board.columns.exclude(pk=column.pk).order_by("position", "id")
+    )
+    position = min(position, len(columns))
+    columns.insert(position, column)
+
+    for index, item in enumerate(columns):
+        if item.position != index:
+            Column.objects.filter(pk=item.pk).update(position=index)
+
+    column.refresh_from_db()
+    return column
+
+
 def move_card(card, target_column: Column, position: int) -> Card:
     source_column = card.column
     target_cards = list(

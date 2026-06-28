@@ -85,6 +85,26 @@ def test_delete_card(authenticated_client, card):
 
 
 @pytest.mark.django_db
+def test_move_column_reorders_positions(authenticated_client, board):
+    columns = list(board.columns.order_by("position", "id"))
+    first, second, third = columns
+
+    response = authenticated_client.patch(
+        f"/api/columns/{third.id}/",
+        {"position": 0},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    first.refresh_from_db()
+    second.refresh_from_db()
+    third.refresh_from_db()
+    assert third.position == 0
+    assert first.position == 1
+    assert second.position == 2
+
+
+@pytest.mark.django_db
 def test_create_column(authenticated_client, board):
     response = authenticated_client.post(
         f"/api/boards/{board.id}/columns/",

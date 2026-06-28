@@ -1,6 +1,8 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from projects.models import ActivityDependency, Project, ScheduleActivity, WBSNode
+from projects.services import move_wbs_node
 
 
 class ProjectListSerializer(serializers.ModelSerializer):
@@ -66,9 +68,47 @@ class WBSNodeWriteSerializer(serializers.Serializer):
 
 
 class WBSNodeUpdateSerializer(serializers.ModelSerializer):
+    parent_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+
     class Meta:
         model = WBSNode
         fields = ("title", "description", "node_type", "position", "parent_id")
+
+    def update(self, instance, validated_data):
+        parent_id = validated_data.pop("parent_id", None)
+        position = validated_data.pop("position", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if validated_data:
+            instance.save()
+
+        if parent_id is not None or position is not None:
+            target_parent = parent_id if parent_id is not None else instance.parent_id
+            if position is not None:
+                target_position = position
+            elif parent_id is not None and parent_id != instance.parent_id:
+                target_position = (
+                    WBSNode.objects.filter(
+                        parent_id=target_parent,
+                        project=instance.project,
+                    )
+                    .exclude(pk=instance.pk)
+                    .count()
+                )
+            else:
+                target_position = instance.position
+            try:
+                move_wbs_node(
+                    instance,
+                    parent_id=target_parent,
+                    position=target_position,
+                )
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError(str(exc)) from exc
+
+        instance.refresh_from_db()
+        return instance
 
 
 class ScheduleActivitySerializer(serializers.ModelSerializer):

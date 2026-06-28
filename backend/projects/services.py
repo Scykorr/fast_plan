@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from kanban.models import Board, Card, Column
@@ -36,6 +37,81 @@ def create_root_wbs_node(project: Project) -> WBSNode:
         node_type=WBSNode.NodeType.DELIVERABLE,
         position=0,
     )
+
+
+def _collect_descendant_ids(node: WBSNode) -> set[int]:
+    ids: set[int] = set()
+    for child in node.children.all():
+        ids.add(child.id)
+        ids.update(_collect_descendant_ids(child))
+    return ids
+
+
+def _reorder_siblings(parent_id: int | None, project: Project) -> None:
+    siblings = list(
+        WBSNode.objects.filter(parent_id=parent_id, project=project).order_by(
+            "position", "id"
+        )
+    )
+    for index, sibling in enumerate(siblings):
+        if sibling.position != index:
+            WBSNode.objects.filter(pk=sibling.pk).update(position=index)
+
+
+def recalculate_project_codes(project: Project) -> None:
+    nodes = list(project.wbs_nodes.all())
+    for node in nodes:
+        WBSNode.objects.filter(pk=node.pk).update(code=f"__tmp_{node.pk}__")
+
+    def assign_codes(parent: WBSNode | None, children: list[WBSNode]) -> None:
+        for index, child in enumerate(children, start=1):
+            code = str(index) if parent is None else f"{parent.code}.{index}"
+            WBSNode.objects.filter(pk=child.pk).update(code=code)
+            child.code = code
+            grandchildren = list(child.children.order_by("position", "id"))
+            assign_codes(child, grandchildren)
+
+    roots = list(project.wbs_nodes.filter(parent__isnull=True).order_by("position", "id"))
+    assign_codes(None, roots)
+
+
+@transaction.atomic
+def move_wbs_node(node: WBSNode, *, parent_id: int, position: int) -> WBSNode:
+    if node.parent_id is None:
+        raise ValidationError("Root WBS node cannot be moved.")
+
+    if parent_id == node.id:
+        raise ValidationError("Cannot move node into itself.")
+
+    descendant_ids = _collect_descendant_ids(node)
+    if parent_id in descendant_ids:
+        raise ValidationError("Cannot move node into its descendant.")
+
+    parent = WBSNode.objects.get(pk=parent_id, project=node.project)
+    old_parent_id = node.parent_id
+    structure_changed = parent_id != old_parent_id
+
+    siblings = list(
+        WBSNode.objects.filter(parent_id=parent_id, project=node.project)
+        .exclude(pk=node.pk)
+        .order_by("position", "id")
+    )
+    position = min(max(position, 0), len(siblings))
+    siblings.insert(position, node)
+
+    node.parent_id = parent_id
+    node.save(update_fields=["parent_id"])
+
+    for index, sibling in enumerate(siblings):
+        if sibling.position != index:
+            WBSNode.objects.filter(pk=sibling.pk).update(position=index)
+
+    if structure_changed:
+        _reorder_siblings(old_parent_id, node.project)
+        recalculate_project_codes(node.project)
+
+    node.refresh_from_db()
+    return node
 
 
 @transaction.atomic

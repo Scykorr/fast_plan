@@ -223,6 +223,12 @@ export function createProjectsApi(token: string) {
         body: JSON.stringify(body),
       }, token),
 
+    updateWBSNode: (wbsId: number, body: { title?: string; parent_id?: number; position?: number }) =>
+      request<WBSNode[]>(`/wbs/${wbsId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }, token),
+
     deleteWBSNode: (wbsId: number) =>
       request<void>(`/wbs/${wbsId}/`, { method: "DELETE" }, token),
 

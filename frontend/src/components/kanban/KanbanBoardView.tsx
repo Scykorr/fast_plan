@@ -8,6 +8,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useState } from "react";
 
 import type { KanbanBoard, KanbanCard, KanbanColumn } from "../../api/kanban";
@@ -19,6 +24,10 @@ type KanbanBoardViewProps = {
   token: string;
   onBoardChange: (board: KanbanBoard) => void;
 };
+
+function sortedColumns(columns: KanbanColumn[]) {
+  return [...columns].sort((left, right) => left.position - right.position);
+}
 
 function findCard(columns: KanbanColumn[], cardId: number) {
   for (const column of columns) {
@@ -67,10 +76,37 @@ function moveCardInBoard(
   return { ...board, columns };
 }
 
+function moveColumnInBoard(
+  board: KanbanBoard,
+  columnId: number,
+  targetPosition: number,
+): KanbanBoard {
+  const columns = sortedColumns(board.columns);
+  const oldIndex = columns.findIndex((column) => column.id === columnId);
+  if (oldIndex < 0) {
+    return board;
+  }
+
+  const reordered = arrayMove(columns, oldIndex, targetPosition).map(
+    (column, index) => ({
+      ...column,
+      position: index,
+    }),
+  );
+
+  return { ...board, columns: reordered };
+}
+
 function parseDragId(id: string | number) {
   const value = String(id);
   if (value.startsWith("card-")) {
     return { type: "card" as const, id: Number(value.replace("card-", "")) };
+  }
+  if (value.startsWith("column-drop-")) {
+    return {
+      type: "column" as const,
+      id: Number(value.replace("column-drop-", "")),
+    };
   }
   if (value.startsWith("column-")) {
     return { type: "column" as const, id: Number(value.replace("column-", "")) };
@@ -85,6 +121,7 @@ export function KanbanBoardView({
 }: KanbanBoardViewProps) {
   const kanbanApi = createKanbanApi(token);
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
+  const [activeColumn, setActiveColumn] = useState<KanbanColumn | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -92,28 +129,61 @@ export function KanbanBoardView({
     }),
   );
 
+  const columns = sortedColumns(board.columns);
+  const columnIds = columns.map((column) => `column-${column.id}`);
+
   const handleDragStart = (event: DragStartEvent) => {
     const parsed = parseDragId(event.active.id);
     if (parsed?.type === "card") {
       const located = findCard(board.columns, parsed.id);
       setActiveCard(located?.card ?? null);
+      setActiveColumn(null);
+      return;
+    }
+    if (parsed?.type === "column") {
+      const column = board.columns.find((item) => item.id === parsed.id);
+      setActiveColumn(column ?? null);
+      setActiveCard(null);
     }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    const previousBoard = board;
     setActiveCard(null);
+    setActiveColumn(null);
+
     const { active, over } = event;
     if (!over) {
       return;
     }
 
     const activeParsed = parseDragId(active.id);
-    if (!activeParsed || activeParsed.type !== "card") {
+    const overParsed = parseDragId(over.id);
+    if (!activeParsed || !overParsed) {
       return;
     }
 
-    const overParsed = parseDragId(over.id);
-    if (!overParsed) {
+    if (activeParsed.type === "column" && overParsed.type === "column") {
+      const ordered = sortedColumns(board.columns);
+      const oldIndex = ordered.findIndex((column) => column.id === activeParsed.id);
+      const newIndex = ordered.findIndex((column) => column.id === overParsed.id);
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) {
+        return;
+      }
+
+      const optimisticBoard = moveColumnInBoard(board, activeParsed.id, newIndex);
+      onBoardChange(optimisticBoard);
+
+      try {
+        await kanbanApi.moveColumn(activeParsed.id, newIndex);
+        onBoardChange(await kanbanApi.getBoard(board.id));
+      } catch {
+        onBoardChange(previousBoard);
+      }
+      return;
+    }
+
+    if (activeParsed.type !== "card") {
       return;
     }
 
@@ -133,7 +203,6 @@ export function KanbanBoardView({
       targetPosition = located.card.position;
     }
 
-    const previousBoard = board;
     const optimisticBoard = moveCardInBoard(
       board,
       activeParsed.id,
@@ -144,8 +213,7 @@ export function KanbanBoardView({
 
     try {
       await kanbanApi.moveCard(activeParsed.id, targetColumnId, targetPosition);
-      const refreshed = await kanbanApi.getBoard(board.id);
-      onBoardChange(refreshed);
+      onBoardChange(await kanbanApi.getBoard(board.id));
     } catch {
       onBoardChange(previousBoard);
     }
@@ -157,14 +225,12 @@ export function KanbanBoardView({
       return;
     }
     await kanbanApi.createCard(columnId, { title: title.trim() });
-    const refreshed = await kanbanApi.getBoard(board.id);
-    onBoardChange(refreshed);
+    onBoardChange(await kanbanApi.getBoard(board.id));
   };
 
   const handleDeleteCard = async (cardId: number) => {
     await kanbanApi.deleteCard(cardId);
-    const refreshed = await kanbanApi.getBoard(board.id);
-    onBoardChange(refreshed);
+    onBoardChange(await kanbanApi.getBoard(board.id));
   };
 
   const handleAddColumn = async () => {
@@ -173,8 +239,7 @@ export function KanbanBoardView({
       return;
     }
     await kanbanApi.createColumn(board.id, title.trim());
-    const refreshed = await kanbanApi.getBoard(board.id);
-    onBoardChange(refreshed);
+    onBoardChange(await kanbanApi.getBoard(board.id));
   };
 
   return (
@@ -183,7 +248,7 @@ export function KanbanBoardView({
         <div>
           <h1 className="text-3xl font-bold text-text">{board.title}</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Перетаскивайте карточки между колонками
+            Перетаскивайте карточки и колонки
           </p>
         </div>
         <button
@@ -201,21 +266,28 @@ export function KanbanBoardView({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {board.columns.map((column) => (
-            <KanbanColumnBoard
-              key={column.id}
-              column={column}
-              onAddCard={handleAddCard}
-              onDeleteCard={handleDeleteCard}
-            />
-          ))}
-        </div>
+        <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {columns.map((column) => (
+              <KanbanColumnBoard
+                key={column.id}
+                column={column}
+                onAddCard={handleAddCard}
+                onDeleteCard={handleDeleteCard}
+              />
+            ))}
+          </div>
+        </SortableContext>
 
         <DragOverlay>
           {activeCard ? (
             <div className="w-72 rounded-lg border border-primary bg-surface p-3 shadow-lg">
               <p className="text-sm font-medium">{activeCard.title}</p>
+            </div>
+          ) : null}
+          {activeColumn ? (
+            <div className="w-72 rounded-xl border border-secondary bg-cream/80 p-4 shadow-lg">
+              <p className="text-sm font-semibold text-text">{activeColumn.title}</p>
             </div>
           ) : null}
         </DragOverlay>

@@ -173,9 +173,42 @@ export function ProjectDetailPage() {
     }
     try {
       await projectsApi.deleteWBSNode(nodeId);
+      if (selectedNode?.id === nodeId) {
+        setSelectedNode(null);
+      }
       await loadAll();
     } catch (err) {
       setError(parseApiError(err, "Не удалось удалить узел"));
+    }
+  };
+
+  const handleRenameWBS = async (nodeId: number, title: string) => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const tree = await projectsApi.updateWBSNode(nodeId, { title });
+      setWbs(tree);
+      await loadAll();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось переименовать узел"));
+    }
+  };
+
+  const handleMoveWBS = async (nodeId: number, parentId: number, position: number) => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const tree = await projectsApi.updateWBSNode(nodeId, { parent_id: parentId, position });
+      setWbs(tree);
+      const moved = flattenWBS(tree).find((node) => node.id === nodeId) ?? null;
+      if (moved) {
+        setSelectedNode(moved);
+      }
+      await loadAll();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось переместить узел"));
     }
   };
 
@@ -395,28 +428,28 @@ export function ProjectDetailPage() {
       )}
 
       {tab === "wbs" && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-4 text-lg font-semibold text-text">Иерархия работ</h2>
-            <WBSTreeView
-              nodes={wbs}
-              onAddChild={(parentId) => void handleAddWBS(parentId)}
-              onDelete={(nodeId) => void handleDeleteWBS(nodeId)}
-              selectedId={selectedNode?.id}
-              onSelect={setSelectedNode}
-            />
-          </div>
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-4 text-lg font-semibold text-text">Детали узла</h2>
-            {selectedNode ? (
-              <dl className="space-y-3 text-sm">
+        <div className="space-y-4">
+          <WBSTreeView
+            nodes={wbs}
+            onAddChild={(parentId) => void handleAddWBS(parentId)}
+            onAddSibling={(parentId) => void handleAddWBS(parentId)}
+            onDelete={(nodeId) => void handleDeleteWBS(nodeId)}
+            onRename={(nodeId, title) => void handleRenameWBS(nodeId, title)}
+            onMove={(nodeId, parentId, position) =>
+              void handleMoveWBS(nodeId, parentId, position)
+            }
+            selectedId={selectedNode?.id}
+            onSelect={setSelectedNode}
+          />
+          {selectedNode && (
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <h2 className="mb-3 text-lg font-semibold text-text">
+                {selectedNode.code} — {selectedNode.title}
+              </h2>
+              <dl className="grid gap-3 text-sm sm:grid-cols-3">
                 <div>
-                  <dt className="text-text-muted">Код</dt>
-                  <dd className="font-mono font-medium">{selectedNode.code}</dd>
-                </div>
-                <div>
-                  <dt className="text-text-muted">Название</dt>
-                  <dd className="font-medium">{selectedNode.title}</dd>
+                  <dt className="text-text-muted">Тип</dt>
+                  <dd className="font-medium">{selectedNode.node_type}</dd>
                 </div>
                 {selectedNode.schedule && (
                   <div>
@@ -439,10 +472,8 @@ export function ProjectDetailPage() {
                   </div>
                 )}
               </dl>
-            ) : (
-              <p className="text-sm text-text-muted">Выберите узел в дереве</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

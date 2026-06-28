@@ -1,5 +1,4 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { WBSNode } from "../../api/projects";
@@ -44,7 +43,7 @@ const mockNodes: WBSNode[] = [
 ];
 
 describe("WBSTreeView", () => {
-  it("renders WBS nodes with codes", () => {
+  it("renders WBS mind map nodes with codes", () => {
     render(
       <WBSTreeView
         nodes={mockNodes}
@@ -57,8 +56,7 @@ describe("WBSTreeView", () => {
     expect(screen.getByText("Дизайн")).toBeInTheDocument();
   });
 
-  it("calls onSelect when node clicked", async () => {
-    const user = userEvent.setup();
+  it("calls onSelect when node clicked", () => {
     const onSelect = vi.fn();
     render(
       <WBSTreeView
@@ -68,7 +66,7 @@ describe("WBSTreeView", () => {
         onSelect={onSelect}
       />,
     );
-    await user.click(screen.getByText("Дизайн"));
+    fireEvent.click(screen.getByTestId("wbs-node-2"));
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ id: 2, title: "Дизайн" }),
     );

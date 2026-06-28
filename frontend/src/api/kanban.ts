@@ -71,5 +71,11 @@ export function createKanbanApi(token: string) {
         method: "POST",
         body: JSON.stringify({ title }),
       }, token),
+
+    moveColumn: (columnId: number, position: number) =>
+      request<KanbanColumn>(`/columns/${columnId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ position }),
+      }, token),
   };
 }

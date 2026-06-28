@@ -15,7 +15,7 @@ from kanban.serializers import (
     ColumnSerializer,
     ColumnWriteSerializer,
 )
-from kanban.services import move_card, reorder_positions
+from kanban.services import move_card, move_column, reorder_positions
 from projects.sync import sync_activity_from_card
 from workspaces.services import get_user_workspace
 
@@ -98,7 +98,15 @@ class ColumnDetailView(WorkspaceMixin, APIView):
         column = self.get_column(column_id)
         serializer = ColumnWriteSerializer(column, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        data = serializer.validated_data
+
+        if "title" in data:
+            column.title = data["title"]
+            column.save(update_fields=["title"])
+
+        if "position" in data:
+            column = move_column(column, data["position"])
+
         return Response(ColumnSerializer(column).data)
 
     def delete(self, request, column_id):
