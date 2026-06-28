@@ -1,0 +1,16 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+db.sqlite3
+.env
+.idea/
+.git/
+.pytest_cache/
+htmlcov/
+node_modules/
+frontend/dist/
+frontend/node_modules/
+*.md
+!README.md
