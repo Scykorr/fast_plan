@@ -1,6 +1,7 @@
 import factory
 from django.contrib.auth import get_user_model
 
+from kanban.models import Board, Card, Column
 from workspaces.models import Workspace, WorkspaceMember
 
 User = get_user_model()
@@ -39,3 +40,31 @@ class WorkspaceMemberFactory(factory.django.DjangoModelFactory):
     workspace = factory.SubFactory(WorkspaceFactory)
     user = factory.SubFactory(UserFactory)
     role = WorkspaceMember.Role.OWNER
+
+
+class BoardFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Board
+
+    workspace = factory.SubFactory(WorkspaceFactory)
+    title = "Test Board"
+    position = 0
+
+
+class ColumnFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Column
+
+    board = factory.SubFactory(BoardFactory)
+    title = "To Do"
+    position = 0
+
+
+class CardFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Card
+
+    column = factory.SubFactory(ColumnFactory)
+    title = "Test Card"
+    description = ""
+    position = 0

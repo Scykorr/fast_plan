@@ -1,7 +1,7 @@
 import pytest
 from rest_framework.test import APIClient
 
-from tests.factories import UserFactory
+from tests.factories import CardFactory, UserFactory
 
 
 @pytest.fixture
@@ -23,3 +23,25 @@ def other_user(db):
 def authenticated_client(api_client, user):
     api_client.force_authenticate(user=user)
     return api_client
+
+
+@pytest.fixture
+def workspace(user):
+    return user.workspace_memberships.first().workspace
+
+
+@pytest.fixture
+def board(workspace):
+    return workspace.boards.first()
+
+
+@pytest.fixture
+def column(board):
+    return board.columns.first()
+
+
+@pytest.fixture
+def card(column):
+    from tests.factories import CardFactory
+
+    return CardFactory(column=column, title="My Card", position=column.cards.count())
