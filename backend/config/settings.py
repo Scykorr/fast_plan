@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "projects",
     "finance",
     "notifications",
+    "tracking",
 ]
 
 MIDDLEWARE = [

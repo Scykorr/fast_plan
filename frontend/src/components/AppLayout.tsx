@@ -10,6 +10,7 @@ const navItems = [
   { to: "/kanban", label: "Kanban" },
   { to: "/calendar", label: "Календарь" },
   { to: "/finance", label: "Финансы" },
+  { to: "/administration", label: "Администрирование" },
   { to: "/settings", label: "Настройки" },
 ];
 

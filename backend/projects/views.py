@@ -144,8 +144,9 @@ class WBSTreeView(WorkspaceMixin, APIView):
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         nodes = (
-            project.wbs_nodes.select_related("schedule")
-            .select_related("card")
+            project.wbs_nodes.select_related(
+                "schedule", "card", "tracker", "workflow_status", "assignee"
+            )
             .order_by("position", "id")
         )
         return Response(build_wbs_tree(list(nodes)))
@@ -176,7 +177,9 @@ class WBSTreeView(WorkspaceMixin, APIView):
             node.save(update_fields=["description"])
 
         nodes = (
-            project.wbs_nodes.select_related("schedule", "card")
+            project.wbs_nodes.select_related(
+                "schedule", "card", "tracker", "workflow_status", "assignee"
+            )
             .order_by("position", "id")
         )
         return Response(

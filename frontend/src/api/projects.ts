@@ -9,11 +9,21 @@ export type Project = {
   end_date: string | null;
   budget: number;
   manager: number | null;
+  tracker_id: number | null;
+  workflow_status_id: number | null;
+  custom_values: CustomValue[];
   created_at: string;
   updated_at: string;
   wbs_count: number;
   progress: number;
   board_id: number | null;
+};
+
+export type CustomValue = {
+  field_id: number;
+  field_name: string;
+  field_format: string;
+  value: string;
 };
 
 export type ProjectCharter = {
@@ -113,6 +123,13 @@ export type WBSNode = {
   node_type: string;
   position: number;
   parent_id: number | null;
+  tracker_id: number | null;
+  tracker_name: string | null;
+  workflow_status_id: number | null;
+  workflow_status_name: string | null;
+  assignee_id: number | null;
+  assignee_name: string | null;
+  custom_values: CustomValue[];
   schedule: ScheduleActivity | null;
   card_id: number | null;
   children: WBSNode[];
@@ -177,6 +194,19 @@ export type ProjectCalendarEvent = {
   };
 };
 
+export type ProjectPatchBody = {
+  name?: string;
+  description?: string;
+  status?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  budget?: number;
+  manager?: number | null;
+  tracker_id?: number | null;
+  workflow_status_id?: number | null;
+  custom_values?: Record<string, string>;
+};
+
 export function createProjectsApi(token: string) {
   return {
     getProjects: () => request<Project[]>("/projects/", {}, token),
@@ -197,7 +227,7 @@ export function createProjectsApi(token: string) {
     getProject: (id: number) =>
       request<Project>(`/projects/${id}/`, {}, token),
 
-    patchProject: (id: number, body: Partial<Project>) =>
+    patchProject: (id: number, body: ProjectPatchBody) =>
       request<Project>(`/projects/${id}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
@@ -223,7 +253,19 @@ export function createProjectsApi(token: string) {
         body: JSON.stringify(body),
       }, token),
 
-    updateWBSNode: (wbsId: number, body: { title?: string; parent_id?: number; position?: number }) =>
+    updateWBSNode: (
+      wbsId: number,
+      body: {
+        title?: string;
+        description?: string;
+        parent_id?: number;
+        position?: number;
+        tracker_id?: number | null;
+        workflow_status_id?: number | null;
+        assignee_id?: number | null;
+        custom_values?: Record<string, string>;
+      },
+    ) =>
       request<WBSNode[]>(`/wbs/${wbsId}/`, {
         method: "PATCH",
         body: JSON.stringify(body),

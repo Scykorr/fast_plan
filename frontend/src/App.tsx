@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { GuestRoute, ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { AdministrationPage } from "./pages/AdministrationPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { FinancePage } from "./pages/FinancePage";
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="kanban" element={<KanbanPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="finance" element={<FinancePage />} />
+            <Route path="administration" element={<AdministrationPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

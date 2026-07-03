@@ -25,10 +25,13 @@ import { GanttChart } from "../components/projects/GanttChart";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
+import { WorkItemDetailPanel } from "../components/tracking/WorkItemDetailPanel";
 import { WBSTreeView } from "../components/projects/WBSTreeView";
 import { useAuth } from "../context/AuthContext";
 import { useKanbanApi } from "../hooks/useKanbanApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
+import { useTrackingApi } from "../hooks/useTrackingApi";
+import type { TrackingMetadata } from "../api/tracking";
 
 type Tab =
   | "overview"
@@ -51,6 +54,7 @@ export function ProjectDetailPage() {
   const id = Number(projectId);
   const projectsApi = useProjectsApi();
   const kanbanApi = useKanbanApi();
+  const trackingApi = useTrackingApi();
 
   const [tab, setTab] = useState<Tab>("overview");
   const [project, setProject] = useState<Project | null>(null);
@@ -64,6 +68,9 @@ export function ProjectDetailPage() {
   const [baselines, setBaselines] = useState<ProjectBaseline[]>([]);
   const [criticalPath, setCriticalPath] = useState<CriticalPath | null>(null);
   const [selectedNode, setSelectedNode] = useState<WBSNode | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailMode, setDetailMode] = useState<"project" | "issue">("issue");
+  const [trackingMetadata, setTrackingMetadata] = useState<TrackingMetadata | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -114,6 +121,69 @@ export function ProjectDetailPage() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    if (!trackingApi) {
+      return;
+    }
+    void trackingApi.getMetadata().then(setTrackingMetadata).catch(() => undefined);
+  }, [trackingApi]);
+
+  const handleSelectWBSNode = (node: WBSNode) => {
+    setSelectedNode(node);
+    if (node.parent_id === null) {
+      setDetailMode("project");
+    } else {
+      setDetailMode("issue");
+    }
+    setDetailOpen(true);
+  };
+
+  const handleSaveProjectDetail = async (body: {
+    name?: string;
+    description?: string;
+    tracker_id?: number | null;
+    workflow_status_id?: number | null;
+    custom_values?: Record<string, string>;
+  }) => {
+    if (!projectsApi || !project) {
+      return;
+    }
+    try {
+      const updated = await projectsApi.patchProject(id, body);
+      setProject(updated);
+      await loadAll();
+      setDetailOpen(false);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось сохранить проект"));
+    }
+  };
+
+  const handleSaveNodeDetail = async (
+    nodeId: number,
+    body: {
+      title?: string;
+      description?: string;
+      tracker_id?: number | null;
+      workflow_status_id?: number | null;
+      assignee_id?: number | null;
+      custom_values?: Record<string, string>;
+    },
+  ) => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const tree = await projectsApi.updateWBSNode(nodeId, body);
+      setWbs(tree);
+      const updated = flattenWBS(tree).find((item) => item.id === nodeId) ?? null;
+      setSelectedNode(updated);
+      await loadAll();
+      setDetailOpen(false);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось сохранить задачу"));
+    }
+  };
 
   const loadBoard = useCallback(async () => {
     if (!kanbanApi || !project?.board_id) {
@@ -439,42 +509,21 @@ export function ProjectDetailPage() {
               void handleMoveWBS(nodeId, parentId, position)
             }
             selectedId={selectedNode?.id}
-            onSelect={setSelectedNode}
+            onSelect={handleSelectWBSNode}
           />
-          {selectedNode && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-lg font-semibold text-text">
-                {selectedNode.code} — {selectedNode.title}
-              </h2>
-              <dl className="grid gap-3 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="text-text-muted">Тип</dt>
-                  <dd className="font-medium">{selectedNode.node_type}</dd>
-                </div>
-                {selectedNode.schedule && (
-                  <div>
-                    <dt className="text-text-muted">Прогресс</dt>
-                    <dd>{selectedNode.schedule.progress}%</dd>
-                  </div>
-                )}
-                {selectedNode.card_id && (
-                  <div>
-                    <dt className="text-text-muted">Kanban</dt>
-                    <dd>
-                      <button
-                        type="button"
-                        onClick={() => setTab("kanban")}
-                        className="text-primary hover:underline"
-                      >
-                        Карточка #{selectedNode.card_id}
-                      </button>
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-          )}
         </div>
+      )}
+
+      {detailOpen && project && trackingMetadata && (
+        <WorkItemDetailPanel
+          mode={detailMode}
+          project={project}
+          node={detailMode === "project" ? null : selectedNode}
+          metadata={trackingMetadata}
+          onClose={() => setDetailOpen(false)}
+          onSaveProject={(body) => void handleSaveProjectDetail(body)}
+          onSaveNode={(nodeId, body) => void handleSaveNodeDetail(nodeId, body)}
+        />
       )}
 
       {tab === "gantt" && schedule && (

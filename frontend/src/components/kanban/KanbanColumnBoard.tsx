@@ -5,6 +5,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useEffect, useRef, useState } from "react";
 
 import type { KanbanColumn } from "../../api/kanban";
 import { KanbanCardItem } from "./KanbanCardItem";
@@ -13,13 +14,33 @@ type KanbanColumnBoardProps = {
   column: KanbanColumn;
   onAddCard: (columnId: number) => void;
   onDeleteCard: (cardId: number) => void;
+  onRenameColumn: (columnId: number) => void;
+  onDeleteColumn: (columnId: number) => void;
 };
 
 export function KanbanColumnBoard({
   column,
   onAddCard,
   onDeleteCard,
+  onRenameColumn,
+  onDeleteColumn,
 }: KanbanColumnBoardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const closeMenu = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as HTMLElement)) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener("click", closeMenu);
+    return () => window.removeEventListener("click", closeMenu);
+  }, [menuOpen]);
+
   const {
     attributes,
     listeners,
@@ -67,6 +88,45 @@ export function KanbanColumnBoard({
         <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-text-muted">
           {column.cards.length}
         </span>
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            className="rounded px-1 text-text-muted hover:bg-surface hover:text-text"
+            aria-label={`Меню колонки ${column.title}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen((open) => !open);
+            }}
+          >
+            ⋮
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full z-20 mt-1 min-w-36 rounded-lg border border-border bg-surface py-1 shadow-lg">
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuOpen(false);
+                  onRenameColumn(column.id);
+                }}
+              >
+                Переименовать
+              </button>
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm text-primary hover:bg-cream"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuOpen(false);
+                  onDeleteColumn(column.id);
+                }}
+              >
+                Удалить колонку
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div

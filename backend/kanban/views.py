@@ -15,7 +15,7 @@ from kanban.serializers import (
     ColumnSerializer,
     ColumnWriteSerializer,
 )
-from kanban.services import move_card, move_column, reorder_positions
+from kanban.services import move_card, move_column, reorder_column_positions, reorder_positions
 from projects.sync import sync_activity_from_card
 from workspaces.services import get_user_workspace
 
@@ -111,7 +111,9 @@ class ColumnDetailView(WorkspaceMixin, APIView):
 
     def delete(self, request, column_id):
         column = self.get_column(column_id)
+        board = column.board
         column.delete()
+        reorder_column_positions(board.columns.all())
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
