@@ -242,6 +242,39 @@ export function KanbanBoardView({
     onBoardChange(await kanbanApi.getBoard(board.id));
   };
 
+  const handleRenameColumn = async (columnId: number) => {
+    const column = board.columns.find((item) => item.id === columnId);
+    if (!column) {
+      return;
+    }
+    const title = window.prompt("Название колонки", column.title);
+    if (!title?.trim() || title.trim() === column.title) {
+      return;
+    }
+    await kanbanApi.updateColumn(columnId, { title: title.trim() });
+    onBoardChange(await kanbanApi.getBoard(board.id));
+  };
+
+  const handleDeleteColumn = async (columnId: number) => {
+    const column = board.columns.find((item) => item.id === columnId);
+    if (!column) {
+      return;
+    }
+    const cardLabel =
+      column.cards.length === 1
+        ? "1 карточку"
+        : `${column.cards.length} карточек`;
+    const message =
+      column.cards.length > 0
+        ? `Удалить колонку «${column.title}» и ${cardLabel}?`
+        : `Удалить колонку «${column.title}»?`;
+    if (!window.confirm(message)) {
+      return;
+    }
+    await kanbanApi.deleteColumn(columnId);
+    onBoardChange(await kanbanApi.getBoard(board.id));
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -274,6 +307,8 @@ export function KanbanBoardView({
                 column={column}
                 onAddCard={handleAddCard}
                 onDeleteCard={handleDeleteCard}
+                onRenameColumn={handleRenameColumn}
+                onDeleteColumn={handleDeleteColumn}
               />
             ))}
           </div>

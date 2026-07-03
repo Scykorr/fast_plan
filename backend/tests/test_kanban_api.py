@@ -105,6 +105,31 @@ def test_move_column_reorders_positions(authenticated_client, board):
 
 
 @pytest.mark.django_db
+def test_update_column_title(authenticated_client, board):
+    column = board.columns.first()
+    response = authenticated_client.patch(
+        f"/api/columns/{column.id}/",
+        {"title": "Backlog"},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    column.refresh_from_db()
+    assert column.title == "Backlog"
+
+
+@pytest.mark.django_db
+def test_delete_column_removes_cards(authenticated_client, board, column):
+    CardFactory(column=column, title="Task 1", position=0)
+    CardFactory(column=column, title="Task 2", position=1)
+    column_id = column.id
+
+    response = authenticated_client.delete(f"/api/columns/{column_id}/")
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert not Column.objects.filter(pk=column_id).exists()
+    assert not Card.objects.filter(column_id=column_id).exists()
+
+
+@pytest.mark.django_db
 def test_create_column(authenticated_client, board):
     response = authenticated_client.post(
         f"/api/boards/{board.id}/columns/",

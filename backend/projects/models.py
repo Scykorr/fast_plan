@@ -33,6 +33,20 @@ class Project(models.Model):
         blank=True,
         related_name="managed_projects",
     )
+    tracker = models.ForeignKey(
+        "tracking.Tracker",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="projects",
+    )
+    workflow_status = models.ForeignKey(
+        "tracking.IssueStatus",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="projects",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -70,6 +84,27 @@ class WBSNode(models.Model):
         default=NodeType.DELIVERABLE,
     )
     position = models.PositiveIntegerField(default=0)
+    tracker = models.ForeignKey(
+        "tracking.Tracker",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="wbs_nodes",
+    )
+    workflow_status = models.ForeignKey(
+        "tracking.IssueStatus",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="wbs_nodes",
+    )
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_wbs_nodes",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

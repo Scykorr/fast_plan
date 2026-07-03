@@ -3,12 +3,14 @@ from rest_framework import serializers
 
 from projects.models import ActivityDependency, Project, ScheduleActivity, WBSNode
 from projects.services import move_wbs_node
+from tracking.services import save_custom_values, serialize_custom_values
 
 
 class ProjectListSerializer(serializers.ModelSerializer):
     wbs_count = serializers.SerializerMethodField()
     board_id = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
+    custom_values = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -21,13 +23,24 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "end_date",
             "budget",
             "manager",
+            "tracker_id",
+            "workflow_status_id",
             "created_at",
             "updated_at",
             "wbs_count",
             "progress",
             "board_id",
+            "custom_values",
         )
-        read_only_fields = ("id", "created_at", "updated_at", "wbs_count", "progress", "board_id")
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+            "wbs_count",
+            "progress",
+            "board_id",
+            "custom_values",
+        )
 
     def get_wbs_count(self, obj):
         return obj.wbs_nodes.count()
@@ -42,8 +55,18 @@ class ProjectListSerializer(serializers.ModelSerializer):
         board = getattr(obj, "board", None)
         return board.id if board else None
 
+    def get_custom_values(self, obj):
+        return serialize_custom_values(obj)
+
 
 class ProjectWriteSerializer(serializers.ModelSerializer):
+    tracker_id = serializers.IntegerField(required=False, allow_null=True)
+    workflow_status_id = serializers.IntegerField(required=False, allow_null=True)
+    custom_values = serializers.DictField(
+        child=serializers.CharField(allow_blank=True),
+        required=False,
+    )
+
     class Meta:
         model = Project
         fields = (
@@ -54,7 +77,25 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             "end_date",
             "budget",
             "manager",
+            "tracker_id",
+            "workflow_status_id",
+            "custom_values",
         )
+
+    def update(self, instance, validated_data):
+        custom_values = validated_data.pop("custom_values", None)
+        tracker_id = validated_data.pop("tracker_id", None)
+        workflow_status_id = validated_data.pop("workflow_status_id", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if tracker_id is not None:
+            instance.tracker_id = tracker_id
+        if workflow_status_id is not None:
+            instance.workflow_status_id = workflow_status_id
+        instance.save()
+        if custom_values is not None:
+            save_custom_values(instance, custom_values)
+        return instance
 
 
 class WBSNodeWriteSerializer(serializers.Serializer):
@@ -69,19 +110,40 @@ class WBSNodeWriteSerializer(serializers.Serializer):
 
 class WBSNodeUpdateSerializer(serializers.ModelSerializer):
     parent_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+    tracker_id = serializers.IntegerField(required=False, allow_null=True)
+    workflow_status_id = serializers.IntegerField(required=False, allow_null=True)
+    assignee_id = serializers.IntegerField(required=False, allow_null=True)
+    custom_values = serializers.DictField(
+        child=serializers.CharField(allow_blank=True),
+        required=False,
+    )
 
     class Meta:
         model = WBSNode
-        fields = ("title", "description", "node_type", "position", "parent_id")
+        fields = (
+            "title",
+            "description",
+            "node_type",
+            "position",
+            "parent_id",
+            "tracker_id",
+            "workflow_status_id",
+            "assignee_id",
+            "custom_values",
+        )
 
     def update(self, instance, validated_data):
         parent_id = validated_data.pop("parent_id", None)
         position = validated_data.pop("position", None)
+        custom_values = validated_data.pop("custom_values", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if validated_data:
             instance.save()
+
+        if custom_values is not None:
+            save_custom_values(instance, custom_values)
 
         if parent_id is not None or position is not None:
             target_parent = parent_id if parent_id is not None else instance.parent_id

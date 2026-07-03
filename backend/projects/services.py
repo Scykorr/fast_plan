@@ -5,8 +5,41 @@ from django.db import transaction
 
 from kanban.models import Board, Card, Column
 from projects.models import Project, ScheduleActivity, WBSNode
+from tracking.models import IssueStatus, Tracker
+from tracking.services import serialize_custom_values
 
 DEFAULT_PROJECT_COLUMNS = ("К выполнению", "В работе", "Готово")
+
+
+def _default_project_tracker(workspace):
+    return (
+        Tracker.objects.filter(
+            workspace=workspace,
+            target=Tracker.Target.PROJECT,
+            is_default=True,
+        ).first()
+        or Tracker.objects.filter(
+            workspace=workspace, target=Tracker.Target.PROJECT
+        ).first()
+    )
+
+
+def _default_issue_tracker(workspace):
+    return (
+        Tracker.objects.filter(
+            workspace=workspace,
+            target=Tracker.Target.ISSUE,
+            is_default=True,
+        ).first()
+        or Tracker.objects.filter(workspace=workspace, target=Tracker.Target.ISSUE).first()
+    )
+
+
+def _default_workflow_status(workspace):
+    return (
+        IssueStatus.objects.filter(workspace=workspace, is_default=True).first()
+        or IssueStatus.objects.filter(workspace=workspace).first()
+    )
 
 
 def generate_wbs_code(project: Project, parent: WBSNode | None) -> str:
@@ -29,6 +62,7 @@ def create_project_board(project: Project) -> Board:
 
 
 def create_root_wbs_node(project: Project) -> WBSNode:
+    workspace = project.workspace
     return WBSNode.objects.create(
         project=project,
         parent=None,
@@ -36,6 +70,8 @@ def create_root_wbs_node(project: Project) -> WBSNode:
         title=project.name,
         node_type=WBSNode.NodeType.DELIVERABLE,
         position=0,
+        tracker=_default_project_tracker(workspace),
+        workflow_status=_default_workflow_status(workspace),
     )
 
 
@@ -125,6 +161,7 @@ def create_work_package(
     with_kanban_card: bool = True,
 ) -> WBSNode:
     code = generate_wbs_code(project, parent)
+    workspace = project.workspace
     node = WBSNode.objects.create(
         project=project,
         parent=parent,
@@ -132,6 +169,8 @@ def create_work_package(
         title=title,
         node_type=node_type,
         position=parent.children.count(),
+        tracker=_default_issue_tracker(workspace),
+        workflow_status=_default_workflow_status(workspace),
     )
 
     if with_schedule:
@@ -177,6 +216,17 @@ def build_wbs_tree(nodes: list[WBSNode]) -> list[dict]:
             "node_type": node.node_type,
             "position": node.position,
             "parent_id": node.parent_id,
+            "tracker_id": node.tracker_id,
+            "tracker_name": node.tracker.name if node.tracker else None,
+            "workflow_status_id": node.workflow_status_id,
+            "workflow_status_name": (
+                node.workflow_status.name if node.workflow_status else None
+            ),
+            "assignee_id": node.assignee_id,
+            "assignee_name": (
+                node.assignee.get_username() if node.assignee else None
+            ),
+            "custom_values": serialize_custom_values(node),
             "schedule": (
                 {
                     "id": schedule.id,

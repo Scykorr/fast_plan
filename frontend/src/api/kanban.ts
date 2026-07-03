@@ -77,5 +77,14 @@ export function createKanbanApi(token: string) {
         method: "PATCH",
         body: JSON.stringify({ position }),
       }, token),
+
+    updateColumn: (columnId: number, body: { title: string }) =>
+      request<KanbanColumn>(`/columns/${columnId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }, token),
+
+    deleteColumn: (columnId: number) =>
+      request<void>(`/columns/${columnId}/`, { method: "DELETE" }, token),
   };
 }
