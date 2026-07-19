@@ -7,25 +7,59 @@ from rest_framework.views import APIView
 from notifications.models import Notification
 from notifications.signals import create_notification
 from workspaces.invitation_services import accept_invitation, create_workspace_invitation
-from workspaces.models import Workspace, WorkspaceInvitation, WorkspaceMember
+from workspaces.mixins import IsWorkspaceOwner, WorkspaceMixin
+from workspaces.models import WorkspaceInvitation, WorkspaceMember
 from workspaces.serializers import (
     WorkspaceInvitationSerializer,
     WorkspaceMemberSerializer,
+    WorkspaceSummarySerializer,
 )
-from workspaces.services import get_user_workspace
+from workspaces.services import (
+    get_membership,
+    get_request_workspace,
+    get_user_workspaces,
+    set_active_workspace,
+)
 
 
-class WorkspaceMixin:
-    def get_workspace(self):
-        workspace = get_user_workspace(self.request.user)
-        if workspace is None:
-            raise NotFound("Workspace not found.")
-        return workspace
+class WorkspaceListView(APIView):
+    def get(self, request):
+        workspaces = get_user_workspaces(request.user)
+        active = get_request_workspace(request)
+        active_id = active.id if active else None
+        memberships = {
+            m.workspace_id: m.role
+            for m in WorkspaceMember.objects.filter(user=request.user)
+        }
+        data = [
+            {
+                "id": workspace.id,
+                "name": workspace.name,
+                "role": memberships.get(workspace.id, WorkspaceMember.Role.VIEWER),
+                "is_active": workspace.id == active_id,
+            }
+            for workspace in workspaces
+        ]
+        return Response(WorkspaceSummarySerializer(data, many=True).data)
 
-    def require_owner(self, workspace, user):
-        membership = WorkspaceMember.objects.filter(workspace=workspace, user=user).first()
-        if membership is None or membership.role != WorkspaceMember.Role.OWNER:
-            raise PermissionDenied("Only workspace owner can perform this action.")
+
+class WorkspaceActivateView(APIView):
+    def post(self, request, workspace_id):
+        membership = WorkspaceMember.objects.filter(
+            workspace_id=workspace_id,
+            user=request.user,
+        ).select_related("workspace").first()
+        if membership is None:
+            raise PermissionDenied("You are not a member of this workspace.")
+        set_active_workspace(request.user, membership.workspace)
+        return Response(
+            {
+                "id": membership.workspace.id,
+                "name": membership.workspace.name,
+                "role": membership.role,
+                "is_active": True,
+            }
+        )
 
 
 class WorkspaceMemberListView(WorkspaceMixin, APIView):
@@ -46,6 +80,8 @@ class WorkspaceMemberListView(WorkspaceMixin, APIView):
 
 
 class WorkspaceInvitationListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get(self, request):
         workspace = self.get_workspace()
         invitations = WorkspaceInvitation.objects.filter(
@@ -78,16 +114,25 @@ class WorkspaceInvitationAcceptView(APIView):
             raise NotFound("Invitation not found.")
         except ValueError as exc:
             raise ValidationError(str(exc))
+        membership = get_membership(workspace, request.user)
         create_notification(
             request.user,
             Notification.NotificationType.INVITE,
             f"Добро пожаловать в «{workspace.name}»",
             link="/settings",
         )
-        return Response({"workspace_id": workspace.id, "name": workspace.name})
+        return Response(
+            {
+                "workspace_id": workspace.id,
+                "name": workspace.name,
+                "role": membership.role if membership else None,
+            }
+        )
 
 
 class WorkspaceMemberDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def patch(self, request, member_id):
         workspace = self.get_workspace()
         self.require_owner(workspace, request.user)
@@ -112,4 +157,7 @@ class WorkspaceMemberDetailView(WorkspaceMixin, APIView):
         if member.user_id == workspace.owner_id:
             raise ValidationError("Cannot remove workspace owner.")
         member.delete()
+        from workspaces.services import clear_invalid_active_workspace
+
+        clear_invalid_active_workspace(member.user)
         return Response(status=status.HTTP_204_NO_CONTENT)

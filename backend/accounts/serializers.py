@@ -19,7 +19,27 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    active_workspace_id = serializers.IntegerField(
+        source="active_workspace.id",
+        read_only=True,
+        allow_null=True,
+    )
+    active_workspace_name = serializers.CharField(
+        source="active_workspace.name",
+        read_only=True,
+        allow_null=True,
+    )
+
     class Meta:
         model = User
-        fields = ("id", "email", "username", "first_name", "last_name", "date_joined")
+        fields = (
+            "id",
+            "email",
+            "username",
+            "first_name",
+            "last_name",
+            "date_joined",
+            "active_workspace_id",
+            "active_workspace_name",
+        )
         read_only_fields = fields

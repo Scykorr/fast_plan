@@ -18,3 +18,6 @@ def create_default_workspace(sender, instance, created, **kwargs):
         user=instance,
         role=WorkspaceMember.Role.OWNER,
     )
+    if instance.active_workspace_id is None:
+        instance.active_workspace = workspace
+        instance.save(update_fields=["active_workspace"])

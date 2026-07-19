@@ -33,4 +33,8 @@ def accept_invitation(token, user):
     )
     invitation.accepted_at = timezone.now()
     invitation.save(update_fields=["accepted_at"])
+
+    from workspaces.services import set_active_workspace
+
+    set_active_workspace(user, invitation.workspace)
     return invitation.workspace
