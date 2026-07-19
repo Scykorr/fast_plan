@@ -1,5 +1,10 @@
 from django.urls import path
 
+from projects.comment_views import (
+    CardCommentListCreateView,
+    WBSCommentListCreateView,
+    WorkItemCommentDetailView,
+)
 from projects.pmbok_views import (
     BaselineDetailView,
     BaselineListCreateView,
@@ -103,6 +108,21 @@ urlpatterns = [
         name="workspace-milestones-calendar",
     ),
     path("wbs/<int:wbs_id>/", WBSNodeDetailView.as_view(), name="wbs-detail"),
+    path(
+        "wbs/<int:wbs_id>/comments/",
+        WBSCommentListCreateView.as_view(),
+        name="wbs-comments",
+    ),
+    path(
+        "cards/<int:card_id>/comments/",
+        CardCommentListCreateView.as_view(),
+        name="card-comments",
+    ),
+    path(
+        "comments/<int:comment_id>/",
+        WorkItemCommentDetailView.as_view(),
+        name="comment-detail",
+    ),
     path(
         "activities/<int:activity_id>/",
         ScheduleActivityDetailView.as_view(),

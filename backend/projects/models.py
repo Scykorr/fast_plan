@@ -322,3 +322,57 @@ class BaselineActivity(models.Model):
     def __str__(self):
         return f"{self.baseline.name} — {self.activity}"
 
+
+class WorkItemComment(models.Model):
+    class Kind(models.TextChoices):
+        COMMENT = "comment", "Comment"
+        DECISION = "decision", "Decision"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="work_item_comments",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="work_item_comments",
+    )
+    wbs_node = models.ForeignKey(
+        WBSNode,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    card = models.ForeignKey(
+        "kanban.Card",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    kind = models.CharField(
+        max_length=20,
+        choices=Kind.choices,
+        default=Kind.COMMENT,
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(wbs_node__isnull=False, card__isnull=True)
+                    | models.Q(wbs_node__isnull=True, card__isnull=False)
+                ),
+                name="workitemcomment_exactly_one_target",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.kind}: {self.body[:40]}"
+
