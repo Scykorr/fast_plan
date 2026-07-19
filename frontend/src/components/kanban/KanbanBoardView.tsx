@@ -18,6 +18,10 @@ import type { KanbanBoard, KanbanCard, KanbanColumn } from "../../api/kanban";
 import { createKanbanApi } from "../../api/kanban";
 import { KanbanColumnBoard } from "./KanbanColumnBoard";
 import {
+  filterKanbanBoard,
+  type KanbanFilter,
+} from "./kanbanFilters";
+import {
   findCard,
   moveCardInBoard,
   moveColumnInBoard,
@@ -29,12 +33,18 @@ type KanbanBoardViewProps = {
   board: KanbanBoard;
   token: string;
   onBoardChange: (board: KanbanBoard) => void;
+  selectedCardId?: number | null;
+  filter?: KanbanFilter;
+  onSelectCard?: (cardId: number) => void;
 };
 
 export function KanbanBoardView({
   board,
   token,
   onBoardChange,
+  selectedCardId = null,
+  filter,
+  onSelectCard,
 }: KanbanBoardViewProps) {
   const kanbanApi = createKanbanApi(token);
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
@@ -46,7 +56,8 @@ export function KanbanBoardView({
     }),
   );
 
-  const columns = sortedColumns(board.columns);
+  const displayBoard = filter ? filterKanbanBoard(board, filter) : board;
+  const columns = sortedColumns(displayBoard.columns);
   const columnIds = columns.map((column) => `column-${column.id}`);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -222,10 +233,12 @@ export function KanbanBoardView({
               <KanbanColumnBoard
                 key={column.id}
                 column={column}
+                selectedCardId={selectedCardId}
                 onAddCard={handleAddCard}
                 onDeleteCard={handleDeleteCard}
                 onRenameColumn={handleRenameColumn}
                 onDeleteColumn={handleDeleteColumn}
+                onSelectCard={onSelectCard}
               />
             ))}
           </div>

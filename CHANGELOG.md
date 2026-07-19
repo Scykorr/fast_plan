@@ -23,9 +23,17 @@
 - Страница принятия приглашения `/invite/:token` с возвратом после login/register
 - Копирование ссылки приглашения в Settings
 - RBAC: Viewer — только чтение; Editor — рабочие данные; Owner — участники, приглашения и tracking-настройки
+- Командный дашборд: `GET /api/workspace/dashboard/` (просрочки, риски, SPI/CPI, непрочитанные)
+- Workspace FK у Notification + deep-link URL в уведомлениях
+- Deep-link query params (`workspace`, `tab`, `node`, `card`, `risk`, `assignee`, `status`, `project`) на Project Detail и Kanban
+- Клиентские фильтры WBS/Kanban по исполнителю и статусу с записью в URL
+- Формы Finance (`TransactionForm` с типом/датой/категорией/проектом) и invite в Settings
+- Метаданные WBS на Kanban-карточках (assignee/status/wbs_node_id)
 
 ### Changed
 
+- Администрирование tracking: inline-формы вместо `window.prompt` для трекеров, статусов, полей и enumerations
+- Дашборд — командный центр вместо только приветствия и ДР
 - Единый `WorkspaceMixin` и permission-классы в `workspaces/`
 - После accept invitation активный workspace переключается автоматически
 - GET charter/dashboard/tracking-metadata без лишних side-effect записей для viewer

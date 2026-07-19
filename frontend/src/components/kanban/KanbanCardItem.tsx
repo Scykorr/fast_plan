@@ -5,10 +5,17 @@ import type { KanbanCard } from "../../api/kanban";
 
 type KanbanCardItemProps = {
   card: KanbanCard;
+  selected?: boolean;
   onDelete: (cardId: number) => void;
+  onSelect?: (cardId: number) => void;
 };
 
-export function KanbanCardItem({ card, onDelete }: KanbanCardItemProps) {
+export function KanbanCardItem({
+  card,
+  selected = false,
+  onDelete,
+  onSelect,
+}: KanbanCardItemProps) {
   const {
     attributes,
     listeners,
@@ -28,9 +35,14 @@ export function KanbanCardItem({ card, onDelete }: KanbanCardItemProps) {
       ref={setNodeRef}
       style={style}
       className={[
-        "rounded-lg border border-border bg-surface p-3 shadow-sm",
+        "rounded-lg border bg-surface p-3 shadow-sm",
+        selected
+          ? "border-primary ring-2 ring-primary/40"
+          : "border-border",
         isDragging ? "opacity-50 ring-2 ring-primary" : "",
       ].join(" ")}
+      data-selected={selected ? "true" : undefined}
+      onClick={() => onSelect?.(card.id)}
       {...attributes}
       {...listeners}
     >
@@ -48,6 +60,13 @@ export function KanbanCardItem({ card, onDelete }: KanbanCardItemProps) {
           ×
         </button>
       </div>
+      {(card.assignee_name || card.workflow_status_name) && (
+        <p className="mt-1 text-[11px] text-text-muted">
+          {[card.assignee_name, card.workflow_status_name]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
       {card.description && (
         <p className="mt-2 text-xs text-text-muted line-clamp-3">
           {card.description}

@@ -12,18 +12,22 @@ import { KanbanCardItem } from "./KanbanCardItem";
 
 type KanbanColumnBoardProps = {
   column: KanbanColumn;
+  selectedCardId?: number | null;
   onAddCard: (columnId: number) => void;
   onDeleteCard: (cardId: number) => void;
   onRenameColumn: (columnId: number) => void;
   onDeleteColumn: (columnId: number) => void;
+  onSelectCard?: (cardId: number) => void;
 };
 
 export function KanbanColumnBoard({
   column,
+  selectedCardId = null,
   onAddCard,
   onDeleteCard,
   onRenameColumn,
   onDeleteColumn,
+  onSelectCard,
 }: KanbanColumnBoardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -138,7 +142,13 @@ export function KanbanColumnBoard({
       >
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {column.cards.map((card) => (
-            <KanbanCardItem key={card.id} card={card} onDelete={onDeleteCard} />
+            <KanbanCardItem
+              key={card.id}
+              card={card}
+              selected={selectedCardId === card.id}
+              onDelete={onDeleteCard}
+              onSelect={onSelectCard}
+            />
           ))}
         </SortableContext>
       </div>

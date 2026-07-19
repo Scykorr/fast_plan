@@ -8,6 +8,11 @@ export type KanbanCard = {
   due_date: string | null;
   created_at: string;
   updated_at: string;
+  wbs_node_id: number | null;
+  assignee_id: number | null;
+  assignee_name: string | null;
+  workflow_status_id: number | null;
+  workflow_status_name: string | null;
 };
 
 export type KanbanColumn = {

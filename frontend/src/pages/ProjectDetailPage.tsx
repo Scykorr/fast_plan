@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
 import type { KanbanBoard } from "../api/kanban";
@@ -17,6 +17,10 @@ import type {
 import { ErrorMessage } from "../components/ErrorMessage";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
 import {
+  collectKanbanAssignees,
+  collectKanbanStatuses,
+} from "../components/kanban/kanbanFilters";
+import {
   BaselineView,
   CriticalPathView,
 } from "../components/projects/BaselineView";
@@ -27,11 +31,21 @@ import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
 import { WorkItemDetailPanel } from "../components/tracking/WorkItemDetailPanel";
 import { WBSTreeView } from "../components/projects/WBSTreeView";
+import {
+  collectWbsAssignees,
+  collectWbsStatuses,
+  filterWbsTree,
+} from "../components/projects/wbs/filterWbs";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useKanbanApi } from "../hooks/useKanbanApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useTrackingApi } from "../hooks/useTrackingApi";
 import type { TrackingMetadata } from "../api/tracking";
+import {
+  mergeDeepLinkSearch,
+  parseDeepLinkParams,
+} from "../utils/deepLinks";
 
 type Tab =
   | "overview"
@@ -44,19 +58,39 @@ type Tab =
   | "baseline"
   | "analytics";
 
+const TABS: Tab[] = [
+  "overview",
+  "wbs",
+  "gantt",
+  "kanban",
+  "calendar",
+  "risks",
+  "stakeholders",
+  "baseline",
+  "analytics",
+];
+
 function flattenWBS(nodes: WBSNode[]): WBSNode[] {
   return nodes.flatMap((node) => [node, ...flattenWBS(node.children)]);
 }
 
+function isTab(value: string | null | undefined): value is Tab {
+  return value != null && (TABS as string[]).includes(value);
+}
+
 export function ProjectDetailPage() {
   const { projectId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLink = parseDeepLinkParams(searchParams);
   const { accessToken } = useAuth();
+  const { activeWorkspace, switchWorkspace, isLoading: workspaceLoading } =
+    useWorkspace();
   const id = Number(projectId);
   const projectsApi = useProjectsApi();
   const kanbanApi = useKanbanApi();
   const trackingApi = useTrackingApi();
 
-  const [tab, setTab] = useState<Tab>("overview");
+  const tab: Tab = isTab(deepLink.tab) ? deepLink.tab : "overview";
   const [project, setProject] = useState<Project | null>(null);
   const [dashboard, setDashboard] = useState<ProjectDashboard | null>(null);
   const [wbs, setWbs] = useState<WBSNode[]>([]);
@@ -73,6 +107,39 @@ export function ProjectDetailPage() {
   const [trackingMetadata, setTrackingMetadata] = useState<TrackingMetadata | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
+
+  const patchSearch = useCallback(
+    (updates: Parameters<typeof mergeDeepLinkSearch>[1]) => {
+      setSearchParams(
+        (current) => mergeDeepLinkSearch(current, updates),
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    if (workspaceLoading) {
+      return;
+    }
+    const targetWorkspace = deepLink.workspace;
+    if (
+      targetWorkspace != null &&
+      activeWorkspace &&
+      activeWorkspace.id !== targetWorkspace
+    ) {
+      setWorkspaceReady(false);
+      void switchWorkspace(targetWorkspace).then(() => setWorkspaceReady(true));
+      return;
+    }
+    setWorkspaceReady(true);
+  }, [
+    workspaceLoading,
+    deepLink.workspace,
+    activeWorkspace,
+    switchWorkspace,
+  ]);
 
   const loadAll = useCallback(async () => {
     if (!projectsApi || !id) {
@@ -119,8 +186,11 @@ export function ProjectDetailPage() {
   }, [projectsApi, id]);
 
   useEffect(() => {
+    if (!workspaceReady) {
+      return;
+    }
     void loadAll();
-  }, [loadAll]);
+  }, [loadAll, workspaceReady]);
 
   useEffect(() => {
     if (!trackingApi) {
@@ -128,6 +198,43 @@ export function ProjectDetailPage() {
     }
     void trackingApi.getMetadata().then(setTrackingMetadata).catch(() => undefined);
   }, [trackingApi]);
+
+  useEffect(() => {
+    if (!deepLink.node || wbs.length === 0) {
+      return;
+    }
+    const node = flattenWBS(wbs).find((item) => item.id === deepLink.node);
+    if (!node) {
+      return;
+    }
+    setSelectedNode(node);
+    setDetailMode(node.parent_id === null ? "project" : "issue");
+    setDetailOpen(true);
+    if (tab !== "wbs" && !deepLink.card) {
+      patchSearch({ tab: "wbs" });
+    }
+  }, [deepLink.node, deepLink.card, wbs, tab, patchSearch]);
+
+  useEffect(() => {
+    if (deepLink.risk == null) {
+      return;
+    }
+    if (tab !== "risks") {
+      patchSearch({ tab: "risks" });
+      return;
+    }
+    const el = document.getElementById(`risk-${deepLink.risk}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [deepLink.risk, tab, patchSearch, risks]);
+
+  useEffect(() => {
+    if (deepLink.card == null) {
+      return;
+    }
+    if (tab !== "kanban") {
+      patchSearch({ tab: "kanban" });
+    }
+  }, [deepLink.card, tab, patchSearch]);
 
   const handleSelectWBSNode = (node: WBSNode) => {
     setSelectedNode(node);
@@ -137,7 +244,33 @@ export function ProjectDetailPage() {
       setDetailMode("issue");
     }
     setDetailOpen(true);
+    patchSearch({ node: node.id, tab: "wbs" });
   };
+
+  const handleCloseDetail = () => {
+    setDetailOpen(false);
+    patchSearch({ node: null });
+  };
+
+  const filteredWbs = useMemo(
+    () =>
+      filterWbsTree(wbs, {
+        assigneeId: deepLink.assignee,
+        statusId: deepLink.status,
+      }),
+    [wbs, deepLink.assignee, deepLink.status],
+  );
+
+  const wbsAssignees = useMemo(() => collectWbsAssignees(wbs), [wbs]);
+  const wbsStatuses = useMemo(() => collectWbsStatuses(wbs), [wbs]);
+  const kanbanAssignees = useMemo(
+    () => (board ? collectKanbanAssignees(board) : []),
+    [board],
+  );
+  const kanbanStatuses = useMemo(
+    () => (board ? collectKanbanStatuses(board) : []),
+    [board],
+  );
 
   const handleSaveProjectDetail = async (body: {
     name?: string;
@@ -361,7 +494,7 @@ export function ProjectDetailPage() {
     }
   };
 
-  if (loading) {
+  if (loading || !workspaceReady) {
     return <p className="text-text-muted">Загрузка проекта...</p>;
   }
 
@@ -407,7 +540,7 @@ export function ProjectDetailPage() {
           <button
             key={item.id}
             type="button"
-            onClick={() => setTab(item.id)}
+            onClick={() => patchSearch({ tab: item.id })}
             className={[
               "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               tab === item.id
@@ -499,8 +632,52 @@ export function ProjectDetailPage() {
 
       {tab === "wbs" && (
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-text-muted">
+              Исполнитель
+              <select
+                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-text"
+                value={deepLink.assignee ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  patchSearch({
+                    assignee: value ? Number(value) : null,
+                    tab: "wbs",
+                  });
+                }}
+              >
+                <option value="">Все</option>
+                {wbsAssignees.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text-muted">
+              Статус
+              <select
+                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-text"
+                value={deepLink.status ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  patchSearch({
+                    status: value ? Number(value) : null,
+                    tab: "wbs",
+                  });
+                }}
+              >
+                <option value="">Все</option>
+                {wbsStatuses.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <WBSTreeView
-            nodes={wbs}
+            nodes={filteredWbs}
             onAddChild={(parentId) => void handleAddWBS(parentId)}
             onAddSibling={(parentId) => void handleAddWBS(parentId)}
             onDelete={(nodeId) => void handleDeleteWBS(nodeId)}
@@ -520,7 +697,7 @@ export function ProjectDetailPage() {
           project={project}
           node={detailMode === "project" ? null : selectedNode}
           metadata={trackingMetadata}
-          onClose={() => setDetailOpen(false)}
+          onClose={handleCloseDetail}
           onSaveProject={(body) => void handleSaveProjectDetail(body)}
           onSaveNode={(nodeId, body) => void handleSaveNodeDetail(nodeId, body)}
         />
@@ -534,11 +711,65 @@ export function ProjectDetailPage() {
       )}
 
       {tab === "kanban" && board && accessToken && (
-        <KanbanBoardView
-          board={board}
-          token={accessToken}
-          onBoardChange={(updated) => void handleBoardChange(updated)}
-        />
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-text-muted">
+              Исполнитель
+              <select
+                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-text"
+                value={deepLink.assignee ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  patchSearch({
+                    assignee: value ? Number(value) : null,
+                    tab: "kanban",
+                  });
+                }}
+              >
+                <option value="">Все</option>
+                {kanbanAssignees.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text-muted">
+              Статус
+              <select
+                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-text"
+                value={deepLink.status ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  patchSearch({
+                    status: value ? Number(value) : null,
+                    tab: "kanban",
+                  });
+                }}
+              >
+                <option value="">Все</option>
+                {kanbanStatuses.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <KanbanBoardView
+            board={board}
+            token={accessToken}
+            onBoardChange={(updated) => void handleBoardChange(updated)}
+            selectedCardId={deepLink.card}
+            filter={{
+              assigneeId: deepLink.assignee,
+              statusId: deepLink.status,
+            }}
+            onSelectCard={(cardId) =>
+              patchSearch({ card: cardId, tab: "kanban" })
+            }
+          />
+        </div>
       )}
 
       {tab === "kanban" && !board && (
@@ -552,6 +783,7 @@ export function ProjectDetailPage() {
       {tab === "risks" && (
         <RiskRegister
           risks={risks}
+          highlightedRiskId={deepLink.risk}
           onAdd={() => void handleAddRisk()}
           onDelete={async (riskId) => {
             if (!projectsApi) {

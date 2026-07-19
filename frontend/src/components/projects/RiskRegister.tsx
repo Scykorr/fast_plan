@@ -57,11 +57,17 @@ export function RiskHeatMap({ risks }: RiskHeatMapProps) {
 
 type RiskRegisterProps = {
   risks: Risk[];
+  highlightedRiskId?: number | null;
   onAdd: () => void;
   onDelete: (id: number) => void;
 };
 
-export function RiskRegister({ risks, onAdd, onDelete }: RiskRegisterProps) {
+export function RiskRegister({
+  risks,
+  highlightedRiskId = null,
+  onAdd,
+  onDelete,
+}: RiskRegisterProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -82,7 +88,16 @@ export function RiskRegister({ risks, onAdd, onDelete }: RiskRegisterProps) {
           {risks.map((risk) => (
             <li
               key={risk.id}
-              className="flex items-start justify-between gap-4 rounded-lg border border-border bg-surface px-4 py-3"
+              id={`risk-${risk.id}`}
+              data-highlighted={
+                highlightedRiskId === risk.id ? "true" : undefined
+              }
+              className={[
+                "flex items-start justify-between gap-4 rounded-lg border bg-surface px-4 py-3",
+                highlightedRiskId === risk.id
+                  ? "border-primary ring-2 ring-primary/40"
+                  : "border-border",
+              ].join(" ")}
             >
               <div>
                 <p className="font-medium text-text">{risk.title}</p>
