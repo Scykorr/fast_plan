@@ -35,3 +35,13 @@ def test_accept_invitation(authenticated_client, user, workspace, other_user):
     assert WorkspaceMember.objects.filter(
         workspace=workspace, user=other_user
     ).exists()
+    other_user.refresh_from_db()
+    assert other_user.active_workspace_id == workspace.id
+
+
+@pytest.mark.django_db
+def test_me_includes_active_workspace(authenticated_client, user, workspace):
+    response = authenticated_client.get("/api/auth/me/")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["active_workspace_id"] == workspace.id
+    assert response.data["active_workspace_name"] == workspace.name

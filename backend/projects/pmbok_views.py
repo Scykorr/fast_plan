@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from workspaces.mixins import IsWorkspaceEditorOrReadOnly
 
 from projects.baseline import create_baseline
 from projects.cpm import compute_critical_path, compute_evm_lite
@@ -28,9 +29,12 @@ from projects.serializers_pmbok import (
     StakeholderWriteSerializer,
 )
 from projects.views import WorkspaceMixin
+from workspaces.mixins import IsWorkspaceEditorOrReadOnly
 
 
 class RiskListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         risks = project.risks.all()
@@ -45,6 +49,8 @@ class RiskListCreateView(WorkspaceMixin, APIView):
 
 
 class RiskDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_risk(self, risk_id):
         return get_object_or_404(
             Risk.objects.filter(project__workspace=self.get_workspace()),
@@ -65,6 +71,8 @@ class RiskDetailView(WorkspaceMixin, APIView):
 
 
 class StakeholderListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         return Response(StakeholderSerializer(project.stakeholders.all(), many=True).data)
@@ -83,6 +91,8 @@ class StakeholderListCreateView(WorkspaceMixin, APIView):
 
 
 class StakeholderDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_stakeholder(self, stakeholder_id):
         return get_object_or_404(
             Stakeholder.objects.filter(project__workspace=self.get_workspace()),
@@ -105,9 +115,23 @@ class StakeholderDetailView(WorkspaceMixin, APIView):
 
 
 class ProjectCharterView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
-        charter, _ = ProjectCharter.objects.get_or_create(project=project)
+        charter = getattr(project, "charter", None)
+        if charter is None:
+            return Response(
+                {
+                    "project": project.id,
+                    "vision": "",
+                    "objectives": "",
+                    "scope": "",
+                    "success_criteria": "",
+                    "assumptions": "",
+                    "constraints": "",
+                }
+            )
         return Response(ProjectCharterSerializer(charter).data)
 
     def patch(self, request, project_id):
@@ -120,6 +144,8 @@ class ProjectCharterView(WorkspaceMixin, APIView):
 
 
 class RACIListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         entries = RACIEntry.objects.filter(wbs_node__project=project).select_related(
@@ -144,6 +170,8 @@ class RACIListCreateView(WorkspaceMixin, APIView):
 
 
 class RACIDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def delete(self, request, raci_id):
         entry = get_object_or_404(
             RACIEntry.objects.filter(wbs_node__project__workspace=self.get_workspace()),
@@ -154,6 +182,8 @@ class RACIDetailView(WorkspaceMixin, APIView):
 
 
 class BaselineListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         baselines = project.baselines.prefetch_related("activities")
@@ -170,6 +200,8 @@ class BaselineListCreateView(WorkspaceMixin, APIView):
 
 
 class BaselineDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, baseline_id):
         baseline = get_object_or_404(
             ProjectBaseline.objects.filter(project__workspace=self.get_workspace()),
@@ -179,12 +211,16 @@ class BaselineDetailView(WorkspaceMixin, APIView):
 
 
 class CriticalPathView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         return Response(compute_critical_path(project))
 
 
 class ProjectExportView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         activities = list(

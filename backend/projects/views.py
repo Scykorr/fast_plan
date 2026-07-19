@@ -24,16 +24,10 @@ from projects.serializers import (
 from projects.serializers_pmbok import ProjectCharterSerializer, RiskSerializer
 from projects.services import build_wbs_tree, create_work_package
 from projects.sync import sync_card_from_activity
-from workspaces.services import get_user_workspace
+from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin as BaseWorkspaceMixin
 
 
-class WorkspaceMixin:
-    def get_workspace(self):
-        workspace = get_user_workspace(self.request.user)
-        if workspace is None:
-            raise NotFound("Workspace not found.")
-        return workspace
-
+class WorkspaceMixin(BaseWorkspaceMixin):
     def get_project_queryset(self):
         return Project.objects.filter(workspace=self.get_workspace()).select_related(
             "board"
@@ -49,6 +43,8 @@ class WorkspaceMixin:
 
 
 class ProjectListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request):
         projects = self.get_project_queryset()
         return Response(ProjectListSerializer(projects, many=True).data)
@@ -68,6 +64,8 @@ class ProjectListCreateView(WorkspaceMixin, APIView):
 
 
 class ProjectDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_project(self, project_id):
         return get_object_or_404(self.get_project_queryset(), pk=project_id)
 
@@ -89,6 +87,8 @@ class ProjectDetailView(WorkspaceMixin, APIView):
 
 
 class ProjectDashboardView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(
             self.get_project_queryset().select_related("charter"),
@@ -114,7 +114,7 @@ class ProjectDashboardView(WorkspaceMixin, APIView):
             or 0
         )
         cpm = compute_critical_path(project)
-        charter, _ = ProjectCharter.objects.get_or_create(project=project)
+        charter = getattr(project, "charter", None)
         top_risks = project.risks.all()[:3]
 
         return Response(
@@ -128,7 +128,7 @@ class ProjectDashboardView(WorkspaceMixin, APIView):
                 "upcoming_milestones": ScheduleActivitySerializer(
                     milestones, many=True
                 ).data,
-                "charter": ProjectCharterSerializer(charter).data,
+                "charter": ProjectCharterSerializer(charter).data if charter else None,
                 "top_risks": RiskSerializer(top_risks, many=True).data,
                 "evm": compute_evm_lite(project, activities, actual_cost),
                 "critical_path": {
@@ -141,6 +141,8 @@ class ProjectDashboardView(WorkspaceMixin, APIView):
 
 
 class WBSTreeView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         nodes = (
@@ -189,6 +191,8 @@ class WBSTreeView(WorkspaceMixin, APIView):
 
 
 class WBSNodeDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_node(self, wbs_id):
         return get_object_or_404(self.get_wbs_queryset(), pk=wbs_id)
 
@@ -212,6 +216,8 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
 
 
 class ProjectScheduleView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         activities = (
@@ -241,6 +247,8 @@ class ProjectScheduleView(WorkspaceMixin, APIView):
 
 
 class ScheduleActivityDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def patch(self, request, activity_id):
         activity = get_object_or_404(self.get_activity_queryset(), pk=activity_id)
         serializer = ScheduleActivityUpdateSerializer(
@@ -256,6 +264,8 @@ class ScheduleActivityDetailView(WorkspaceMixin, APIView):
 
 
 class ActivityDependencyCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def post(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         serializer = ActivityDependencyWriteSerializer(data=request.data)
@@ -297,6 +307,8 @@ def _parse_year_month(request):
 
 
 class ProjectCalendarView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         year, month = _parse_year_month(request)
@@ -304,6 +316,8 @@ class ProjectCalendarView(WorkspaceMixin, APIView):
 
 
 class WorkspaceMilestonesCalendarView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request):
         year, month = _parse_year_month(request)
         return Response(

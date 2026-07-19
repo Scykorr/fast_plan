@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,16 +17,10 @@ from kanban.serializers import (
 )
 from kanban.services import move_card, move_column, reorder_column_positions, reorder_positions
 from projects.sync import sync_activity_from_card
-from workspaces.services import get_user_workspace
+from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 
 
-class WorkspaceMixin:
-    def get_workspace(self):
-        workspace = get_user_workspace(self.request.user)
-        if workspace is None:
-            raise NotFound("Workspace not found.")
-        return workspace
-
+class BoardWorkspaceMixin(WorkspaceMixin):
     def get_board_queryset(self):
         return Board.objects.filter(workspace=self.get_workspace())
 
@@ -37,7 +31,8 @@ class WorkspaceMixin:
         return Card.objects.filter(column__board__workspace=self.get_workspace())
 
 
-class BoardListCreateView(WorkspaceMixin, APIView):
+class BoardListCreateView(BoardWorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
     def get(self, request):
         boards = self.get_board_queryset()
         return Response(BoardListSerializer(boards, many=True).data)
@@ -55,7 +50,9 @@ class BoardListCreateView(WorkspaceMixin, APIView):
         )
 
 
-class BoardDetailView(WorkspaceMixin, APIView):
+class BoardDetailView(BoardWorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_board(self, board_id):
         return get_object_or_404(self.get_board_queryset(), pk=board_id)
 
@@ -76,7 +73,9 @@ class BoardDetailView(WorkspaceMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ColumnListCreateView(WorkspaceMixin, APIView):
+class ColumnListCreateView(BoardWorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def post(self, request, board_id):
         board = get_object_or_404(self.get_board_queryset(), pk=board_id)
         serializer = ColumnWriteSerializer(data=request.data)
@@ -90,7 +89,9 @@ class ColumnListCreateView(WorkspaceMixin, APIView):
         return Response(ColumnSerializer(column).data, status=status.HTTP_201_CREATED)
 
 
-class ColumnDetailView(WorkspaceMixin, APIView):
+class ColumnDetailView(BoardWorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_column(self, column_id):
         return get_object_or_404(self.get_column_queryset(), pk=column_id)
 
@@ -117,7 +118,9 @@ class ColumnDetailView(WorkspaceMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CardListCreateView(WorkspaceMixin, APIView):
+class CardListCreateView(BoardWorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def post(self, request, column_id):
         column = get_object_or_404(self.get_column_queryset(), pk=column_id)
         serializer = CardWriteSerializer(data=request.data)
@@ -133,7 +136,9 @@ class CardListCreateView(WorkspaceMixin, APIView):
         return Response(CardSerializer(card).data, status=status.HTTP_201_CREATED)
 
 
-class CardDetailView(WorkspaceMixin, APIView):
+class CardDetailView(BoardWorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_card(self, card_id):
         return get_object_or_404(self.get_card_queryset(), pk=card_id)
 
@@ -151,7 +156,9 @@ class CardDetailView(WorkspaceMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CardMoveView(WorkspaceMixin, APIView):
+class CardMoveView(BoardWorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def post(self, request, card_id):
         card = get_object_or_404(self.get_card_queryset(), pk=card_id)
         serializer = CardMoveSerializer(data=request.data)

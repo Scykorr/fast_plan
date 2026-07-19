@@ -1,6 +1,5 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -12,21 +11,15 @@ from tracking.serializers import (
     TrackerSerializer,
 )
 from tracking.services import seed_workspace_tracking, serialize_field_definition
-from workspaces.services import get_user_workspace
-
-
-class WorkspaceMixin:
-    def get_workspace(self):
-        workspace = get_user_workspace(self.request.user)
-        if workspace is None:
-            raise NotFound("Workspace not found.")
-        return workspace
+from workspaces.mixins import IsWorkspaceOwner, WorkspaceMixin
 
 
 class TrackingMetadataView(WorkspaceMixin, APIView):
     def get(self, request):
         workspace = self.get_workspace()
-        seed_workspace_tracking(workspace)
+        # Seeding is idempotent and safe for viewers; only runs when empty.
+        if not Tracker.objects.filter(workspace=workspace).exists():
+            seed_workspace_tracking(workspace)
         trackers = Tracker.objects.filter(workspace=workspace)
         statuses = IssueStatus.objects.filter(workspace=workspace)
         fields = CustomField.objects.filter(workspace=workspace).prefetch_related(
@@ -44,6 +37,8 @@ class TrackingMetadataView(WorkspaceMixin, APIView):
 
 
 class TrackerListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get(self, request):
         workspace = self.get_workspace()
         trackers = Tracker.objects.filter(workspace=workspace)
@@ -51,6 +46,7 @@ class TrackerListCreateView(WorkspaceMixin, APIView):
 
     def post(self, request):
         workspace = self.get_workspace()
+        self.require_owner()
         serializer = TrackerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         tracker = Tracker.objects.create(
@@ -67,6 +63,8 @@ class TrackerListCreateView(WorkspaceMixin, APIView):
 
 
 class TrackerDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get_tracker(self, tracker_id):
         return get_object_or_404(
             Tracker.objects.filter(workspace=self.get_workspace()),
@@ -74,6 +72,7 @@ class TrackerDetailView(WorkspaceMixin, APIView):
         )
 
     def patch(self, request, tracker_id):
+        self.require_owner()
         tracker = self.get_tracker(tracker_id)
         serializer = TrackerSerializer(tracker, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -81,12 +80,15 @@ class TrackerDetailView(WorkspaceMixin, APIView):
         return Response(TrackerSerializer(tracker).data)
 
     def delete(self, request, tracker_id):
+        self.require_owner()
         tracker = self.get_tracker(tracker_id)
         tracker.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class IssueStatusListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get(self, request):
         workspace = self.get_workspace()
         statuses = IssueStatus.objects.filter(workspace=workspace)
@@ -94,6 +96,7 @@ class IssueStatusListCreateView(WorkspaceMixin, APIView):
 
     def post(self, request):
         workspace = self.get_workspace()
+        self.require_owner()
         serializer = IssueStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         status_obj = IssueStatus.objects.create(
@@ -107,6 +110,8 @@ class IssueStatusListCreateView(WorkspaceMixin, APIView):
 
 
 class IssueStatusDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get_status(self, status_id):
         return get_object_or_404(
             IssueStatus.objects.filter(workspace=self.get_workspace()),
@@ -114,6 +119,7 @@ class IssueStatusDetailView(WorkspaceMixin, APIView):
         )
 
     def patch(self, request, status_id):
+        self.require_owner()
         status_obj = self.get_status(status_id)
         serializer = IssueStatusSerializer(status_obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -121,12 +127,15 @@ class IssueStatusDetailView(WorkspaceMixin, APIView):
         return Response(IssueStatusSerializer(status_obj).data)
 
     def delete(self, request, status_id):
+        self.require_owner()
         status_obj = self.get_status(status_id)
         status_obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CustomFieldListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get(self, request):
         workspace = self.get_workspace()
         fields = CustomField.objects.filter(workspace=workspace).prefetch_related(
@@ -138,6 +147,7 @@ class CustomFieldListCreateView(WorkspaceMixin, APIView):
 
     def post(self, request):
         workspace = self.get_workspace()
+        self.require_owner()
         serializer = CustomFieldSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         field = serializer.save(workspace=workspace)
@@ -148,6 +158,8 @@ class CustomFieldListCreateView(WorkspaceMixin, APIView):
 
 
 class CustomFieldDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get_field(self, field_id):
         return get_object_or_404(
             CustomField.objects.filter(workspace=self.get_workspace()).prefetch_related(
@@ -157,6 +169,7 @@ class CustomFieldDetailView(WorkspaceMixin, APIView):
         )
 
     def patch(self, request, field_id):
+        self.require_owner()
         field = self.get_field(field_id)
         serializer = CustomFieldSerializer(field, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -164,12 +177,15 @@ class CustomFieldDetailView(WorkspaceMixin, APIView):
         return Response(serialize_field_definition(field))
 
     def delete(self, request, field_id):
+        self.require_owner()
         field = self.get_field(field_id)
         field.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CustomFieldEnumerationListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get_field(self, field_id):
         return get_object_or_404(
             CustomField.objects.filter(workspace=self.get_workspace()),
@@ -177,6 +193,7 @@ class CustomFieldEnumerationListCreateView(WorkspaceMixin, APIView):
         )
 
     def post(self, request, field_id):
+        self.require_owner()
         field = self.get_field(field_id)
         serializer = CustomFieldEnumerationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -195,6 +212,8 @@ class CustomFieldEnumerationListCreateView(WorkspaceMixin, APIView):
 
 
 class CustomFieldEnumerationDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
     def get_item(self, item_id):
         return get_object_or_404(
             CustomFieldEnumeration.objects.filter(
@@ -204,6 +223,7 @@ class CustomFieldEnumerationDetailView(WorkspaceMixin, APIView):
         )
 
     def patch(self, request, item_id):
+        self.require_owner()
         item = self.get_item(item_id)
         serializer = CustomFieldEnumerationSerializer(
             item, data=request.data, partial=True
@@ -213,6 +233,7 @@ class CustomFieldEnumerationDetailView(WorkspaceMixin, APIView):
         return Response(CustomFieldEnumerationSerializer(item).data)
 
     def delete(self, request, item_id):
+        self.require_owner()
         item = self.get_item(item_id)
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

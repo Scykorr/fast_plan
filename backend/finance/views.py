@@ -1,25 +1,18 @@
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from finance.models import Transaction
 from finance.serializers import TransactionSerializer, TransactionWriteSerializer
 from projects.models import Project
-from workspaces.services import get_user_workspace
-
-
-class WorkspaceMixin:
-    def get_workspace(self):
-        workspace = get_user_workspace(self.request.user)
-        if workspace is None:
-            raise NotFound("Workspace not found.")
-        return workspace
+from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 
 
 class TransactionListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get(self, request):
         transactions = Transaction.objects.filter(workspace=self.get_workspace())
         project_id = request.query_params.get("project_id")
@@ -54,6 +47,8 @@ class TransactionListCreateView(WorkspaceMixin, APIView):
 
 
 class TransactionDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
     def get_transaction(self, transaction_id):
         return get_object_or_404(
             Transaction.objects.filter(workspace=self.get_workspace()),

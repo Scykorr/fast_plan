@@ -2,23 +2,16 @@ from datetime import date
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from birthdays.models import Contact
 from birthdays.serializers import ContactSerializer, ContactWriteSerializer
 from birthdays.services import birthday_in_month, days_until_birthday, next_birthday
-from workspaces.services import get_user_workspace
+from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin as BaseWorkspaceMixin
 
 
-class WorkspaceMixin:
-    def get_workspace(self):
-        workspace = get_user_workspace(self.request.user)
-        if workspace is None:
-            raise NotFound("Workspace not found.")
-        return workspace
-
+class WorkspaceMixin(BaseWorkspaceMixin):
     def get_contact_queryset(self):
         return Contact.objects.filter(workspace=self.get_workspace()).select_related(
             "birthday"
@@ -26,6 +19,7 @@ class WorkspaceMixin:
 
 
 class ContactListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
     def get(self, request):
         contacts = self.get_contact_queryset()
         return Response(ContactSerializer(contacts, many=True).data)
@@ -44,6 +38,7 @@ class ContactListCreateView(WorkspaceMixin, APIView):
 
 
 class ContactDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
     def get_contact(self, contact_id):
         return get_object_or_404(self.get_contact_queryset(), pk=contact_id)
 
