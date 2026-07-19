@@ -8,6 +8,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = (
             "id",
+            "workspace_id",
             "notification_type",
             "title",
             "message",

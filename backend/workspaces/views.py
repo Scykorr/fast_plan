@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from notifications.models import Notification
 from notifications.signals import create_notification
+from workspaces.dashboard import build_workspace_dashboard
 from workspaces.invitation_services import accept_invitation, create_workspace_invitation
 from workspaces.mixins import IsWorkspaceOwner, WorkspaceMixin
 from workspaces.models import WorkspaceInvitation, WorkspaceMember
@@ -20,6 +21,12 @@ from workspaces.services import (
     get_user_workspaces,
     set_active_workspace,
 )
+
+
+class WorkspaceDashboardView(WorkspaceMixin, APIView):
+    def get(self, request):
+        workspace = self.get_workspace()
+        return Response(build_workspace_dashboard(workspace, request.user))
 
 
 class WorkspaceListView(APIView):
@@ -95,6 +102,8 @@ class WorkspaceInvitationListCreateView(WorkspaceMixin, APIView):
         self.require_owner(workspace, request.user)
         email = request.data.get("email", "").strip().lower()
         role = request.data.get("role", WorkspaceMember.Role.EDITOR)
+        if role not in WorkspaceMember.Role.values:
+            raise ValidationError({"role": "Invalid role."})
         if not email:
             raise ValidationError({"email": "Email is required."})
         if WorkspaceMember.objects.filter(workspace=workspace, user__email__iexact=email).exists():
@@ -119,7 +128,8 @@ class WorkspaceInvitationAcceptView(APIView):
             request.user,
             Notification.NotificationType.INVITE,
             f"Добро пожаловать в «{workspace.name}»",
-            link="/settings",
+            link=f"/settings?workspace={workspace.id}",
+            workspace=workspace,
         )
         return Response(
             {

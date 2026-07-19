@@ -9,14 +9,35 @@ from projects.models import Project, Risk, ScheduleActivity
 from workspaces.models import WorkspaceMember
 
 
-def create_notification(user, notification_type, title, message="", link=""):
+def create_notification(
+    user,
+    notification_type,
+    title,
+    message="",
+    link="",
+    workspace=None,
+):
     Notification.objects.create(
         user=user,
+        workspace=workspace,
         notification_type=notification_type,
         title=title,
         message=message,
         link=link,
     )
+
+
+def project_deep_link(project, *, tab=None, node=None, risk=None, card=None):
+    params = [f"workspace={project.workspace_id}"]
+    if tab:
+        params.append(f"tab={tab}")
+    if node:
+        params.append(f"node={node}")
+    if risk:
+        params.append(f"risk={risk}")
+    if card:
+        params.append(f"card={card}")
+    return f"/projects/{project.id}?{'&'.join(params)}"
 
 
 @receiver(post_save, sender=Risk)
@@ -27,13 +48,15 @@ def notify_high_risk(sender, instance, created, **kwargs):
     members = WorkspaceMember.objects.filter(workspace=project.workspace).select_related(
         "user"
     )
+    link = project_deep_link(project, tab="risks", risk=instance.id)
     for membership in members:
         create_notification(
             membership.user,
             Notification.NotificationType.RISK,
             f"Высокий риск: {instance.title}",
             f"Проект «{project.name}» — оценка {instance.score}",
-            f"/projects/{project.id}",
+            link,
+            workspace=project.workspace,
         )
 
 
@@ -56,41 +79,48 @@ def _check_milestone_reminders(workspace):
     members = WorkspaceMember.objects.filter(workspace=workspace).select_related("user")
     for activity in activities:
         project = activity.wbs_node.project
+        link = project_deep_link(
+            project,
+            tab="wbs",
+            node=activity.wbs_node_id,
+        )
         for membership in members:
             create_notification(
                 membership.user,
                 Notification.NotificationType.MILESTONE,
                 f"Веха: {activity.wbs_node.title}",
                 f"Проект «{project.name}» — {activity.start_date}",
-                f"/projects/{project.id}",
+                link,
+                workspace=workspace,
             )
 
 
 def check_birthday_reminders(user):
     from birthdays.models import Contact
 
-    workspace_ids = WorkspaceMember.objects.filter(user=user).values_list(
-        "workspace_id", flat=True
-    )
+    memberships = WorkspaceMember.objects.filter(user=user).select_related("workspace")
     today = date.today()
-    for contact in Contact.objects.filter(workspace_id__in=workspace_ids).select_related(
-        "birthday"
-    ):
-        days = days_until_birthday(contact.birthday.birth_date, today)
-        if days > 7:
-            continue
-        exists = Notification.objects.filter(
-            user=user,
-            notification_type=Notification.NotificationType.BIRTHDAY,
-            title__contains=contact.name,
-            created_at__date=today,
-        ).exists()
-        if exists:
-            continue
-        create_notification(
-            user,
-            Notification.NotificationType.BIRTHDAY,
-            f"ДР: {contact.name}",
-            f"Через {days} дн.",
-            "/calendar",
-        )
+    for membership in memberships:
+        for contact in Contact.objects.filter(
+            workspace=membership.workspace
+        ).select_related("birthday"):
+            days = days_until_birthday(contact.birthday.birth_date, today)
+            if days > 7:
+                continue
+            exists = Notification.objects.filter(
+                user=user,
+                workspace=membership.workspace,
+                notification_type=Notification.NotificationType.BIRTHDAY,
+                title__contains=contact.name,
+                created_at__date=today,
+            ).exists()
+            if exists:
+                continue
+            create_notification(
+                user,
+                Notification.NotificationType.BIRTHDAY,
+                f"ДР: {contact.name}",
+                f"Через {days} дн.",
+                f"/calendar?workspace={membership.workspace_id}",
+                workspace=membership.workspace,
+            )

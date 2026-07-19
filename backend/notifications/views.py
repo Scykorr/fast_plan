@@ -10,9 +10,13 @@ from notifications.serializers import NotificationSerializer
 class NotificationListView(APIView):
     def get(self, request):
         from notifications.signals import check_birthday_reminders
+        from workspaces.services import get_request_workspace
 
         check_birthday_reminders(request.user)
         notifications = Notification.objects.filter(user=request.user)
+        workspace = get_request_workspace(request)
+        if workspace is not None:
+            notifications = notifications.filter(workspace=workspace)
         unread = request.query_params.get("unread")
         if unread == "true":
             notifications = notifications.filter(is_read=False)

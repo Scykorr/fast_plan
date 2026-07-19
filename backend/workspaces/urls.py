@@ -2,6 +2,7 @@ from django.urls import path
 
 from workspaces.views import (
     WorkspaceActivateView,
+    WorkspaceDashboardView,
     WorkspaceInvitationAcceptView,
     WorkspaceInvitationListCreateView,
     WorkspaceListView,
@@ -15,6 +16,11 @@ urlpatterns = [
         "workspaces/<int:workspace_id>/activate/",
         WorkspaceActivateView.as_view(),
         name="workspace-activate",
+    ),
+    path(
+        "workspace/dashboard/",
+        WorkspaceDashboardView.as_view(),
+        name="workspace-dashboard",
     ),
     path("workspace/members/", WorkspaceMemberListView.as_view(), name="workspace-members"),
     path(

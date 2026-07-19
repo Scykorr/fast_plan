@@ -157,3 +157,37 @@ def test_create_column(authenticated_client, board):
     )
     assert response.status_code == status.HTTP_201_CREATED
     assert Column.objects.filter(board=board, title="На проверке").exists()
+
+
+@pytest.mark.django_db
+def test_board_cards_include_wbs_metadata(authenticated_client, board, column, workspace, user):
+    from projects.models import Project, WBSNode
+    from tracking.models import IssueStatus
+
+    project = Project.objects.create(
+        workspace=workspace, name="Linked", manager=user
+    )
+    root = project.wbs_nodes.filter(parent__isnull=True).first()
+    status_obj = IssueStatus.objects.create(
+        workspace=workspace, name="In Progress", position=0
+    )
+    node = WBSNode.objects.create(
+        project=project,
+        parent=root,
+        title="WP",
+        code="1.1",
+        node_type=WBSNode.NodeType.WORK_PACKAGE,
+        position=0,
+        assignee=user,
+        workflow_status=status_obj,
+    )
+    CardFactory(column=column, title="Synced", position=0, wbs_node=node)
+
+    response = authenticated_client.get(f"/api/boards/{board.id}/")
+    assert response.status_code == status.HTTP_200_OK
+    cards = response.data["columns"][0]["cards"]
+    synced = next(card for card in cards if card["title"] == "Synced")
+    assert synced["wbs_node_id"] == node.id
+    assert synced["assignee_id"] == user.id
+    assert synced["workflow_status_id"] == status_obj.id
+    assert synced["workflow_status_name"] == "In Progress"

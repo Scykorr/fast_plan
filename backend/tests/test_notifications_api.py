@@ -13,9 +13,10 @@ def project(workspace, user):
 
 
 @pytest.mark.django_db
-def test_list_notifications(authenticated_client, user):
+def test_list_notifications(authenticated_client, user, workspace):
     Notification.objects.create(
         user=user,
+        workspace=workspace,
         notification_type="deadline",
         title="Test",
         message="Hello",
