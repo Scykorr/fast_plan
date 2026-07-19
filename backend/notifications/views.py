@@ -5,14 +5,11 @@ from rest_framework.views import APIView
 
 from notifications.models import Notification
 from notifications.serializers import NotificationSerializer
+from workspaces.services import get_request_workspace
 
 
 class NotificationListView(APIView):
     def get(self, request):
-        from notifications.signals import check_birthday_reminders
-        from workspaces.services import get_request_workspace
-
-        check_birthday_reminders(request.user)
         notifications = Notification.objects.filter(user=request.user)
         workspace = get_request_workspace(request)
         if workspace is not None:

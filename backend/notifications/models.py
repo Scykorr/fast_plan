@@ -1,5 +1,7 @@
-from django.conf import settings
 from django.db import models
+from django.db.models import Q
+
+from django.conf import settings
 
 
 class Notification(models.Model):
@@ -29,11 +31,19 @@ class Notification(models.Model):
     title = models.CharField(max_length=255)
     message = models.TextField(blank=True)
     link = models.CharField(max_length=500, blank=True)
+    dedupe_key = models.CharField(max_length=255, blank=True, default="")
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "dedupe_key"],
+                condition=~Q(dedupe_key=""),
+                name="uniq_notification_user_dedupe_key",
+            )
+        ]
 
     def __str__(self):
         return self.title

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from notifications.models import Notification
-from notifications.signals import create_notification
+from notifications.services import create_notification
 from workspaces.dashboard import build_workspace_dashboard
 from workspaces.invitation_services import accept_invitation, create_workspace_invitation
 from workspaces.mixins import IsWorkspaceOwner, WorkspaceMixin
@@ -125,11 +125,12 @@ class WorkspaceInvitationAcceptView(APIView):
             raise ValidationError(str(exc))
         membership = get_membership(workspace, request.user)
         create_notification(
-            request.user,
-            Notification.NotificationType.INVITE,
-            f"Добро пожаловать в «{workspace.name}»",
+            user=request.user,
+            notification_type=Notification.NotificationType.INVITE,
+            title=f"Добро пожаловать в «{workspace.name}»",
             link=f"/settings?workspace={workspace.id}",
             workspace=workspace,
+            dedupe_key=f"invite-accept:{workspace.id}:{request.user.id}",
         )
         return Response(
             {

@@ -29,6 +29,9 @@
 - Клиентские фильтры WBS/Kanban по исполнителю и статусу с записью в URL
 - Формы Finance (`TransactionForm` с типом/датой/категорией/проектом) и invite в Settings
 - Метаданные WBS на Kanban-карточках (assignee/status/wbs_node_id)
+- CI coverage для `projects`, `finance`, `tracking`, `notifications`
+- Фоновые напоминания: `manage.py send_reminders` + Docker `scheduler`
+- `Notification.dedupe_key` для идемпотентных birthday/milestone/deadline alerts
 
 ### Changed
 
@@ -37,6 +40,8 @@
 - Единый `WorkspaceMixin` и permission-классы в `workspaces/`
 - После accept invitation активный workspace переключается автоматически
 - GET charter/dashboard/tracking-metadata без лишних side-effect записей для viewer
+- JWT access/refresh в HttpOnly cookies + CSRF на mutating API; токены убраны из `localStorage`
+- Production: fail-closed `SECRET_KEY`, HSTS/secure cookies, секреты только через `.env`
 
 ### Planned
 

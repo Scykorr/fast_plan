@@ -13,17 +13,7 @@ _Выполнено (2026-07-19): командный дашборд, формы 
 
 ## P2 — техника и эксплуатация
 
-4. **Расширить coverage в CI**  
-   Сейчас cov только accounts/workspaces/kanban/birthdays; добавить projects, finance, tracking, notifications.
-
-5. **Production hardening**  
-   Падать при insecure `SECRET_KEY` если `DEBUG=false`; HSTS/secure cookies; не хардкодить секреты в compose.
-
-6. **JWT не в `localStorage`**  
-    Предпочтительно httpOnly cookie (или короткий access + аккуратный refresh).
-
-7. **Фоновые напоминания**  
-    Birthday/deadline notifications не должны зависеть только от открытия списка — Celery/cron + management command.
+_Выполнено (2026-07-19): CI coverage, production hardening, HttpOnly JWT cookies + CSRF, фоновые reminders._
 
 ## P3 — следующие фичи (PM)
 
