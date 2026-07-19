@@ -7,7 +7,11 @@ from rest_framework.views import APIView
 from notifications.models import Notification
 from notifications.services import create_notification
 from workspaces.dashboard import build_workspace_dashboard
-from workspaces.invitation_services import accept_invitation, create_workspace_invitation
+from workspaces.invitation_services import (
+    accept_invitation,
+    create_workspace_invitation,
+    resend_workspace_invitation,
+)
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, IsWorkspaceOwner, WorkspaceMixin
 from workspaces.models import MemberCapacity, WorkspaceInvitation, WorkspaceMember
 from workspaces.search import build_capacity_report, list_my_tasks, search_workspace
@@ -157,6 +161,7 @@ class WorkspaceMemberListView(WorkspaceMixin, APIView):
                 "id": member.id,
                 "user_id": member.user_id,
                 "email": member.user.email,
+                "username": member.user.username,
                 "role": member.role,
                 "joined_at": member.joined_at,
             }
@@ -218,6 +223,32 @@ class WorkspaceInvitationAcceptView(APIView):
                 "role": membership.role if membership else None,
             }
         )
+
+
+class WorkspaceInvitationDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceOwner]
+
+    def get_pending(self, invitation_id):
+        workspace = self.get_workspace()
+        self.require_owner(workspace, self.request.user)
+        return get_object_or_404(
+            WorkspaceInvitation.objects.filter(
+                workspace=workspace,
+                accepted_at__isnull=True,
+            ),
+            pk=invitation_id,
+        )
+
+    def delete(self, request, invitation_id):
+        invitation = self.get_pending(invitation_id)
+        invitation.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def post(self, request, invitation_id):
+        """Resend invitation email (also used via .../resend/ route)."""
+        invitation = self.get_pending(invitation_id)
+        updated = resend_workspace_invitation(invitation)
+        return Response(WorkspaceInvitationSerializer(updated).data)
 
 
 class WorkspaceMemberDetailView(WorkspaceMixin, APIView):

@@ -5,6 +5,7 @@ from workspaces.views import (
     WorkspaceCapacityView,
     WorkspaceDashboardView,
     WorkspaceInvitationAcceptView,
+    WorkspaceInvitationDetailView,
     WorkspaceInvitationListCreateView,
     WorkspaceListView,
     WorkspaceMemberDetailView,
@@ -50,6 +51,16 @@ urlpatterns = [
         "workspace/invitations/",
         WorkspaceInvitationListCreateView.as_view(),
         name="workspace-invitations",
+    ),
+    path(
+        "workspace/invitations/<int:invitation_id>/resend/",
+        WorkspaceInvitationDetailView.as_view(),
+        name="workspace-invitation-resend",
+    ),
+    path(
+        "workspace/invitations/<int:invitation_id>/",
+        WorkspaceInvitationDetailView.as_view(),
+        name="workspace-invitation-detail",
     ),
     path(
         "workspace/invitations/<str:token>/accept/",

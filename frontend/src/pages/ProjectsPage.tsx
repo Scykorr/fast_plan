@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { parseApiError } from "../api/errors";
 import type { Project } from "../api/projects";
@@ -14,11 +14,20 @@ const statusLabels: Record<string, string> = {
   cancelled: "Отменён",
 };
 
+const inputClass =
+  "w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
+
 export function ProjectsPage() {
   const projectsApi = useProjectsApi();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState("planning");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const loadProjects = useCallback(async () => {
     if (!projectsApi) {
@@ -40,19 +49,37 @@ export function ProjectsPage() {
     void loadProjects();
   }, [loadProjects]);
 
-  const handleCreate = async () => {
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setStatus("planning");
+    setFormError("");
+    setShowForm(false);
+  };
+
+  const handleCreate = async (event: FormEvent) => {
+    event.preventDefault();
     if (!projectsApi) {
       return;
     }
-    const name = window.prompt("Название проекта");
-    if (!name?.trim()) {
+    if (!name.trim()) {
+      setFormError("Укажите название проекта");
       return;
     }
+    setSaving(true);
+    setFormError("");
     try {
-      await projectsApi.createProject({ name: name.trim(), status: "planning" });
+      await projectsApi.createProject({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        status,
+      });
+      resetForm();
       await loadProjects();
     } catch (err) {
-      setError(parseApiError(err, "Не удалось создать проект"));
+      setFormError(parseApiError(err, "Не удалось создать проект"));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -67,14 +94,85 @@ export function ProjectsPage() {
         </div>
         <button
           type="button"
-          onClick={() => void handleCreate()}
+          onClick={() => setShowForm((value) => !value)}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
         >
-          + Новый проект
+          {showForm ? "Скрыть" : "+ Новый проект"}
         </button>
       </div>
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+
+      {showForm && (
+        <form
+          onSubmit={handleCreate}
+          noValidate
+          className="max-w-lg space-y-3 rounded-xl border border-dashed border-border bg-surface p-4"
+        >
+          <div>
+            <label htmlFor="project-name" className="mb-1 block text-sm font-medium">
+              Название
+            </label>
+            <input
+              id="project-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClass}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label htmlFor="project-description" className="mb-1 block text-sm font-medium">
+              Описание
+            </label>
+            <textarea
+              id="project-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="project-status" className="mb-1 block text-sm font-medium">
+              Статус
+            </label>
+            <select
+              id="project-status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className={inputClass}
+            >
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {formError && (
+            <p className="text-sm text-primary" role="alert">
+              {formError}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+            >
+              {saving ? "Создание..." : "Создать"}
+            </button>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-muted hover:bg-cream"
+            >
+              Отмена
+            </button>
+          </div>
+        </form>
+      )}
 
       {loading ? (
         <p className="text-text-muted">Загрузка...</p>

@@ -11,6 +11,8 @@ class Notification(models.Model):
         RISK = "risk", "Risk"
         DEADLINE = "deadline", "Deadline"
         INVITE = "invite", "Invite"
+        COMMENT = "comment", "Comment"
+        MENTION = "mention", "Mention"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

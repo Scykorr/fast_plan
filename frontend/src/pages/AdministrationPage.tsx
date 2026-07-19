@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { parseApiError } from "../api/errors";
 import type { CustomField, IssueStatus, Tracker, TrackingMetadata } from "../api/tracking";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { useConfirm } from "../hooks/useConfirm";
 import { useTrackingApi } from "../hooks/useTrackingApi";
 
 import type { CustomFieldFormat } from "../components/tracking/fieldFormats";
@@ -18,6 +19,7 @@ const checkboxLabelClass = "flex items-center gap-2 text-sm text-text";
 
 export function AdministrationPage() {
   const trackingApi = useTrackingApi();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [tab, setTab] = useState<Tab>("trackers");
   const [metadata, setMetadata] = useState<TrackingMetadata | null>(null);
   const [error, setError] = useState("");
@@ -150,7 +152,7 @@ export function AdministrationPage() {
             }
           }}
           onDelete={async (id) => {
-            if (!window.confirm("Удалить трекер?")) {
+            if (!(await confirm("Удалить трекер?"))) {
               return;
             }
             try {
@@ -174,7 +176,7 @@ export function AdministrationPage() {
             }
           }}
           onDelete={async (id) => {
-            if (!window.confirm("Удалить статус?")) {
+            if (!(await confirm("Удалить статус?"))) {
               return;
             }
             try {
@@ -203,7 +205,7 @@ export function AdministrationPage() {
             }
           }}
           onDelete={async (id) => {
-            if (!window.confirm("Удалить кастомное поле?")) {
+            if (!(await confirm("Удалить кастомное поле?"))) {
               return;
             }
             try {
@@ -215,6 +217,7 @@ export function AdministrationPage() {
           }}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

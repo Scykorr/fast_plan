@@ -13,7 +13,9 @@ def test_list_workspace_members(authenticated_client, user, workspace):
 
 
 @pytest.mark.django_db
-def test_create_invitation(authenticated_client, user, workspace):
+def test_create_invitation(authenticated_client, user, workspace, settings, mailoutbox):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    settings.FRONTEND_BASE_URL = "http://frontend.test"
     response = authenticated_client.post(
         "/api/workspace/invitations/",
         {"email": "guest@example.com", "role": "editor"},
@@ -21,6 +23,18 @@ def test_create_invitation(authenticated_client, user, workspace):
     )
     assert response.status_code == status.HTTP_201_CREATED
     assert "token" in response.data
+    assert len(mailoutbox) == 1
+    assert "invite/" in mailoutbox[0].body
+
+    # Re-invite upserts instead of IntegrityError.
+    again = authenticated_client.post(
+        "/api/workspace/invitations/",
+        {"email": "guest@example.com", "role": "viewer"},
+        format="json",
+    )
+    assert again.status_code == status.HTTP_201_CREATED
+    assert again.data["role"] == "viewer"
+    assert len(mailoutbox) == 2
 
 
 @pytest.mark.django_db

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from kanban.models import Card
+from notifications.services import notify_new_comment
 from projects.models import WBSNode, WorkItemComment
 from projects.serializers_comments import (
     WorkItemCommentSerializer,
@@ -38,6 +39,7 @@ class WBSCommentListCreateView(WorkspaceMixin, APIView):
             kind=serializer.validated_data["kind"],
             body=serializer.validated_data["body"].strip(),
         )
+        notify_new_comment(comment)
         return Response(
             WorkItemCommentSerializer(comment).data,
             status=status.HTTP_201_CREATED,
@@ -69,6 +71,7 @@ class CardCommentListCreateView(WorkspaceMixin, APIView):
             kind=serializer.validated_data["kind"],
             body=serializer.validated_data["body"].strip(),
         )
+        notify_new_comment(comment)
         return Response(
             WorkItemCommentSerializer(comment).data,
             status=status.HTTP_201_CREATED,

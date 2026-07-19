@@ -7,7 +7,7 @@ from birthdays.models import Birthday, Contact
 from kanban.models import Card
 from notifications.models import Notification
 from notifications.services import run_all_reminders
-from projects.models import Project, ScheduleActivity, WBSNode
+from projects.models import ScheduleActivity, WBSNode
 from tests.factories import ProjectFactory
 
 
@@ -79,15 +79,33 @@ def test_send_reminders_is_idempotent(workspace, user):
 
 
 @pytest.mark.django_db
-def test_send_reminders_command(workspace, user, capsys):
-    contact = Contact.objects.create(workspace=workspace, name="Cid", relation="друг")
+def test_send_reminders_sends_digest_email(workspace, user, settings, mailoutbox):
+    from django.core.cache import cache
+
+    cache.clear()
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    settings.FRONTEND_BASE_URL = "http://frontend.test"
+    contact = Contact.objects.create(workspace=workspace, name="Eve", relation="друг")
     Birthday.objects.create(
         contact=contact,
         birth_date=date.today().replace(year=1991),
     )
+    stats = run_all_reminders(today=date.today())
+    assert stats["emails"] >= 1
+    assert len(mailoutbox) >= 1
+    assert "ДР: Eve" in mailoutbox[0].body
+
+
+@pytest.mark.django_db
+def test_send_reminders_management_command(workspace, user, capsys):
+    contact = Contact.objects.create(workspace=workspace, name="Cara", relation="друг")
+    Birthday.objects.create(
+        contact=contact,
+        birth_date=date.today().replace(year=1995),
+    )
     call_command("send_reminders")
-    out = capsys.readouterr().out
-    assert "birthdays=" in out
+    captured = capsys.readouterr()
+    assert "birthdays=" in captured.out
     assert Notification.objects.filter(
         notification_type=Notification.NotificationType.BIRTHDAY
     ).exists()

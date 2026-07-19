@@ -1,13 +1,18 @@
+import re
 from datetime import date, timedelta
+from collections import defaultdict
 
 from django.db import IntegrityError
 
 from birthdays.models import Contact
 from birthdays.services import days_until_birthday
 from kanban.models import Card
+from notifications.mail import absolute_frontend_url, send_app_email
 from notifications.models import Notification
 from projects.models import Project, ScheduleActivity
 from workspaces.models import Workspace, WorkspaceMember
+
+MENTION_RE = re.compile(r"@(\w+)")
 
 
 def project_deep_link(project, *, tab=None, node=None, risk=None, card=None):
@@ -57,9 +62,75 @@ def _workspace_members(workspace):
     return WorkspaceMember.objects.filter(workspace=workspace).select_related("user")
 
 
-def send_birthday_reminders(*, today: date | None = None) -> int:
+def notify_new_comment(comment) -> list[Notification]:
+    """Notify the assignee and any @username mentions about a new comment."""
+    workspace = comment.workspace
+    author = comment.author
+    created: list[Notification] = []
+
+    if comment.wbs_node_id:
+        node = comment.wbs_node
+        project = node.project
+        link = project_deep_link(project, tab="wbs", node=node.id)
+        target_title = node.title
+        assignee = node.assignee
+    else:
+        card = comment.card
+        node = card.wbs_node
+        project = card.column.board.project
+        if project:
+            link = project_deep_link(project, tab="kanban", card=card.id)
+        else:
+            link = f"/kanban?workspace={workspace.id}&card={card.id}"
+        target_title = card.title
+        assignee = node.assignee if node else None
+
+    notified_user_ids: set[int] = {author.id}
+
+    if assignee and assignee.id not in notified_user_ids:
+        notification, was_created = create_notification(
+            user=assignee,
+            workspace=workspace,
+            notification_type=Notification.NotificationType.COMMENT,
+            title=f"Новый комментарий: {target_title}",
+            message=comment.body[:200],
+            link=link,
+            dedupe_key=f"comment:{comment.id}:assignee:{assignee.id}",
+        )
+        notified_user_ids.add(assignee.id)
+        if was_created:
+            created.append(notification)
+
+    usernames = set(MENTION_RE.findall(comment.body))
+    if usernames:
+        members = WorkspaceMember.objects.filter(
+            workspace=workspace,
+            user__username__in=usernames,
+        ).select_related("user")
+        for member in members:
+            mentioned = member.user
+            if mentioned.id in notified_user_ids:
+                continue
+            notification, was_created = create_notification(
+                user=mentioned,
+                workspace=workspace,
+                notification_type=Notification.NotificationType.MENTION,
+                title=f"Вас упомянули: {target_title}",
+                message=comment.body[:200],
+                link=link,
+                dedupe_key=f"comment:{comment.id}:mention:{mentioned.id}",
+            )
+            notified_user_ids.add(mentioned.id)
+            if was_created:
+                created.append(notification)
+
+    return created
+
+
+def send_birthday_reminders(*, today: date | None = None) -> tuple[int, list]:
     today = today or date.today()
     created = 0
+    created_items: list[Notification] = []
     for contact in Contact.objects.select_related("birthday", "workspace").all():
         days = days_until_birthday(contact.birthday.birth_date, today)
         if days > 7:
@@ -67,7 +138,7 @@ def send_birthday_reminders(*, today: date | None = None) -> int:
         dedupe = f"birthday:{contact.workspace_id}:{contact.id}:{today.isoformat()}"
         link = f"/calendar?workspace={contact.workspace_id}"
         for membership in _workspace_members(contact.workspace):
-            _, was_created = create_notification(
+            notification, was_created = create_notification(
                 user=membership.user,
                 workspace=contact.workspace,
                 notification_type=Notification.NotificationType.BIRTHDAY,
@@ -78,13 +149,15 @@ def send_birthday_reminders(*, today: date | None = None) -> int:
             )
             if was_created:
                 created += 1
-    return created
+                created_items.append(notification)
+    return created, created_items
 
 
-def send_milestone_reminders(*, today: date | None = None) -> int:
+def send_milestone_reminders(*, today: date | None = None) -> tuple[int, list]:
     today = today or date.today()
     horizon = today + timedelta(days=7)
     created = 0
+    created_items: list[Notification] = []
     activities = ScheduleActivity.objects.filter(
         is_milestone=True,
         start_date__gte=today,
@@ -96,7 +169,7 @@ def send_milestone_reminders(*, today: date | None = None) -> int:
         dedupe = f"milestone:{activity.id}:{activity.start_date.isoformat()}"
         link = project_deep_link(project, tab="wbs", node=activity.wbs_node_id)
         for membership in _workspace_members(workspace):
-            _, was_created = create_notification(
+            notification, was_created = create_notification(
                 user=membership.user,
                 workspace=workspace,
                 notification_type=Notification.NotificationType.MILESTONE,
@@ -107,13 +180,15 @@ def send_milestone_reminders(*, today: date | None = None) -> int:
             )
             if was_created:
                 created += 1
-    return created
+                created_items.append(notification)
+    return created, created_items
 
 
-def send_deadline_reminders(*, today: date | None = None) -> int:
+def send_deadline_reminders(*, today: date | None = None) -> tuple[int, list]:
     today = today or date.today()
     horizon = today + timedelta(days=7)
     created = 0
+    created_items: list[Notification] = []
 
     activities = ScheduleActivity.objects.filter(
         end_date__gte=today,
@@ -126,7 +201,7 @@ def send_deadline_reminders(*, today: date | None = None) -> int:
         dedupe = f"deadline:schedule:{activity.id}:{activity.end_date.isoformat()}"
         link = project_deep_link(project, tab="wbs", node=activity.wbs_node_id)
         for membership in _workspace_members(project.workspace):
-            _, was_created = create_notification(
+            notification, was_created = create_notification(
                 user=membership.user,
                 workspace=project.workspace,
                 notification_type=Notification.NotificationType.DEADLINE,
@@ -137,6 +212,7 @@ def send_deadline_reminders(*, today: date | None = None) -> int:
             )
             if was_created:
                 created += 1
+                created_items.append(notification)
 
     cards = Card.objects.filter(
         due_date__gte=today,
@@ -151,7 +227,7 @@ def send_deadline_reminders(*, today: date | None = None) -> int:
         else:
             link = f"/kanban?workspace={workspace.id}&card={card.id}"
         for membership in _workspace_members(workspace):
-            _, was_created = create_notification(
+            notification, was_created = create_notification(
                 user=membership.user,
                 workspace=workspace,
                 notification_type=Notification.NotificationType.DEADLINE,
@@ -162,6 +238,7 @@ def send_deadline_reminders(*, today: date | None = None) -> int:
             )
             if was_created:
                 created += 1
+                created_items.append(notification)
 
     projects = Project.objects.filter(
         end_date__gte=today,
@@ -171,7 +248,7 @@ def send_deadline_reminders(*, today: date | None = None) -> int:
         dedupe = f"deadline:project:{project.id}:{project.end_date.isoformat()}"
         link = project_deep_link(project, tab="overview")
         for membership in _workspace_members(project.workspace):
-            _, was_created = create_notification(
+            notification, was_created = create_notification(
                 user=membership.user,
                 workspace=project.workspace,
                 notification_type=Notification.NotificationType.DEADLINE,
@@ -182,15 +259,73 @@ def send_deadline_reminders(*, today: date | None = None) -> int:
             )
             if was_created:
                 created += 1
+                created_items.append(notification)
 
-    return created
+    return created, created_items
+
+
+def send_reminder_digest_emails(
+    created_items: list[Notification],
+    *,
+    today: date | None = None,
+) -> int:
+    """Send at most one digest email per user per day for newly created reminders."""
+    from django.core.cache import cache
+
+    today = today or date.today()
+    if not created_items:
+        return 0
+
+    by_user: dict[int, list[Notification]] = defaultdict(list)
+    for notification in created_items:
+        by_user[notification.user_id].append(notification)
+
+    sent = 0
+    for user_id, items in by_user.items():
+        user = items[0].user
+        if not user.email:
+            continue
+        cache_key = f"email-digest:{user_id}:{today.isoformat()}"
+        if cache.get(cache_key):
+            continue
+
+        payload = [
+            {
+                "title": item.title,
+                "message": item.message,
+                "url": absolute_frontend_url(item.link) if item.link else "",
+            }
+            for item in items
+        ]
+        if not payload:
+            continue
+
+        ok = send_app_email(
+            to=user.email,
+            subject=f"Напоминания Fast Plan — {today.isoformat()}",
+            template_base="email/reminder_digest",
+            context={
+                "digest_date": today.isoformat(),
+                "items": payload,
+            },
+        )
+        if ok:
+            cache.set(cache_key, True, timeout=60 * 60 * 36)
+            sent += 1
+    return sent
 
 
 def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
     today = today or date.today()
+    birthdays, birthday_items = send_birthday_reminders(today=today)
+    milestones, milestone_items = send_milestone_reminders(today=today)
+    deadlines, deadline_items = send_deadline_reminders(today=today)
+    created_items = birthday_items + milestone_items + deadline_items
+    emails = send_reminder_digest_emails(created_items, today=today)
     return {
-        "birthdays": send_birthday_reminders(today=today),
-        "milestones": send_milestone_reminders(today=today),
-        "deadlines": send_deadline_reminders(today=today),
+        "birthdays": birthdays,
+        "milestones": milestones,
+        "deadlines": deadlines,
+        "emails": emails,
         "workspaces": Workspace.objects.count(),
     }

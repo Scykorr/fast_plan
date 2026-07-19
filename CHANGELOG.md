@@ -15,6 +15,46 @@
 
 ## [Unreleased]
 
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+
+## [0.6.0] — 2026-07-19
+
+### Added
+
+- Budget vs actual на Overview проекта и Finance (фильтр по проекту) через `getProjectFinance`
+- Управление приглашениями: `DELETE /api/workspace/invitations/<id>/` и `POST .../resend/` + кнопки в Settings
+- Редакторы Risk / Stakeholder / Baseline: PATCH `/api/risks/<id>/`, `/api/stakeholders/<id>/`, PATCH/DELETE `/api/baselines/<id>/` + inline edit-формы (RiskRegister, StakeholderPanel) и выбор/переименование/удаление baseline (BaselineView)
+- Уведомления: пагинация через DRF `PageNumberPagination` и `POST /api/notifications/mark-all-read/`; в `NotificationBell` — кнопки «Показать ещё» и «Прочитать все»
+- Уведомления о комментариях: типы `COMMENT` (assignee WBS-узла/карточки) и `MENTION` (`@username` в тексте комментария); дедупликация, автор не уведомляется
+- `CommentThread`: автокомплит `@username` по участникам workspace
+- `ConfirmDialog` + `useConfirm` — единый a11y-диалог подтверждения вместо `window.confirm` (Admin, Calendar, Finance, ProjectDetail WBS, Kanban колонки и карточки)
+- CI: `--cov-fail-under=80` для backend, `npm run lint` и `npm run typecheck` для frontend, отдельный job проверки синхронизации версий (`scripts/check-version-sync.mjs`)
+
+### Changed
+
+- `NotificationListView` возвращает пагинированный envelope (`results`/`count`/`next`/`previous`) вместо плоского массива
+- `WorkspaceMemberListView` отдаёт `username` участников (нужен для автокомплита упоминаний)
+
+## [0.5.0] — 2026-07-19
+
+### Added
+
+- SMTP email: `EMAIL_*` / `FRONTEND_BASE_URL`, хелпер `notifications/mail.py`, шаблоны invitation / password_reset / reminder_digest
+- Письма приглашений в workspace при create (с upsert повторного invite)
+- Digest-письма напоминаний из `send_reminders` (не чаще 1/user/day)
+- Восстановление пароля: `POST /api/auth/password/forgot|reset/` + страницы `/forgot-password`, `/reset-password`
+- Смена пароля: `POST /api/auth/password/change/` + форма в Settings
+- Inline-формы вместо `window.prompt`: проект, WBS add/rename, риски, стейкхолдеры, baseline, Kanban card/column
+- RACI: явный выбор WBS-узла, стейкхолдера и типа R/A/C/I
+
+### Changed
+
+- Invite create: update-or-create по `(workspace, email)` вместо IntegrityError при повторной отправке
+
+## [0.4.0] — 2026-07-19
+
 ### Added
 
 - PDF и digest статус-отчёта проекта (`/export/?output=pdf` + UI на Overview)
@@ -49,10 +89,6 @@
 - GET charter/dashboard/tracking-metadata без лишних side-effect записей для viewer
 - JWT access/refresh в HttpOnly cookies + CSRF на mutating API; токены убраны из `localStorage`
 - Production: fail-closed `SECRET_KEY`, HSTS/secure cookies, секреты только через `.env`
-
-### Planned
-
-См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
 
 ## [0.3.0] — 2026-07-19
 

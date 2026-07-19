@@ -6,7 +6,9 @@ import { RiskRegister } from "./RiskRegister";
 describe("RiskRegister", () => {
   it("submits risk with probability and impact", async () => {
     const onAdd = vi.fn().mockResolvedValue(undefined);
-    render(<RiskRegister risks={[]} onAdd={onAdd} onDelete={vi.fn()} />);
+    render(
+      <RiskRegister risks={[]} onAdd={onAdd} onUpdate={vi.fn()} onDelete={vi.fn()} />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "+ Риск" }));
     fireEvent.change(screen.getByLabelText("Название"), {
@@ -31,7 +33,9 @@ describe("RiskRegister", () => {
 
   it("blocks empty title", async () => {
     const onAdd = vi.fn().mockResolvedValue(undefined);
-    render(<RiskRegister risks={[]} onAdd={onAdd} onDelete={vi.fn()} />);
+    render(
+      <RiskRegister risks={[]} onAdd={onAdd} onUpdate={vi.fn()} onDelete={vi.fn()} />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "+ Риск" }));
     fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(

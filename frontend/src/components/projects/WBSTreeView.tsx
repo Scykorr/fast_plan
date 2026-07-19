@@ -33,10 +33,15 @@ type ContextMenuState = {
   node: WBSNode;
 } | null;
 
+type PendingForm =
+  | { mode: "add-child" | "add-sibling"; parentId: number }
+  | { mode: "rename"; nodeId: number; initial: string }
+  | null;
+
 type WBSTreeViewProps = {
   nodes: WBSNode[];
-  onAddChild: (parentId: number) => void;
-  onAddSibling?: (parentId: number) => void;
+  onAddChild: (parentId: number, title: string) => void;
+  onAddSibling?: (parentId: number, title: string) => void;
   onDelete: (nodeId: number) => void;
   onRename?: (nodeId: number, title: string) => void;
   onMove?: (nodeId: number, parentId: number, position: number) => void;
@@ -58,6 +63,9 @@ export function WBSTreeView({
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [focusRootId, setFocusRootId] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+  const [pendingForm, setPendingForm] = useState<PendingForm>(null);
+  const [formTitle, setFormTitle] = useState("");
+  const [formError, setFormError] = useState("");
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -218,10 +226,38 @@ export function WBSTreeView({
   );
 
   useEffect(() => {
-    const closeMenu = () => setContextMenu(null);
+    const closeMenu = () => {
+      if (!pendingForm) {
+        setContextMenu(null);
+      }
+    };
     window.addEventListener("click", closeMenu);
     return () => window.removeEventListener("click", closeMenu);
-  }, []);
+  }, [pendingForm]);
+
+  const submitPendingForm = () => {
+    if (!pendingForm) {
+      return;
+    }
+    const title = formTitle.trim();
+    if (!title) {
+      setFormError("Укажите название");
+      return;
+    }
+    if (pendingForm.mode === "rename") {
+      if (title !== pendingForm.initial) {
+        onRename?.(pendingForm.nodeId, title);
+      }
+    } else if (pendingForm.mode === "add-child") {
+      onAddChild(pendingForm.parentId, title);
+    } else if (pendingForm.mode === "add-sibling") {
+      onAddSibling?.(pendingForm.parentId, title);
+    }
+    setPendingForm(null);
+    setFormTitle("");
+    setFormError("");
+    setContextMenu(null);
+  };
 
   if (nodes.length === 0) {
     return <p className="text-sm text-text-muted">WBS пуст</p>;
@@ -316,60 +352,125 @@ export function WBSTreeView({
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(event) => event.stopPropagation()}
         >
-          <button
-            type="button"
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
-            onClick={() => onAddChild(contextMenu.node.id)}
-          >
-            + Дочерний узел
-          </button>
-          {onRename && (
-            <button
-              type="button"
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
-              onClick={() => {
-                const title = window.prompt("Название узла", contextMenu.node.title);
-                if (title?.trim() && title.trim() !== contextMenu.node.title) {
-                  onRename(contextMenu.node.id, title.trim());
-                }
-              }}
-            >
-              Переименовать
-            </button>
-          )}
-          {contextMenu.node.parent_id && onAddSibling && (
-            <button
-              type="button"
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
-              onClick={() => onAddSibling(contextMenu.node.parent_id!)}
-            >
-              + Соседний узел
-            </button>
-          )}
-          {contextMenu.node.children.length > 0 && (
-            <button
-              type="button"
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
-              onClick={() => toggleCollapse(contextMenu.node.id)}
-            >
-              {collapsed.has(contextMenu.node.id) ? "Развернуть" : "Свернуть"}
-            </button>
-          )}
-          <button
-            type="button"
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
-            onClick={() => setFocusRootId(contextMenu.node.id)}
-          >
-            Фокус на ветке
-          </button>
-          {contextMenu.node.parent_id && (
-            <button
-              type="button"
-              className="block w-full px-3 py-2 text-left text-sm text-primary hover:bg-cream"
-              onClick={() => onDelete(contextMenu.node.id)}
-            >
-              Удалить
-            </button>
+          {pendingForm ? (
+            <div className="space-y-2 px-3 py-2">
+              <label className="block text-xs font-medium text-text-muted">
+                {pendingForm.mode === "rename" ? "Новое название" : "Название узла"}
+              </label>
+              <input
+                value={formTitle}
+                onChange={(event) => setFormTitle(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    submitPendingForm();
+                  }
+                  if (event.key === "Escape") {
+                    setPendingForm(null);
+                    setFormError("");
+                  }
+                }}
+                className="w-52 rounded-lg border border-border bg-cream px-2 py-1.5 text-sm outline-none focus:border-primary"
+                autoFocus
+                aria-label="Название узла WBS"
+              />
+              {formError && (
+                <p className="text-xs text-primary" role="alert">
+                  {formError}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded bg-primary px-2 py-1 text-xs font-semibold text-white"
+                  onClick={submitPendingForm}
+                >
+                  Сохранить
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-xs text-text-muted"
+                  onClick={() => {
+                    setPendingForm(null);
+                    setFormError("");
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
+                onClick={() => {
+                  setPendingForm({ mode: "add-child", parentId: contextMenu.node.id });
+                  setFormTitle("");
+                  setFormError("");
+                }}
+              >
+                + Дочерний узел
+              </button>
+              {onRename && (
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
+                  onClick={() => {
+                    setPendingForm({
+                      mode: "rename",
+                      nodeId: contextMenu.node.id,
+                      initial: contextMenu.node.title,
+                    });
+                    setFormTitle(contextMenu.node.title);
+                    setFormError("");
+                  }}
+                >
+                  Переименовать
+                </button>
+              )}
+              {contextMenu.node.parent_id && onAddSibling && (
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
+                  onClick={() => {
+                    setPendingForm({
+                      mode: "add-sibling",
+                      parentId: contextMenu.node.parent_id!,
+                    });
+                    setFormTitle("");
+                    setFormError("");
+                  }}
+                >
+                  + Соседний узел
+                </button>
+              )}
+              {contextMenu.node.children.length > 0 && (
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
+                  onClick={() => toggleCollapse(contextMenu.node.id)}
+                >
+                  {collapsed.has(contextMenu.node.id) ? "Развернуть" : "Свернуть"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
+                onClick={() => setFocusRootId(contextMenu.node.id)}
+              >
+                Фокус на ветке
+              </button>
+              {contextMenu.node.parent_id && (
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-sm text-primary hover:bg-cream"
+                  onClick={() => onDelete(contextMenu.node.id)}
+                >
+                  Удалить
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

@@ -7,10 +7,12 @@ import { WorkspaceCalendar } from "../components/calendar/WorkspaceCalendar";
 import { ContactForm } from "../components/calendar/ContactForm";
 import { useAuth } from "../context/AuthContext";
 import { useCalendarApi } from "../hooks/useCalendarApi";
+import { useConfirm } from "../hooks/useConfirm";
 
 export function CalendarPage() {
   const { isAuthenticated } = useAuth();
   const calendarApi = useCalendarApi();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -56,7 +58,7 @@ export function CalendarPage() {
   };
 
   const handleDeleteContact = async (contactId: number) => {
-    if (!calendarApi || !window.confirm("Удалить контакт?")) {
+    if (!calendarApi || !(await confirm("Удалить контакт?"))) {
       return;
     }
     try {
@@ -158,6 +160,7 @@ export function CalendarPage() {
           </ul>
         )}
       </section>
+      {confirmDialog}
     </div>
   );
 }

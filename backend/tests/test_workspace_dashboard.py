@@ -129,6 +129,6 @@ def test_notifications_scoped_by_workspace(authenticated_client, workspace, user
     )
     response = authenticated_client.get("/api/notifications/")
     assert response.status_code == status.HTTP_200_OK
-    titles = [item["title"] for item in response.data]
+    titles = [item["title"] for item in response.data["results"]]
     assert "Mine" in titles
     assert "Other" not in titles

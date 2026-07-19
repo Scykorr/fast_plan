@@ -55,6 +55,7 @@ const stakeholders: Stakeholder[] = [
     influence: 4,
     contact_email: "",
     notes: "",
+    created_at: "2026-01-01T00:00:00Z",
   },
 ];
 
@@ -67,6 +68,7 @@ describe("StakeholderPanel", () => {
         raci={[]}
         wbs={wbs}
         onAddStakeholder={onAddStakeholder}
+        onUpdateStakeholder={vi.fn()}
         onDeleteStakeholder={vi.fn()}
         onAddRACI={vi.fn()}
         onDeleteRACI={vi.fn()}
@@ -95,6 +97,7 @@ describe("StakeholderPanel", () => {
         raci={[]}
         wbs={wbs}
         onAddStakeholder={vi.fn()}
+        onUpdateStakeholder={vi.fn()}
         onDeleteStakeholder={vi.fn()}
         onAddRACI={onAddRACI}
         onDeleteRACI={vi.fn()}

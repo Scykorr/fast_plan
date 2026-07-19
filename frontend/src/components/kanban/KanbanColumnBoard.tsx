@@ -5,7 +5,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import type { KanbanColumn } from "../../api/kanban";
 import { KanbanCardItem } from "./KanbanCardItem";
@@ -13,9 +13,9 @@ import { KanbanCardItem } from "./KanbanCardItem";
 type KanbanColumnBoardProps = {
   column: KanbanColumn;
   selectedCardId?: number | null;
-  onAddCard: (columnId: number) => void;
+  onAddCard: (columnId: number, title: string) => Promise<void> | void;
   onDeleteCard: (cardId: number) => void;
-  onRenameColumn: (columnId: number) => void;
+  onRenameColumn: (columnId: number, title: string) => Promise<void> | void;
   onDeleteColumn: (columnId: number) => void;
   onSelectCard?: (cardId: number) => void;
 };
@@ -30,7 +30,17 @@ export function KanbanColumnBoard({
   onSelectCard,
 }: KanbanColumnBoardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [addingCard, setAddingCard] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [cardTitle, setCardTitle] = useState("");
+  const [columnTitle, setColumnTitle] = useState(column.title);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setColumnTitle(column.title);
+  }, [column.title]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -69,6 +79,48 @@ export function KanbanColumnBoard({
     transition,
   };
 
+  const submitCard = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!cardTitle.trim()) {
+      setError("Укажите название карточки");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await onAddCard(column.id, cardTitle.trim());
+      setCardTitle("");
+      setAddingCard(false);
+    } catch {
+      setError("Не удалось создать карточку");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitRename = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!columnTitle.trim()) {
+      setError("Укажите название колонки");
+      return;
+    }
+    if (columnTitle.trim() === column.title) {
+      setRenaming(false);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await onRenameColumn(column.id, columnTitle.trim());
+      setRenaming(false);
+      setMenuOpen(false);
+    } catch {
+      setError("Не удалось переименовать колонку");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -88,7 +140,26 @@ export function KanbanColumnBoard({
         >
           ⠿
         </button>
-        <h3 className="flex-1 text-sm font-semibold text-text">{column.title}</h3>
+        {renaming ? (
+          <form onSubmit={submitRename} className="flex flex-1 items-center gap-1" noValidate>
+            <input
+              value={columnTitle}
+              onChange={(e) => setColumnTitle(e.target.value)}
+              className="w-full rounded border border-border bg-surface px-2 py-1 text-sm"
+              autoFocus
+              aria-label="Название колонки"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded bg-primary px-2 py-1 text-xs text-white"
+            >
+              OK
+            </button>
+          </form>
+        ) : (
+          <h3 className="flex-1 text-sm font-semibold text-text">{column.title}</h3>
+        )}
         <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-text-muted">
           {column.cards.length}
         </span>
@@ -111,8 +182,9 @@ export function KanbanColumnBoard({
                 className="block w-full px-3 py-2 text-left text-sm hover:bg-cream"
                 onClick={(event) => {
                   event.stopPropagation();
+                  setRenaming(true);
+                  setColumnTitle(column.title);
                   setMenuOpen(false);
-                  onRenameColumn(column.id);
                 }}
               >
                 Переименовать
@@ -153,13 +225,51 @@ export function KanbanColumnBoard({
         </SortableContext>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onAddCard(column.id)}
-        className="m-3 mt-0 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-text-muted transition-colors hover:border-primary hover:text-primary"
-      >
-        + Добавить карточку
-      </button>
+      {addingCard ? (
+        <form onSubmit={submitCard} className="m-3 mt-0 space-y-2" noValidate>
+          <input
+            value={cardTitle}
+            onChange={(e) => setCardTitle(e.target.value)}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+            placeholder="Название карточки"
+            autoFocus
+            aria-label="Название карточки"
+          />
+          {error && (
+            <p className="text-xs text-primary" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            >
+              Добавить
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddingCard(false);
+                setCardTitle("");
+                setError("");
+              }}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-muted"
+            >
+              Отмена
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAddingCard(true)}
+          className="m-3 mt-0 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-text-muted transition-colors hover:border-primary hover:text-primary"
+        >
+          + Добавить карточку
+        </button>
+      )}
     </div>
   );
 }

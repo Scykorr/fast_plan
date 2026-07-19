@@ -14,6 +14,7 @@ class Command(BaseCommand):
                 f"birthdays={stats['birthdays']} "
                 f"milestones={stats['milestones']} "
                 f"deadlines={stats['deadlines']} "
+                f"emails={stats.get('emails', 0)} "
                 f"(workspaces={stats['workspaces']})"
             )
         )

@@ -11,6 +11,7 @@ export type WorkspaceMember = {
   id: number;
   user_id: number;
   email: string;
+  username: string;
   role: string;
   joined_at: string;
 };
@@ -154,6 +155,17 @@ export function createWorkspaceApi() {
 
     getInvitations: () =>
       request<WorkspaceInvitation[]>("/workspace/invitations/", {}),
+
+    revokeInvitation: (invitationId: number) =>
+      request<void>(`/workspace/invitations/${invitationId}/`, {
+        method: "DELETE",
+      }),
+
+    resendInvitation: (invitationId: number) =>
+      request<WorkspaceInvitation>(
+        `/workspace/invitations/${invitationId}/resend/`,
+        { method: "POST" },
+      ),
 
     acceptInvitation: (tokenValue: string) =>
       request<{ workspace_id: number; name: string; role: string | null }>(

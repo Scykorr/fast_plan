@@ -69,6 +69,11 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-border bg-cream px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
+            <p className="mt-1 text-right text-xs">
+              <Link to="/forgot-password" className="text-primary hover:underline">
+                Забыли пароль?
+              </Link>
+            </p>
           </div>
 
           {error && (

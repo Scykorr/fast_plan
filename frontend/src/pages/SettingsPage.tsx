@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
+import { api } from "../api/client";
 import { parseApiError } from "../api/errors";
 import type { WorkspaceInvitation, WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
@@ -9,7 +10,7 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function SettingsPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { activeWorkspace, workspaces, switchWorkspace, workspaceEpoch } =
     useWorkspace();
   const workspaceApi = useWorkspaceApi();
@@ -18,6 +19,10 @@ export function SettingsPage() {
   const [error, setError] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!workspaceApi) {
@@ -49,6 +54,31 @@ export function SettingsPage() {
     }
   };
 
+  const handleChangePassword = async (event: FormEvent) => {
+    event.preventDefault();
+    setPasswordMessage("");
+    setError("");
+    if (newPassword.length < 8) {
+      setError("Новый пароль должен быть не короче 8 символов.");
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await api.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setPasswordMessage("Пароль изменён. Войдите снова.");
+      await logout();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось сменить пароль"));
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -70,6 +100,49 @@ export function SettingsPage() {
             <dd className="mt-1 font-medium">{user?.username}</dd>
           </div>
         </dl>
+
+        <form onSubmit={handleChangePassword} className="mt-6 space-y-3" noValidate>
+          <h3 className="text-sm font-semibold text-text">Смена пароля</h3>
+          <div>
+            <label htmlFor="current-password" className="mb-1 block text-xs text-text-muted">
+              Текущий пароль
+            </label>
+            <input
+              id="current-password"
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div>
+            <label htmlFor="new-password" className="mb-1 block text-xs text-text-muted">
+              Новый пароль
+            </label>
+            <input
+              id="new-password"
+              type="password"
+              required
+              minLength={8}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          {passwordMessage && (
+            <p className="text-sm text-secondary" role="status">
+              {passwordMessage}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={passwordLoading}
+            className="rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {passwordLoading ? "Сохранение..." : "Сменить пароль"}
+          </button>
+        </form>
       </div>
 
       <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
@@ -156,15 +229,55 @@ export function SettingsPage() {
                       <span className="text-text-muted">
                         {invite.email} · {invite.role}
                       </span>
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-primary hover:underline"
-                        onClick={() => void copyInviteLink(invite.token)}
-                      >
-                        {copiedToken === invite.token
-                          ? "Скопировано"
-                          : "Копировать ссылку"}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-primary hover:underline"
+                          onClick={() => void copyInviteLink(invite.token)}
+                        >
+                          {copiedToken === invite.token
+                            ? "Скопировано"
+                            : "Копировать ссылку"}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-secondary hover:underline"
+                          onClick={async () => {
+                            if (!workspaceApi) {
+                              return;
+                            }
+                            try {
+                              await workspaceApi.resendInvitation(invite.id);
+                              await load();
+                            } catch (err) {
+                              setError(
+                                parseApiError(err, "Не удалось отправить снова"),
+                              );
+                            }
+                          }}
+                        >
+                          Отправить снова
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-text-muted hover:text-primary"
+                          onClick={async () => {
+                            if (!workspaceApi) {
+                              return;
+                            }
+                            try {
+                              await workspaceApi.revokeInvitation(invite.id);
+                              await load();
+                            } catch (err) {
+                              setError(
+                                parseApiError(err, "Не удалось отозвать приглашение"),
+                              );
+                            }
+                          }}
+                        >
+                          Отозвать
+                        </button>
+                      </div>
                     </div>
                     <input
                       readOnly

@@ -9,6 +9,7 @@ import { CalendarPage } from "./pages/CalendarPage";
 import { CapacityPage } from "./pages/CapacityPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { FinancePage } from "./pages/FinancePage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { KanbanPage } from "./pages/KanbanPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -16,6 +17,7 @@ import { MyTasksPage } from "./pages/MyTasksPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 export default function App() {
@@ -37,6 +39,22 @@ export default function App() {
               element={
                 <GuestRoute>
                   <RegisterPage />
+                </GuestRoute>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <GuestRoute>
+                  <ForgotPasswordPage />
+                </GuestRoute>
+              }
+            />
+            <Route
+              path="/reset-password"
+              element={
+                <GuestRoute>
+                  <ResetPasswordPage />
                 </GuestRoute>
               }
             />

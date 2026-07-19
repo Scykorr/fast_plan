@@ -164,3 +164,61 @@ def test_logout_clears_cookies_and_blacklists(api_client, user):
         format="json",
     )
     assert refresh_again.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+def test_password_forgot_sends_email_and_reset_works(api_client, user, settings, mailoutbox):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    settings.FRONTEND_BASE_URL = "http://frontend.test"
+
+    forgot = api_client.post(
+        "/api/auth/password/forgot/",
+        {"email": user.email},
+        format="json",
+    )
+    assert forgot.status_code == status.HTTP_200_OK
+    assert len(mailoutbox) == 1
+    body = mailoutbox[0].body
+    assert "reset-password" in body
+
+    from django.contrib.auth.tokens import PasswordResetTokenGenerator
+    from django.utils.encoding import force_bytes
+    from django.utils.http import urlsafe_base64_encode
+
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = PasswordResetTokenGenerator().make_token(user)
+    reset = api_client.post(
+        "/api/auth/password/reset/",
+        {"uid": uid, "token": token, "new_password": "BrandNewPass99"},
+        format="json",
+    )
+    assert reset.status_code == status.HTTP_200_OK
+    user.refresh_from_db()
+    assert user.check_password("BrandNewPass99")
+
+    # Unknown email still returns 200 (no enumeration).
+    again = api_client.post(
+        "/api/auth/password/forgot/",
+        {"email": "missing@example.com"},
+        format="json",
+    )
+    assert again.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_password_change_requires_current(authenticated_client, user):
+    bad = authenticated_client.post(
+        "/api/auth/password/change/",
+        {"current_password": "wrong", "new_password": "BrandNewPass99"},
+        format="json",
+    )
+    assert bad.status_code == status.HTTP_400_BAD_REQUEST
+
+    ok = authenticated_client.post(
+        "/api/auth/password/change/",
+        {"current_password": "testpass123", "new_password": "BrandNewPass99"},
+        format="json",
+    )
+    assert ok.status_code == status.HTTP_200_OK
+    user.refresh_from_db()
+    assert user.check_password("BrandNewPass99")

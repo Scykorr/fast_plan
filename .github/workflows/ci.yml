@@ -25,7 +25,7 @@ jobs:
         run: pip install -r ../requirements.txt
 
       - name: Run tests
-        run: pytest --cov=accounts --cov=workspaces --cov=kanban --cov=birthdays --cov=projects --cov=finance --cov=tracking --cov=notifications --cov-report=term-missing
+        run: pytest --cov=accounts --cov=workspaces --cov=kanban --cov=birthdays --cov=projects --cov=finance --cov=tracking --cov=notifications --cov-report=term-missing --cov-fail-under=80
 
   frontend:
     runs-on: ubuntu-latest
@@ -44,8 +44,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Run tests
         run: npm test
 
       - name: Build
         run: npm run build
+
+  version-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check VERSION / package.json / version.ts are in sync
+        run: node scripts/check-version-sync.mjs

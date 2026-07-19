@@ -200,12 +200,29 @@ class BaselineListCreateView(WorkspaceMixin, APIView):
 class BaselineDetailView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 
-    def get(self, request, baseline_id):
-        baseline = get_object_or_404(
+    def get_baseline(self, baseline_id):
+        return get_object_or_404(
             ProjectBaseline.objects.filter(project__workspace=self.get_workspace()),
             pk=baseline_id,
         )
+
+    def get(self, request, baseline_id):
+        baseline = self.get_baseline(baseline_id)
         return Response(ProjectBaselineSerializer(baseline).data)
+
+    def patch(self, request, baseline_id):
+        baseline = self.get_baseline(baseline_id)
+        name = str(request.data.get("name", "")).strip()
+        if not name:
+            raise ValidationError({"name": "Name is required."})
+        baseline.name = name
+        baseline.save(update_fields=["name"])
+        return Response(ProjectBaselineSerializer(baseline).data)
+
+    def delete(self, request, baseline_id):
+        baseline = self.get_baseline(baseline_id)
+        baseline.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CriticalPathView(WorkspaceMixin, APIView):

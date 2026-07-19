@@ -333,6 +333,22 @@ export function createProjectsApi() {
         body: JSON.stringify(body),
       }),
 
+    updateRisk: (
+      riskId: number,
+      body: Partial<{
+        title: string;
+        description: string;
+        probability: number;
+        impact: number;
+        status: string;
+        mitigation: string;
+      }>,
+    ) =>
+      request<Risk>(`/risks/${riskId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+
     deleteRisk: (riskId: number) =>
       request<void>(`/risks/${riskId}/`, { method: "DELETE" }),
 
@@ -342,6 +358,22 @@ export function createProjectsApi() {
     createStakeholder: (projectId: number, body: Partial<Stakeholder>) =>
       request<Stakeholder>(`/projects/${projectId}/stakeholders/`, {
         method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    updateStakeholder: (
+      id: number,
+      body: Partial<{
+        name: string;
+        role: string;
+        interest: number;
+        influence: number;
+        contact_email: string;
+        notes: string;
+      }>,
+    ) =>
+      request<Stakeholder>(`/stakeholders/${id}/`, {
+        method: "PATCH",
         body: JSON.stringify(body),
       }),
 
@@ -380,6 +412,15 @@ export function createProjectsApi() {
         method: "POST",
         body: JSON.stringify({ name }),
       }),
+
+    updateBaseline: (baselineId: number, name: string) =>
+      request<ProjectBaseline>(`/baselines/${baselineId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      }),
+
+    deleteBaseline: (baselineId: number) =>
+      request<void>(`/baselines/${baselineId}/`, { method: "DELETE" }),
 
     getCriticalPath: (projectId: number) =>
       request<CriticalPath>(`/projects/${projectId}/critical-path/`, {}),

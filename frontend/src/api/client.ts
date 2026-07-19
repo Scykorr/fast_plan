@@ -229,6 +229,24 @@ export const api = {
       method: "POST",
       body: "{}",
     }),
+
+  forgotPassword: (email: string) =>
+    request<{ detail: string }>("/auth/password/forgot/", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (body: { uid: string; token: string; new_password: string }) =>
+    request<{ detail: string }>("/auth/password/reset/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  changePassword: (body: { current_password: string; new_password: string }) =>
+    request<{ detail: string }>("/auth/password/change/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 export { ApiError, request, requestBlob, WORKSPACE_STORAGE_KEY };

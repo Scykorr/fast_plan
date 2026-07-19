@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
+import type { ProjectFinance } from "../api/finance";
 import type { KanbanBoard } from "../api/kanban";
 import type {
   CriticalPath,
@@ -18,6 +19,8 @@ import type {
 } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { CommentThread } from "../components/comments/CommentThread";
+import type { WorkspaceMember } from "../api/workspace";
+import { ProjectBudgetSummary } from "../components/finance/ProjectBudgetSummary";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
 import {
   collectKanbanAssignees,
@@ -42,9 +45,12 @@ import {
 } from "../components/projects/wbs/filterWbs";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useConfirm } from "../hooks/useConfirm";
+import { useFinanceApi } from "../hooks/useFinanceApi";
 import { useKanbanApi } from "../hooks/useKanbanApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useTrackingApi } from "../hooks/useTrackingApi";
+import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 import type { TrackingMetadata } from "../api/tracking";
 import {
   mergeDeepLinkSearch,
@@ -91,12 +97,16 @@ export function ProjectDetailPage() {
     useWorkspace();
   const id = Number(projectId);
   const projectsApi = useProjectsApi();
+  const financeApi = useFinanceApi();
   const kanbanApi = useKanbanApi();
   const trackingApi = useTrackingApi();
+  const workspaceApi = useWorkspaceApi();
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   const tab: Tab = isTab(deepLink.tab) ? deepLink.tab : "overview";
   const [project, setProject] = useState<Project | null>(null);
   const [dashboard, setDashboard] = useState<ProjectDashboard | null>(null);
+  const [projectFinance, setProjectFinance] = useState<ProjectFinance | null>(null);
   const [statusReport, setStatusReport] = useState<ProjectStatusReport | null>(
     null,
   );
@@ -113,6 +123,7 @@ export function ProjectDetailPage() {
   const [detailMode, setDetailMode] = useState<"project" | "issue">("issue");
   const [nodeComments, setNodeComments] = useState<WorkItemComment[]>([]);
   const [trackingMetadata, setTrackingMetadata] = useState<TrackingMetadata | null>(null);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [workspaceReady, setWorkspaceReady] = useState(false);
@@ -167,6 +178,7 @@ export function ProjectDetailPage() {
         baselinesData,
         cpmData,
         exportData,
+        financeData,
       ] = await Promise.all([
         projectsApi.getProject(id),
         projectsApi.getDashboard(id),
@@ -178,6 +190,7 @@ export function ProjectDetailPage() {
         projectsApi.getBaselines(id),
         projectsApi.getCriticalPath(id),
         projectsApi.exportProject(id),
+        financeApi ? financeApi.getProjectFinance(id) : Promise.resolve(null),
       ]);
       setProject(projectData);
       setDashboard(dashboardData);
@@ -189,12 +202,13 @@ export function ProjectDetailPage() {
       setBaselines(baselinesData);
       setCriticalPath(cpmData);
       setStatusReport(exportData);
+      setProjectFinance(financeData);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить проект"));
     } finally {
       setLoading(false);
     }
-  }, [projectsApi, id]);
+  }, [projectsApi, financeApi, id]);
 
   useEffect(() => {
     if (!workspaceReady) {
@@ -209,6 +223,13 @@ export function ProjectDetailPage() {
     }
     void trackingApi.getMetadata().then(setTrackingMetadata).catch(() => undefined);
   }, [trackingApi]);
+
+  useEffect(() => {
+    if (!workspaceApi) {
+      return;
+    }
+    void workspaceApi.getMembers().then(setMembers).catch(() => undefined);
+  }, [workspaceApi]);
 
   useEffect(() => {
     if (!deepLink.node || wbs.length === 0) {
@@ -384,12 +405,8 @@ export function ProjectDetailPage() {
     setDashboard(dashboardData);
   };
 
-  const handleAddWBS = async (parentId: number) => {
+  const handleAddWBS = async (parentId: number, title: string) => {
     if (!projectsApi) {
-      return;
-    }
-    const title = window.prompt("Название work package");
-    if (!title?.trim()) {
       return;
     }
     try {
@@ -405,7 +422,7 @@ export function ProjectDetailPage() {
   };
 
   const handleDeleteWBS = async (nodeId: number) => {
-    if (!projectsApi || !window.confirm("Удалить узел WBS?")) {
+    if (!projectsApi || !(await confirm("Удалить узел WBS?"))) {
       return;
     }
     try {
@@ -449,62 +466,126 @@ export function ProjectDetailPage() {
     }
   };
 
-  const handleAddRisk = async () => {
+  const handleAddRisk = async (values: {
+    title: string;
+    probability: number;
+    impact: number;
+  }) => {
     if (!projectsApi) {
       return;
     }
-    const title = window.prompt("Название риска");
-    if (!title?.trim()) {
-      return;
-    }
     try {
-      await projectsApi.createRisk(id, { title: title.trim(), probability: 3, impact: 3 });
+      await projectsApi.createRisk(id, values);
       setRisks(await projectsApi.getRisks(id));
       setDashboard(await projectsApi.getDashboard(id));
     } catch (err) {
       setError(parseApiError(err, "Не удалось создать риск"));
+      throw err;
     }
   };
 
-  const handleAddStakeholder = async () => {
+  const handleUpdateRisk = async (
+    riskId: number,
+    values: {
+      title: string;
+      description: string;
+      status: string;
+      mitigation: string;
+      probability: number;
+      impact: number;
+    },
+  ) => {
     if (!projectsApi) {
       return;
     }
-    const name = window.prompt("Имя стейкхолдера");
-    if (!name?.trim()) {
+    try {
+      await projectsApi.updateRisk(riskId, values);
+      setRisks(await projectsApi.getRisks(id));
+      setDashboard(await projectsApi.getDashboard(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось обновить риск"));
+      throw err;
+    }
+  };
+
+  const handleAddStakeholder = async (values: { name: string; role: string }) => {
+    if (!projectsApi) {
       return;
     }
     try {
-      await projectsApi.createStakeholder(id, { name: name.trim(), role: "" });
+      await projectsApi.createStakeholder(id, {
+        name: values.name,
+        role: values.role,
+      });
       setStakeholders(await projectsApi.getStakeholders(id));
     } catch (err) {
       setError(parseApiError(err, "Не удалось добавить стейкхолдера"));
+      throw err;
     }
   };
 
-  const handleAddRACI = async () => {
+  const handleUpdateStakeholder = async (
+    stakeholderId: number,
+    values: {
+      name: string;
+      role: string;
+      interest: number;
+      influence: number;
+      contact_email: string;
+      notes: string;
+    },
+  ) => {
     if (!projectsApi) {
       return;
     }
-    const nodes = flattenWBS(wbs);
-    const node = nodes[1] ?? nodes[0];
-    const stakeholder = stakeholders[0];
-    if (!node || !stakeholder) {
-      return;
+    try {
+      await projectsApi.updateStakeholder(stakeholderId, values);
+      setStakeholders(await projectsApi.getStakeholders(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось обновить стейкхолдера"));
+      throw err;
     }
-    const raciType = window.prompt("RACI (R/A/C/I)", "R");
-    if (!raciType) {
+  };
+
+  const handleUpdateBaseline = async (baselineId: number, name: string) => {
+    if (!projectsApi) {
       return;
     }
     try {
-      await projectsApi.createRACI(id, {
-        wbs_node_id: node.id,
-        stakeholder_id: stakeholder.id,
-        raci_type: raciType.toUpperCase(),
-      });
+      await projectsApi.updateBaseline(baselineId, name);
+      setBaselines(await projectsApi.getBaselines(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось переименовать baseline"));
+      throw err;
+    }
+  };
+
+  const handleDeleteBaseline = async (baselineId: number) => {
+    if (!projectsApi || !(await confirm("Удалить baseline?"))) {
+      return;
+    }
+    try {
+      await projectsApi.deleteBaseline(baselineId);
+      setBaselines(await projectsApi.getBaselines(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось удалить baseline"));
+    }
+  };
+
+  const handleAddRACI = async (values: {
+    wbs_node_id: number;
+    stakeholder_id: number;
+    raci_type: "R" | "A" | "C" | "I";
+  }) => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      await projectsApi.createRACI(id, values);
       setRaci(await projectsApi.getRACI(id));
     } catch (err) {
       setError(parseApiError(err, "Не удалось создать RACI"));
+      throw err;
     }
   };
 
@@ -666,6 +747,13 @@ export function ProjectDetailPage() {
                 </div>
               </div>
 
+              {projectFinance && (
+                <ProjectBudgetSummary
+                  finance={projectFinance}
+                  title="Budget vs actual"
+                />
+              )}
+
               <div className="rounded-xl border border-border bg-surface p-5">
                 <h2 className="mb-4 text-lg font-semibold text-text">Устав проекта</h2>
                 <CharterEditor
@@ -764,8 +852,8 @@ export function ProjectDetailPage() {
           </div>
           <WBSTreeView
             nodes={filteredWbs}
-            onAddChild={(parentId) => void handleAddWBS(parentId)}
-            onAddSibling={(parentId) => void handleAddWBS(parentId)}
+            onAddChild={(parentId, title) => void handleAddWBS(parentId, title)}
+            onAddSibling={(parentId, title) => void handleAddWBS(parentId, title)}
             onDelete={(nodeId) => void handleDeleteWBS(nodeId)}
             onRename={(nodeId, title) => void handleRenameWBS(nodeId, title)}
             onMove={(nodeId, parentId, position) =>
@@ -791,6 +879,7 @@ export function ProjectDetailPage() {
           {detailMode === "issue" && selectedNode && (
             <CommentThread
               comments={nodeComments}
+              members={members}
               onAdd={(body, kind) => handleAddComment(body, kind)}
               onDelete={(commentId) => handleDeleteComment(commentId)}
               canDelete={Boolean(user)}
@@ -879,9 +968,10 @@ export function ProjectDetailPage() {
         <RiskRegister
           risks={risks}
           highlightedRiskId={deepLink.risk}
-          onAdd={() => void handleAddRisk()}
+          onAdd={(values) => handleAddRisk(values)}
+          onUpdate={(riskId, values) => handleUpdateRisk(riskId, values)}
           onDelete={async (riskId) => {
-            if (!projectsApi) {
+            if (!projectsApi || !(await confirm("Удалить риск?"))) {
               return;
             }
             await projectsApi.deleteRisk(riskId);
@@ -895,15 +985,18 @@ export function ProjectDetailPage() {
           stakeholders={stakeholders}
           raci={raci}
           wbs={wbs}
-          onAddStakeholder={() => void handleAddStakeholder()}
+          onAddStakeholder={(values) => handleAddStakeholder(values)}
+          onUpdateStakeholder={(stakeholderId, values) =>
+            handleUpdateStakeholder(stakeholderId, values)
+          }
           onDeleteStakeholder={async (stakeholderId) => {
-            if (!projectsApi) {
+            if (!projectsApi || !(await confirm("Удалить стейкхолдера?"))) {
               return;
             }
             await projectsApi.deleteStakeholder(stakeholderId);
             setStakeholders(await projectsApi.getStakeholders(id));
           }}
-          onAddRACI={() => void handleAddRACI()}
+          onAddRACI={(values) => handleAddRACI(values)}
           onDeleteRACI={async (entryId) => {
             if (!projectsApi) {
               return;
@@ -918,14 +1011,20 @@ export function ProjectDetailPage() {
         <BaselineView
           baselines={baselines}
           schedule={schedule}
-          onCreate={async () => {
+          onCreate={async (name) => {
             if (!projectsApi) {
               return;
             }
-            const name = window.prompt("Название baseline") ?? undefined;
-            await projectsApi.createBaseline(id, name);
-            setBaselines(await projectsApi.getBaselines(id));
+            try {
+              await projectsApi.createBaseline(id, name);
+              setBaselines(await projectsApi.getBaselines(id));
+            } catch (err) {
+              setError(parseApiError(err, "Не удалось создать baseline"));
+              throw err;
+            }
           }}
+          onRename={(baselineId, name) => handleUpdateBaseline(baselineId, name)}
+          onDelete={(baselineId) => handleDeleteBaseline(baselineId)}
         />
       )}
 
@@ -950,6 +1049,7 @@ export function ProjectDetailPage() {
           <CriticalPathView data={criticalPath} />
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

@@ -1,23 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { parseApiError } from "../api/errors";
-import type { Transaction } from "../api/finance";
+import type { ProjectFinance, Transaction } from "../api/finance";
 import type { Project } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { ProjectBudgetSummary } from "../components/finance/ProjectBudgetSummary";
 import {
   TransactionForm,
   type TransactionFormValues,
 } from "../components/finance/TransactionForm";
+import { useWorkspace } from "../context/WorkspaceContext";
+import { useConfirm } from "../hooks/useConfirm";
 import { useFinanceApi } from "../hooks/useFinanceApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
-import { useWorkspace } from "../context/WorkspaceContext";
 
 export function FinancePage() {
   const financeApi = useFinanceApi();
   const projectsApi = useProjectsApi();
   const { workspaceEpoch } = useWorkspace();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [filterProjectId, setFilterProjectId] = useState<number | "">("");
+  const [projectFinance, setProjectFinance] = useState<ProjectFinance | null>(null);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -27,16 +32,23 @@ export function FinancePage() {
       return;
     }
     try {
+      const projectId =
+        filterProjectId === "" ? undefined : Number(filterProjectId);
       const [items, projectItems] = await Promise.all([
-        financeApi.getTransactions(),
+        financeApi.getTransactions(projectId),
         projectsApi.getProjects(),
       ]);
       setTransactions(items);
       setProjects(projectItems);
+      if (projectId) {
+        setProjectFinance(await financeApi.getProjectFinance(projectId));
+      } else {
+        setProjectFinance(null);
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить транзакции"));
     }
-  }, [financeApi, projectsApi]);
+  }, [financeApi, projectsApi, filterProjectId]);
 
   useEffect(() => {
     void load();
@@ -60,7 +72,7 @@ export function FinancePage() {
     if (!financeApi) {
       return;
     }
-    if (!window.confirm(`Удалить «${transaction.title}»?`)) {
+    if (!(await confirm(`Удалить «${transaction.title}»?`))) {
       return;
     }
     try {
@@ -92,6 +104,29 @@ export function FinancePage() {
         </button>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+
+      <div className="max-w-xs">
+        <label htmlFor="finance-project-filter" className="mb-1 block text-sm font-medium">
+          Проект
+        </label>
+        <select
+          id="finance-project-filter"
+          value={filterProjectId}
+          onChange={(e) =>
+            setFilterProjectId(e.target.value ? Number(e.target.value) : "")
+          }
+          className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+        >
+          <option value="">Все проекты</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {projectFinance && <ProjectBudgetSummary finance={projectFinance} />}
 
       {(showForm || editing) && (
         <TransactionForm
@@ -168,6 +203,7 @@ export function FinancePage() {
           ))}
         </ul>
       )}
+      {confirmDialog}
     </div>
   );
 }
