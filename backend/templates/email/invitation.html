@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <body style="font-family: sans-serif; color: #2c1810; line-height: 1.5;">
+    <h2>Приглашение в Fast Plan</h2>
+    <p>
+      Вас пригласили в workspace
+      <strong>«{{ workspace_name }}»</strong>.
+    </p>
+    <p>
+      Роль: <strong>{{ role }}</strong><br />
+      Пригласил: {{ inviter_email }}<br />
+      Ссылка действует до: {{ expires_at }}
+    </p>
+    <p>
+      <a
+        href="{{ invite_url }}"
+        style="
+          display: inline-block;
+          padding: 10px 16px;
+          background: #c45c26;
+          color: #fff;
+          text-decoration: none;
+          border-radius: 8px;
+        "
+        >Принять приглашение</a
+      >
+    </p>
+    <p style="color: #7a6a60; font-size: 13px;">
+      Если кнопка не работает, откройте ссылку:<br />
+      {{ invite_url }}
+    </p>
+  </body>
+</html>

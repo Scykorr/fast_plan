@@ -1,0 +1,8 @@
+Сводка напоминаний Fast Plan за {{ digest_date }}:
+
+{% for item in items %}
+- {{ item.title }}{% if item.message %}: {{ item.message }}{% endif %}
+  {{ item.url }}
+{% endfor %}
+
+Открыть приложение: {{ frontend_base_url }}

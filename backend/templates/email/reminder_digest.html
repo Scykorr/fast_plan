@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <body style="font-family: sans-serif; color: #2c1810; line-height: 1.5;">
+    <h2>Сводка напоминаний</h2>
+    <p>За {{ digest_date }} появились новые уведомления:</p>
+    <ul>
+      {% for item in items %}
+      <li style="margin-bottom: 12px;">
+        <strong>{{ item.title }}</strong>
+        {% if item.message %}<br />{{ item.message }}{% endif %}
+        {% if item.url %}
+        <br />
+        <a href="{{ item.url }}">Открыть</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p>
+      <a href="{{ frontend_base_url }}">Перейти в Fast Plan</a>
+    </p>
+  </body>
+</html>
