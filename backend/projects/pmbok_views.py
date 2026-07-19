@@ -1,23 +1,21 @@
-from django.db.models import Sum
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from workspaces.mixins import IsWorkspaceEditorOrReadOnly
 
 from projects.baseline import create_baseline
-from projects.cpm import compute_critical_path, compute_evm_lite
+from projects.cpm import compute_critical_path
 from projects.models import (
     ProjectBaseline,
     ProjectCharter,
     RACIEntry,
     Risk,
-    ScheduleActivity,
     Stakeholder,
 )
-from projects.serializers import ScheduleActivitySerializer
+from projects.pdf import render_status_report_pdf
+from projects.reports import build_status_report
 from projects.serializers_pmbok import (
     ProjectBaselineSerializer,
     ProjectCharterSerializer,
@@ -223,51 +221,13 @@ class ProjectExportView(WorkspaceMixin, APIView):
 
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
-        activities = list(
-            ScheduleActivity.objects.filter(wbs_node__project=project).select_related(
-                "wbs_node"
+        report = build_status_report(project)
+        fmt = (request.query_params.get("output") or "json").lower()
+        if fmt == "pdf":
+            pdf_bytes = render_status_report_pdf(report)
+            response = HttpResponse(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = (
+                f'attachment; filename="project-{project.id}-status.pdf"'
             )
-        )
-        charter = getattr(project, "charter", None)
-        if charter is None:
-            charter, _ = ProjectCharter.objects.get_or_create(project=project)
-
-        from finance.models import Transaction
-
-        actual_cost = float(
-            Transaction.objects.filter(
-                project=project,
-                transaction_type=Transaction.TransactionType.EXPENSE,
-            ).aggregate(total=Sum("amount"))["total"]
-            or 0
-        )
-
-        return Response(
-            {
-                "project": {
-                    "id": project.id,
-                    "name": project.name,
-                    "status": project.status,
-                    "budget": float(project.budget or 0),
-                    "start_date": project.start_date,
-                    "end_date": project.end_date,
-                },
-                "charter": ProjectCharterSerializer(charter).data,
-                "progress": round(
-                    sum(a.progress for a in activities) / len(activities)
-                )
-                if activities
-                else 0,
-                "evm": compute_evm_lite(project, activities, actual_cost),
-                "critical_path": compute_critical_path(project),
-                "top_risks": RiskSerializer(project.risks.all()[:5], many=True).data,
-                "stakeholders": StakeholderSerializer(
-                    project.stakeholders.all(), many=True
-                ).data,
-                "milestones": ScheduleActivitySerializer(
-                    [a for a in activities if a.is_milestone],
-                    many=True,
-                ).data,
-                "generated_at": timezone.now().isoformat(),
-            }
-        )
+            return response
+        return Response(report)

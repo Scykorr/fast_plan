@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, requestBlob } from "./client";
 
 export type Project = {
   id: number;
@@ -194,6 +194,38 @@ export type ProjectCalendarEvent = {
   };
 };
 
+export type ProjectStatusReport = {
+  project: {
+    id: number;
+    name: string;
+    status: string;
+    budget: number;
+    start_date: string | null;
+    end_date: string | null;
+    description?: string;
+  };
+  charter: ProjectCharter;
+  progress: number;
+  evm: EvmLite;
+  critical_path: CriticalPath;
+  top_risks: Risk[];
+  stakeholders: Stakeholder[];
+  milestones: ScheduleActivity[];
+  generated_at: string;
+};
+
+export type WorkItemComment = {
+  id: number;
+  kind: "comment" | "decision";
+  body: string;
+  author: number;
+  author_name: string;
+  wbs_node_id: number | null;
+  card_id: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProjectPatchBody = {
   name?: string;
   description?: string;
@@ -353,6 +385,36 @@ export function createProjectsApi() {
       request<CriticalPath>(`/projects/${projectId}/critical-path/`, {}),
 
     exportProject: (projectId: number) =>
-      request<Record<string, unknown>>(`/projects/${projectId}/export/`, {}),
+      request<ProjectStatusReport>(`/projects/${projectId}/export/`, {}),
+
+    exportProjectPdf: (projectId: number) =>
+      requestBlob(`/projects/${projectId}/export/?output=pdf`),
+
+    getWbsComments: (wbsId: number) =>
+      request<WorkItemComment[]>(`/wbs/${wbsId}/comments/`, {}),
+
+    createWbsComment: (
+      wbsId: number,
+      body: { body: string; kind?: "comment" | "decision" },
+    ) =>
+      request<WorkItemComment>(`/wbs/${wbsId}/comments/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    getCardComments: (cardId: number) =>
+      request<WorkItemComment[]>(`/cards/${cardId}/comments/`, {}),
+
+    createCardComment: (
+      cardId: number,
+      body: { body: string; kind?: "comment" | "decision" },
+    ) =>
+      request<WorkItemComment>(`/cards/${cardId}/comments/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    deleteComment: (commentId: number) =>
+      request<void>(`/comments/${commentId}/`, { method: "DELETE" }),
   };
 }

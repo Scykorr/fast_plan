@@ -9,12 +9,15 @@ import type {
   ProjectBaseline,
   ProjectDashboard,
   ProjectSchedule,
+  ProjectStatusReport,
   RACIEntry,
   Risk,
   Stakeholder,
   WBSNode,
+  WorkItemComment,
 } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { CommentThread } from "../components/comments/CommentThread";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
 import {
   collectKanbanAssignees,
@@ -29,6 +32,7 @@ import { GanttChart } from "../components/projects/GanttChart";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
+import { StatusReportDigest } from "../components/projects/StatusReportDigest";
 import { WorkItemDetailPanel } from "../components/tracking/WorkItemDetailPanel";
 import { WBSTreeView } from "../components/projects/WBSTreeView";
 import {
@@ -82,7 +86,7 @@ export function ProjectDetailPage() {
   const { projectId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLink = parseDeepLinkParams(searchParams);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { activeWorkspace, switchWorkspace, isLoading: workspaceLoading } =
     useWorkspace();
   const id = Number(projectId);
@@ -93,6 +97,9 @@ export function ProjectDetailPage() {
   const tab: Tab = isTab(deepLink.tab) ? deepLink.tab : "overview";
   const [project, setProject] = useState<Project | null>(null);
   const [dashboard, setDashboard] = useState<ProjectDashboard | null>(null);
+  const [statusReport, setStatusReport] = useState<ProjectStatusReport | null>(
+    null,
+  );
   const [wbs, setWbs] = useState<WBSNode[]>([]);
   const [schedule, setSchedule] = useState<ProjectSchedule | null>(null);
   const [board, setBoard] = useState<KanbanBoard | null>(null);
@@ -104,6 +111,7 @@ export function ProjectDetailPage() {
   const [selectedNode, setSelectedNode] = useState<WBSNode | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailMode, setDetailMode] = useState<"project" | "issue">("issue");
+  const [nodeComments, setNodeComments] = useState<WorkItemComment[]>([]);
   const [trackingMetadata, setTrackingMetadata] = useState<TrackingMetadata | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -158,6 +166,7 @@ export function ProjectDetailPage() {
         raciData,
         baselinesData,
         cpmData,
+        exportData,
       ] = await Promise.all([
         projectsApi.getProject(id),
         projectsApi.getDashboard(id),
@@ -168,6 +177,7 @@ export function ProjectDetailPage() {
         projectsApi.getRACI(id),
         projectsApi.getBaselines(id),
         projectsApi.getCriticalPath(id),
+        projectsApi.exportProject(id),
       ]);
       setProject(projectData);
       setDashboard(dashboardData);
@@ -178,6 +188,7 @@ export function ProjectDetailPage() {
       setRaci(raciData);
       setBaselines(baselinesData);
       setCriticalPath(cpmData);
+      setStatusReport(exportData);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить проект"));
     } finally {
@@ -235,6 +246,29 @@ export function ProjectDetailPage() {
       patchSearch({ tab: "kanban" });
     }
   }, [deepLink.card, tab, patchSearch]);
+
+  useEffect(() => {
+    if (!projectsApi || !selectedNode || detailMode !== "issue" || !detailOpen) {
+      setNodeComments([]);
+      return;
+    }
+    let cancelled = false;
+    void projectsApi
+      .getWbsComments(selectedNode.id)
+      .then((items) => {
+        if (!cancelled) {
+          setNodeComments(items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNodeComments([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectsApi, selectedNode, detailMode, detailOpen]);
 
   const handleSelectWBSNode = (node: WBSNode) => {
     setSelectedNode(node);
@@ -479,7 +513,8 @@ export function ProjectDetailPage() {
       return;
     }
     try {
-      const data = await projectsApi.exportProject(id);
+      const data = statusReport ?? (await projectsApi.exportProject(id));
+      setStatusReport(data);
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
       });
@@ -491,6 +526,52 @@ export function ProjectDetailPage() {
       URL.revokeObjectURL(url);
     } catch (err) {
       setError(parseApiError(err, "Не удалось экспортировать отчёт"));
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const blob = await projectsApi.exportProjectPdf(id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `project-${id}-status.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось экспортировать PDF"));
+    }
+  };
+
+  const handleAddComment = async (
+    body: string,
+    kind: "comment" | "decision",
+  ) => {
+    if (!projectsApi || !selectedNode) {
+      return;
+    }
+    try {
+      await projectsApi.createWbsComment(selectedNode.id, { body, kind });
+      setNodeComments(await projectsApi.getWbsComments(selectedNode.id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось добавить комментарий"));
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      await projectsApi.deleteComment(commentId);
+      if (selectedNode) {
+        setNodeComments(await projectsApi.getWbsComments(selectedNode.id));
+      }
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось удалить комментарий"));
     }
   };
 
@@ -524,13 +605,6 @@ export function ProjectDetailPage() {
           <h1 className="mt-2 text-3xl font-bold text-text">{project.name}</h1>
           <p className="mt-1 text-sm text-text-muted">{project.description}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleExport()}
-          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text hover:bg-cream"
-        >
-          Экспорт JSON
-        </button>
       </div>
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
@@ -553,79 +627,91 @@ export function ProjectDetailPage() {
         ))}
       </div>
 
-      {tab === "overview" && dashboard && (
+      {tab === "overview" && (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <p className="text-sm text-text-muted">Прогресс</p>
-              <p className="mt-1 text-3xl font-bold text-secondary">
-                {dashboard.progress}%
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <p className="text-sm text-text-muted">Бюджет</p>
-              <p className="mt-1 text-2xl font-bold text-text">
-                {dashboard.budget.toLocaleString("ru-RU")} ₽
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <p className="text-sm text-text-muted">Крит. путь</p>
-              <p className="mt-1 text-2xl font-bold text-primary">
-                {dashboard.critical_path.critical_count} задач
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <p className="text-sm text-text-muted">SPI / CPI</p>
-              <p className="mt-1 text-lg font-semibold text-text">
-                {dashboard.evm.spi ?? "—"} / {dashboard.evm.cpi ?? "—"}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="mb-4 text-lg font-semibold text-text">Устав проекта</h2>
-            <CharterEditor
-              charter={dashboard.charter}
-              onSave={async (data) => {
-                if (!projectsApi) {
-                  return;
-                }
-                const updated = await projectsApi.patchCharter(id, data);
-                setDashboard((current) =>
-                  current ? { ...current, charter: updated } : current,
-                );
-              }}
+          {statusReport && (
+            <StatusReportDigest
+              report={statusReport}
+              onExportJson={() => void handleExport()}
+              onExportPdf={() => void handleExportPdf()}
             />
-          </div>
-
-          {dashboard.top_risks.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <h2 className="mb-3 text-lg font-semibold text-text">Топ-риски</h2>
-              <ul className="space-y-2 text-sm">
-                {dashboard.top_risks.map((risk) => (
-                  <li key={risk.id} className="flex justify-between">
-                    <span>{risk.title}</span>
-                    <span className="font-medium text-primary">{risk.score}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
 
-          {dashboard.upcoming_milestones.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface p-5">
-              <h2 className="mb-3 text-lg font-semibold text-text">Ближайшие вехи</h2>
-              <ul className="space-y-2 text-sm">
-                {dashboard.upcoming_milestones.map((milestone) => (
-                  <li key={milestone.id} className="flex justify-between gap-4">
-                    <span>
-                      {milestone.code} {milestone.name}
-                    </span>
-                    <span className="text-text-muted">{milestone.start_date}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {dashboard && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-4">
+                <div className="rounded-xl border border-border bg-surface p-5">
+                  <p className="text-sm text-text-muted">Прогресс</p>
+                  <p className="mt-1 text-3xl font-bold text-secondary">
+                    {dashboard.progress}%
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-surface p-5">
+                  <p className="text-sm text-text-muted">Бюджет</p>
+                  <p className="mt-1 text-2xl font-bold text-text">
+                    {dashboard.budget.toLocaleString("ru-RU")} ₽
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-surface p-5">
+                  <p className="text-sm text-text-muted">Крит. путь</p>
+                  <p className="mt-1 text-2xl font-bold text-primary">
+                    {dashboard.critical_path.critical_count} задач
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-surface p-5">
+                  <p className="text-sm text-text-muted">SPI / CPI</p>
+                  <p className="mt-1 text-lg font-semibold text-text">
+                    {dashboard.evm.spi ?? "—"} / {dashboard.evm.cpi ?? "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-surface p-5">
+                <h2 className="mb-4 text-lg font-semibold text-text">Устав проекта</h2>
+                <CharterEditor
+                  charter={dashboard.charter}
+                  onSave={async (data) => {
+                    if (!projectsApi) {
+                      return;
+                    }
+                    const updated = await projectsApi.patchCharter(id, data);
+                    setDashboard((current) =>
+                      current ? { ...current, charter: updated } : current,
+                    );
+                  }}
+                />
+              </div>
+
+              {dashboard.top_risks.length > 0 && (
+                <div className="rounded-xl border border-border bg-surface p-5">
+                  <h2 className="mb-3 text-lg font-semibold text-text">Топ-риски</h2>
+                  <ul className="space-y-2 text-sm">
+                    {dashboard.top_risks.map((risk) => (
+                      <li key={risk.id} className="flex justify-between">
+                        <span>{risk.title}</span>
+                        <span className="font-medium text-primary">{risk.score}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {dashboard.upcoming_milestones.length > 0 && (
+                <div className="rounded-xl border border-border bg-surface p-5">
+                  <h2 className="mb-3 text-lg font-semibold text-text">Ближайшие вехи</h2>
+                  <ul className="space-y-2 text-sm">
+                    {dashboard.upcoming_milestones.map((milestone) => (
+                      <li key={milestone.id} className="flex justify-between gap-4">
+                        <span>
+                          {milestone.code} {milestone.name}
+                        </span>
+                        <span className="text-text-muted">{milestone.start_date}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -692,15 +778,25 @@ export function ProjectDetailPage() {
       )}
 
       {detailOpen && project && trackingMetadata && (
-        <WorkItemDetailPanel
-          mode={detailMode}
-          project={project}
-          node={detailMode === "project" ? null : selectedNode}
-          metadata={trackingMetadata}
-          onClose={handleCloseDetail}
-          onSaveProject={(body) => void handleSaveProjectDetail(body)}
-          onSaveNode={(nodeId, body) => void handleSaveNodeDetail(nodeId, body)}
-        />
+        <div className="space-y-4">
+          <WorkItemDetailPanel
+            mode={detailMode}
+            project={project}
+            node={detailMode === "project" ? null : selectedNode}
+            metadata={trackingMetadata}
+            onClose={handleCloseDetail}
+            onSaveProject={(body) => void handleSaveProjectDetail(body)}
+            onSaveNode={(nodeId, body) => void handleSaveNodeDetail(nodeId, body)}
+          />
+          {detailMode === "issue" && selectedNode && (
+            <CommentThread
+              comments={nodeComments}
+              onAdd={(body, kind) => handleAddComment(body, kind)}
+              onDelete={(commentId) => handleDeleteComment(commentId)}
+              canDelete={Boolean(user)}
+            />
+          )}
+        </div>
       )}
 
       {tab === "gantt" && schedule && (

@@ -154,6 +154,49 @@ async function request<T>(
   return data as T;
 }
 
+async function requestBlob(
+  path: string,
+  options: RequestInit = {},
+  { retry = true }: { retry?: boolean } = {},
+): Promise<Blob> {
+  const method = (options.method ?? "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (activeWorkspaceId != null && !headers["X-Workspace-Id"]) {
+    headers["X-Workspace-Id"] = String(activeWorkspaceId);
+  }
+
+  if (!["GET", "HEAD", "OPTIONS", "TRACE"].includes(method)) {
+    const csrf = await ensureCsrfCookie();
+    if (csrf) {
+      headers["X-CSRFToken"] = csrf;
+    }
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    method,
+    headers,
+    credentials: "include",
+  });
+
+  if (response.status === 401 && retry && path !== "/auth/refresh/") {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return requestBlob(path, options, { retry: false });
+    }
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, data);
+  }
+
+  return response.blob();
+}
+
 export const api = {
   ensureCsrf: () => ensureCsrfCookie(),
 
@@ -188,4 +231,4 @@ export const api = {
     }),
 };
 
-export { ApiError, request, WORKSPACE_STORAGE_KEY };
+export { ApiError, request, requestBlob, WORKSPACE_STORAGE_KEY };
