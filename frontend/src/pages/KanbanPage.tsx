@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import type { KanbanBoard } from "../api/kanban";
+import type { BoardFlowAnalytics, KanbanBoard } from "../api/kanban";
 import { parseApiError } from "../api/errors";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
+import { FlowAnalytics } from "../components/kanban/FlowAnalytics";
 import {
   collectKanbanAssignees,
   collectKanbanStatuses,
@@ -30,6 +31,7 @@ export function KanbanPage() {
 
   const [board, setBoard] = useState<KanbanBoard | null>(null);
   const [boardTitle, setBoardTitle] = useState("");
+  const [analytics, setAnalytics] = useState<BoardFlowAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [workspaceReady, setWorkspaceReady] = useState(false);
@@ -78,6 +80,7 @@ export function KanbanPage() {
         if (project.board_id) {
           const detail = await kanbanApi.getBoard(project.board_id);
           setBoard(detail);
+          setAnalytics(await kanbanApi.getBoardAnalytics(detail.id));
           setBoardTitle(project.name);
           return;
         }
@@ -89,6 +92,7 @@ export function KanbanPage() {
       }
       const detail = await kanbanApi.getBoard(boards[0].id);
       setBoard(detail);
+      setAnalytics(await kanbanApi.getBoardAnalytics(detail.id));
       setBoardTitle(detail.title);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить доску"));
@@ -175,7 +179,12 @@ export function KanbanPage() {
       <KanbanBoardView
         board={board}
         
-        onBoardChange={setBoard}
+        onBoardChange={(updatedBoard) => {
+          setBoard(updatedBoard);
+          void kanbanApi
+            ?.getBoardAnalytics(updatedBoard.id)
+            .then(setAnalytics);
+        }}
         selectedCardId={deepLink.card}
         filter={{
           assigneeId: deepLink.assignee,
@@ -183,6 +192,7 @@ export function KanbanPage() {
         }}
         onSelectCard={(cardId) => patchSearch({ card: cardId })}
       />
+      {analytics && <FlowAnalytics data={analytics} />}
     </div>
   );
 }

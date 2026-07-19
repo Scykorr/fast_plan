@@ -127,6 +127,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        "accounts.authentication.WorkspaceAPITokenAuthentication",
         "accounts.authentication.CookieJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
@@ -202,6 +203,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
 ATTACHMENT_MAX_BYTES = int(os.environ.get("ATTACHMENT_MAX_BYTES", str(5 * 1024 * 1024)))
+AVATAR_MAX_BYTES = int(os.environ.get("AVATAR_MAX_BYTES", str(2 * 1024 * 1024)))
 
 LOGGING = {
     "version": 1,

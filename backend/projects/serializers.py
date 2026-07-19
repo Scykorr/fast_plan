@@ -1,7 +1,13 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from projects.models import ActivityDependency, Project, ScheduleActivity, WBSNode
+from projects.models import (
+    ActivityDependency,
+    Project,
+    ProjectTemplate,
+    ScheduleActivity,
+    WBSNode,
+)
 from projects.services import move_wbs_node
 from tracking.services import save_custom_values, serialize_custom_values
 
@@ -60,6 +66,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
 
 
 class ProjectWriteSerializer(serializers.ModelSerializer):
+    template_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
     tracker_id = serializers.IntegerField(required=False, allow_null=True)
     workflow_status_id = serializers.IntegerField(required=False, allow_null=True)
     custom_values = serializers.DictField(
@@ -80,9 +87,11 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             "tracker_id",
             "workflow_status_id",
             "custom_values",
+            "template_id",
         )
 
     def update(self, instance, validated_data):
+        validated_data.pop("template_id", None)
         custom_values = validated_data.pop("custom_values", None)
         tracker_id = validated_data.pop("tracker_id", None)
         workflow_status_id = validated_data.pop("workflow_status_id", None)
@@ -96,6 +105,13 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
         if custom_values is not None:
             save_custom_values(instance, custom_values)
         return instance
+
+
+class ProjectTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectTemplate
+        fields = ("id", "name", "description", "created_by", "created_at")
+        read_only_fields = fields
 
 
 class WBSNodeWriteSerializer(serializers.Serializer):

@@ -1,21 +1,16 @@
 import type { ProjectFinance } from "../../api/finance";
+import { useLocale } from "../../context/LocaleContext";
 
 type ProjectBudgetSummaryProps = {
   finance: ProjectFinance;
   title?: string;
 };
 
-function formatMoney(value: number): string {
-  // toLocaleString("ru-RU") groups digits with a non-breaking or narrow
-  // no-break space depending on the ICU data available; normalize to a
-  // regular space for predictable rendering/testing.
-  return `${value.toLocaleString("ru-RU").replace(/[\u00A0\u202F]/g, " ")} ₽`;
-}
-
 export function ProjectBudgetSummary({
   finance,
   title = "Budget vs actual",
 }: ProjectBudgetSummaryProps) {
+  const { formatMoney } = useLocale();
   const spentRatio =
     finance.budget > 0
       ? Math.min(100, Math.round((finance.actual_expenses / finance.budget) * 100))

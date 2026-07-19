@@ -68,3 +68,35 @@ class Card(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class CardTransition(models.Model):
+    card = models.ForeignKey(
+        Card,
+        on_delete=models.CASCADE,
+        related_name="transitions",
+    )
+    from_column = models.ForeignKey(
+        Column,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    to_column = models.ForeignKey(
+        Column,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",
+    )
+    moved_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="card_transitions",
+    )
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["occurred_at", "id"]

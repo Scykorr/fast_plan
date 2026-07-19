@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru">
+  <body style="font-family: sans-serif; color: #322b26;">
+    <h1 style="font-size: 22px;">Подтвердите email</h1>
+    <p>Здравствуйте{% if user.first_name %}, {{ user.first_name }}{% endif %}!</p>
+    <p>Подтвердите адрес электронной почты, чтобы войти в Fast Plan.</p>
+    <p>
+      <a
+        href="{{ verification_url }}"
+        style="display: inline-block; border-radius: 8px; background: #c26042; padding: 10px 16px; color: #fff; text-decoration: none;"
+      >Подтвердить email</a>
+    </p>
+    <p style="font-size: 13px; color: #746b65;">
+      Если вы не создавали аккаунт, просто проигнорируйте это письмо.
+    </p>
+  </body>
+</html>

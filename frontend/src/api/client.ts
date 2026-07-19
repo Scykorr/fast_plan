@@ -7,6 +7,8 @@ export type User = {
   username: string;
   first_name: string;
   last_name: string;
+  avatar_url: string | null;
+  is_email_verified: boolean;
   date_joined: string;
   active_workspace_id: number | null;
   active_workspace_name: string | null;
@@ -200,6 +202,7 @@ async function requestBlob(
 async function requestForm<T>(
   path: string,
   formData: FormData,
+  method = "POST",
   { retry = true }: { retry?: boolean } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {};
@@ -214,7 +217,7 @@ async function requestForm<T>(
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
+    method,
     headers,
     body: formData,
     credentials: "include",
@@ -223,7 +226,7 @@ async function requestForm<T>(
   if (response.status === 401 && retry) {
     const refreshed = await refreshSession();
     if (refreshed) {
-      return requestForm<T>(path, formData, { retry: false });
+      return requestForm<T>(path, formData, method, { retry: false });
     }
   }
 
@@ -260,6 +263,21 @@ export const api = {
   },
 
   me: () => request<User>("/auth/me/"),
+
+  updateProfile: (formData: FormData) =>
+    requestForm<User>("/auth/me/", formData, "PATCH"),
+
+  verifyEmail: (body: { uid: string; token: string }) =>
+    request<{ detail: string }>("/auth/email/verify/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  resendVerification: (email: string) =>
+    request<{ detail: string }>("/auth/email/resend/", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
 
   refresh: () => refreshSession(),
 

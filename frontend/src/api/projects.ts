@@ -19,6 +19,14 @@ export type Project = {
   board_id: number | null;
 };
 
+export type ProjectTemplate = {
+  id: number;
+  name: string;
+  description: string;
+  created_by: number | null;
+  created_at: string;
+};
+
 export type CustomValue = {
   field_id: number;
   field_name: string;
@@ -250,11 +258,28 @@ export function createProjectsApi() {
       start_date?: string;
       end_date?: string;
       budget?: number;
+      template_id?: number;
     }) =>
       request<Project>("/projects/", {
         method: "POST",
         body: JSON.stringify(body),
       }),
+
+    getProjectTemplates: () =>
+      request<ProjectTemplate[]>("/project-templates/", {}),
+
+    createProjectTemplate: (body: {
+      name: string;
+      description?: string;
+      source_project_id: number;
+    }) =>
+      request<ProjectTemplate>("/project-templates/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    deleteProjectTemplate: (templateId: number) =>
+      request<void>(`/project-templates/${templateId}/`, { method: "DELETE" }),
 
     getProject: (id: number) =>
       request<Project>(`/projects/${id}/`, {}),

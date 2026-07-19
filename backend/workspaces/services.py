@@ -54,6 +54,11 @@ def get_request_workspace(request):
     2. user.active_workspace preference
     3. oldest membership
     """
+    auth = getattr(request, "auth", None)
+    token_workspace = getattr(auth, "workspace", None)
+    if token_workspace is not None:
+        return token_workspace
+
     header_value = request.META.get(WORKSPACE_HEADER) or request.headers.get(
         "X-Workspace-Id"
     )

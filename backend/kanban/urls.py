@@ -2,6 +2,7 @@ from django.urls import path
 
 from kanban.views import (
     BoardDetailView,
+    BoardAnalyticsView,
     BoardListCreateView,
     CardDetailView,
     CardListCreateView,
@@ -13,6 +14,11 @@ from kanban.views import (
 urlpatterns = [
     path("boards/", BoardListCreateView.as_view(), name="board-list"),
     path("boards/<int:board_id>/", BoardDetailView.as_view(), name="board-detail"),
+    path(
+        "boards/<int:board_id>/analytics/",
+        BoardAnalyticsView.as_view(),
+        name="board-analytics",
+    ),
     path(
         "boards/<int:board_id>/columns/",
         ColumnListCreateView.as_view(),

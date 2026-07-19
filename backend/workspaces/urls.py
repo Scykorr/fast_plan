@@ -2,6 +2,8 @@ from django.urls import path
 
 from workspaces.views import (
     WorkspaceActivateView,
+    WorkspaceAPITokenDetailView,
+    WorkspaceAPITokenListCreateView,
     WorkspaceCapacityView,
     WorkspaceDashboardView,
     WorkspaceEventsView,
@@ -13,6 +15,9 @@ from workspaces.views import (
     WorkspaceMemberListView,
     WorkspaceMyTasksView,
     WorkspaceSearchView,
+    WorkspaceWebhookDeliveryListView,
+    WorkspaceWebhookDetailView,
+    WorkspaceWebhookListCreateView,
 )
 
 urlpatterns = [
@@ -46,6 +51,31 @@ urlpatterns = [
         "workspace/capacity/",
         WorkspaceCapacityView.as_view(),
         name="workspace-capacity",
+    ),
+    path(
+        "workspace/api-tokens/",
+        WorkspaceAPITokenListCreateView.as_view(),
+        name="workspace-api-tokens",
+    ),
+    path(
+        "workspace/api-tokens/<int:token_id>/",
+        WorkspaceAPITokenDetailView.as_view(),
+        name="workspace-api-token-detail",
+    ),
+    path(
+        "workspace/webhooks/",
+        WorkspaceWebhookListCreateView.as_view(),
+        name="workspace-webhooks",
+    ),
+    path(
+        "workspace/webhooks/<int:endpoint_id>/",
+        WorkspaceWebhookDetailView.as_view(),
+        name="workspace-webhook-detail",
+    ),
+    path(
+        "workspace/webhooks/<int:endpoint_id>/deliveries/",
+        WorkspaceWebhookDeliveryListView.as_view(),
+        name="workspace-webhook-deliveries",
     ),
     path("workspace/members/", WorkspaceMemberListView.as_view(), name="workspace-members"),
     path(

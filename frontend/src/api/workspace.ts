@@ -26,6 +26,28 @@ export type WorkspaceInvitation = {
   created_at: string;
 };
 
+export type WorkspaceAPIToken = {
+  id: number;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  token?: string;
+};
+
+export type WebhookEndpoint = {
+  id: number;
+  name: string;
+  url: string;
+  events: string[];
+  is_active: boolean;
+  created_at: string;
+  secret?: string;
+};
+
 export type WorkspaceDashboard = {
   workspace_id: number;
   generated_at: string;
@@ -227,5 +249,33 @@ export function createWorkspaceApi() {
           }),
         },
       ),
+
+    getApiTokens: () =>
+      request<WorkspaceAPIToken[]>("/workspace/api-tokens/", {}),
+
+    createApiToken: (name: string, scopes: string[]) =>
+      request<WorkspaceAPIToken>("/workspace/api-tokens/", {
+        method: "POST",
+        body: JSON.stringify({ name, scopes }),
+      }),
+
+    revokeApiToken: (tokenId: number) =>
+      request<void>(`/workspace/api-tokens/${tokenId}/`, { method: "DELETE" }),
+
+    getWebhooks: () =>
+      request<WebhookEndpoint[]>("/workspace/webhooks/", {}),
+
+    createWebhook: (body: {
+      name: string;
+      url: string;
+      events: string[];
+    }) =>
+      request<WebhookEndpoint>("/workspace/webhooks/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    deleteWebhook: (endpointId: number) =>
+      request<void>(`/workspace/webhooks/${endpointId}/`, { method: "DELETE" }),
   };
 }

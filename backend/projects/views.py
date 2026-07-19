@@ -10,13 +10,21 @@ from rest_framework.views import APIView
 
 from audit.services import log_audit
 from projects.cpm import compute_critical_path, compute_evm_lite
-from projects.models import ActivityDependency, Project, ProjectCharter, ScheduleActivity, WBSNode
+from projects.models import (
+    ActivityDependency,
+    Project,
+    ProjectCharter,
+    ProjectTemplate,
+    ScheduleActivity,
+    WBSNode,
+)
 from projects.calendar import project_milestone_events, workspace_milestone_events
 from projects.exports import workspace_calendar_ics
 from projects.serializers import (
     ActivityDependencySerializer,
     ActivityDependencyWriteSerializer,
     ProjectListSerializer,
+    ProjectTemplateSerializer,
     ProjectWriteSerializer,
     ScheduleActivitySerializer,
     ScheduleActivityUpdateSerializer,
@@ -26,6 +34,7 @@ from projects.serializers import (
 from projects.serializers_pmbok import ProjectCharterSerializer, RiskSerializer
 from projects.services import build_wbs_tree, create_work_package
 from projects.sync import sync_card_from_activity
+from projects.templates import apply_project_template, capture_project_template
 from workspaces.events import publish_event
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin as BaseWorkspaceMixin
 
@@ -55,15 +64,67 @@ class ProjectListCreateView(WorkspaceMixin, APIView):
     def post(self, request):
         serializer = ProjectWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        template_id = serializer.validated_data.pop("template_id", None)
+        workspace = self.get_workspace()
         project = Project.objects.create(
-            workspace=self.get_workspace(),
+            workspace=workspace,
             manager=request.user,
             **serializer.validated_data,
         )
+        if template_id:
+            template = get_object_or_404(
+                ProjectTemplate,
+                pk=template_id,
+                workspace=workspace,
+            )
+            apply_project_template(project, template)
         return Response(
             ProjectListSerializer(project).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class ProjectTemplateListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        templates = ProjectTemplate.objects.filter(workspace=self.get_workspace())
+        return Response(ProjectTemplateSerializer(templates, many=True).data)
+
+    def post(self, request):
+        name = str(request.data.get("name", "")).strip()
+        if not name:
+            raise ValidationError({"name": "Template name is required."})
+        workspace = self.get_workspace()
+        if ProjectTemplate.objects.filter(workspace=workspace, name=name).exists():
+            raise ValidationError({"name": "Template name must be unique."})
+        source_project = get_object_or_404(
+            self.get_project_queryset(),
+            pk=request.data.get("source_project_id"),
+        )
+        template = capture_project_template(
+            source_project,
+            name=name,
+            description=str(request.data.get("description", "")).strip(),
+            created_by=request.user,
+        )
+        return Response(
+            ProjectTemplateSerializer(template).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProjectTemplateDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def delete(self, request, template_id):
+        template = get_object_or_404(
+            ProjectTemplate,
+            workspace=self.get_workspace(),
+            pk=template_id,
+        )
+        template.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProjectDetailView(WorkspaceMixin, APIView):

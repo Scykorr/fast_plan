@@ -25,6 +25,8 @@ from projects.views import (
     ProjectDashboardView,
     ProjectDetailView,
     ProjectListCreateView,
+    ProjectTemplateDetailView,
+    ProjectTemplateListCreateView,
     ProjectScheduleView,
     ScheduleActivityDetailView,
     WBSNodeDetailView,
@@ -35,6 +37,16 @@ from projects.views import (
 
 urlpatterns = [
     path("projects/", ProjectListCreateView.as_view(), name="project-list"),
+    path(
+        "project-templates/",
+        ProjectTemplateListCreateView.as_view(),
+        name="project-template-list",
+    ),
+    path(
+        "project-templates/<int:template_id>/",
+        ProjectTemplateDetailView.as_view(),
+        name="project-template-detail",
+    ),
     path("projects/<int:project_id>/", ProjectDetailView.as_view(), name="project-detail"),
     path(
         "projects/<int:project_id>/dashboard/",

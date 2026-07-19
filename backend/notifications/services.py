@@ -11,6 +11,7 @@ from notifications.mail import absolute_frontend_url, send_app_email
 from notifications.models import Notification
 from projects.models import Project, ScheduleActivity
 from workspaces.models import Workspace, WorkspaceMember
+from workspaces.webhooks import emit_webhook
 
 MENTION_RE = re.compile(r"@(\w+)")
 
@@ -200,6 +201,19 @@ def send_deadline_reminders(*, today: date | None = None) -> tuple[int, list]:
         project = activity.wbs_node.project
         dedupe = f"deadline:schedule:{activity.id}:{activity.end_date.isoformat()}"
         link = project_deep_link(project, tab="wbs", node=activity.wbs_node_id)
+        emit_webhook(
+            project.workspace,
+            "deadline.upcoming",
+            {
+                "kind": "wbs_node",
+                "id": activity.wbs_node_id,
+                "project_id": project.id,
+                "title": activity.wbs_node.title,
+                "due_date": activity.end_date,
+                "link": link,
+            },
+            dedupe_key=dedupe,
+        )
         for membership in _workspace_members(project.workspace):
             notification, was_created = create_notification(
                 user=membership.user,
@@ -226,6 +240,19 @@ def send_deadline_reminders(*, today: date | None = None) -> tuple[int, list]:
             link = project_deep_link(project, tab="kanban", card=card.id)
         else:
             link = f"/kanban?workspace={workspace.id}&card={card.id}"
+        emit_webhook(
+            workspace,
+            "deadline.upcoming",
+            {
+                "kind": "card",
+                "id": card.id,
+                "project_id": project.id if project else None,
+                "title": card.title,
+                "due_date": card.due_date,
+                "link": link,
+            },
+            dedupe_key=dedupe,
+        )
         for membership in _workspace_members(workspace):
             notification, was_created = create_notification(
                 user=membership.user,
@@ -247,6 +274,19 @@ def send_deadline_reminders(*, today: date | None = None) -> tuple[int, list]:
     for project in projects:
         dedupe = f"deadline:project:{project.id}:{project.end_date.isoformat()}"
         link = project_deep_link(project, tab="overview")
+        emit_webhook(
+            project.workspace,
+            "deadline.upcoming",
+            {
+                "kind": "project",
+                "id": project.id,
+                "project_id": project.id,
+                "title": project.name,
+                "due_date": project.end_date,
+                "link": link,
+            },
+            dedupe_key=dedupe,
+        )
         for membership in _workspace_members(project.workspace):
             notification, was_created = create_notification(
                 user=membership.user,

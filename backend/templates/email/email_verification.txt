@@ -1,0 +1,6 @@
+Здравствуйте{% if user.first_name %}, {{ user.first_name }}{% endif %}!
+
+Подтвердите email для входа в Fast Plan:
+{{ verification_url }}
+
+Если вы не создавали аккаунт, просто проигнорируйте это письмо.

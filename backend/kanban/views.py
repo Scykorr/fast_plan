@@ -4,7 +4,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from kanban.models import Board, Card, Column
+from kanban.models import Board, Card, CardTransition, Column
+from kanban.analytics import build_board_flow_analytics
 from kanban.serializers import (
     BoardDetailSerializer,
     BoardListSerializer,
@@ -72,6 +73,17 @@ class BoardDetailView(BoardWorkspaceMixin, APIView):
         board = self.get_board(board_id)
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BoardAnalyticsView(BoardWorkspaceMixin, APIView):
+    def get(self, request, board_id):
+        board = get_object_or_404(self.get_board_queryset(), pk=board_id)
+        return Response(
+            build_board_flow_analytics(
+                board,
+                days=request.query_params.get("days", 14),
+            )
+        )
 
 
 class ColumnListCreateView(BoardWorkspaceMixin, APIView):
@@ -172,11 +184,19 @@ class CardMoveView(BoardWorkspaceMixin, APIView):
         if target_column.board_id != card.column.board_id:
             raise PermissionDenied("Card can only move within the same board.")
 
+        previous_column = card.column
         card = move_card(
             card,
             target_column,
             serializer.validated_data["position"],
         )
+        if previous_column.id != target_column.id:
+            CardTransition.objects.create(
+                card=card,
+                from_column=previous_column,
+                to_column=target_column,
+                moved_by=request.user,
+            )
         sync_activity_from_card(card)
         publish_event(
             self.get_workspace().id,

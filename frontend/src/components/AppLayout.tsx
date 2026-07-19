@@ -4,26 +4,28 @@ import { useEffect, useRef, useState } from "react";
 import { NotificationBell } from "./NotificationBell";
 import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { useAuth } from "../context/AuthContext";
+import { useLocale } from "../context/LocaleContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceEvents } from "../hooks/useWorkspaceEvents";
 import { APP_VERSION } from "../version";
 
 const navItems = [
-  { to: "/", label: "Дашборд", end: true },
-  { to: "/portfolio", label: "Портфель" },
-  { to: "/projects", label: "Проекты" },
-  { to: "/tasks", label: "Мои задачи" },
+  { to: "/", labelKey: "dashboard", end: true },
+  { to: "/portfolio", labelKey: "portfolio" },
+  { to: "/projects", labelKey: "projects" },
+  { to: "/tasks", labelKey: "myTasks" },
   { to: "/capacity", label: "Capacity" },
   { to: "/kanban", label: "Kanban" },
-  { to: "/calendar", label: "Календарь" },
-  { to: "/finance", label: "Финансы" },
-  { to: "/audit", label: "Аудит" },
-  { to: "/administration", label: "Администрирование" },
-  { to: "/settings", label: "Настройки" },
-];
+  { to: "/calendar", labelKey: "calendar" },
+  { to: "/finance", labelKey: "finance" },
+  { to: "/audit", labelKey: "audit" },
+  { to: "/administration", labelKey: "administration" },
+  { to: "/settings", labelKey: "settings" },
+] as const;
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
+  const { t } = useLocale();
   const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
   const [switching, setSwitching] = useState(false);
 
@@ -43,7 +45,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <>
       <div className="mb-8 px-2">
         <h1 className="text-xl font-bold text-primary">Fast Plan</h1>
-        <p className="mt-1 text-sm text-text-muted">Ваш личный планировщик</p>
+        <p className="mt-1 text-sm text-text-muted">{t("planner")}</p>
         <p className="mt-1 text-xs text-text-muted" title="Версия продукта">
           v{APP_VERSION}
         </p>
@@ -72,7 +74,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.end}
+            end={"end" in item ? item.end : undefined}
             onClick={onNavigate}
             className={({ isActive }) =>
               [
@@ -83,7 +85,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               ].join(" ")
             }
           >
-            {item.label}
+            {"labelKey" in item ? t(item.labelKey) : item.label}
           </NavLink>
         ))}
       </nav>
@@ -95,7 +97,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           onClick={() => void logout()}
           className="mt-2 w-full rounded-lg px-3 py-2 text-left text-sm text-text-muted transition-colors hover:bg-cream hover:text-primary"
         >
-          Выйти
+          {t("logout")}
         </button>
       </div>
     </>
@@ -106,11 +108,12 @@ export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { workspaceEpoch, activeWorkspace } = useWorkspace();
   const { isAuthenticated } = useAuth();
+  const { t } = useLocale();
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
 
   useWorkspaceEvents(isAuthenticated && Boolean(activeWorkspace), () => {
-    setToast("Данные обновлены");
+    setToast(t("dataUpdated"));
     if (toastTimer.current) {
       window.clearTimeout(toastTimer.current);
     }

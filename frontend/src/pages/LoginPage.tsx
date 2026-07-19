@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { ApiError } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginPage() {
@@ -14,15 +14,28 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
+    setNeedsVerification(false);
+    setResendMessage("");
     setLoading(true);
     try {
       await login(email, password);
     } catch (err) {
+      const detail =
+        err instanceof ApiError && typeof err.data.detail === "string"
+          ? err.data.detail
+          : "";
+      if (detail.includes("Подтвердите email")) {
+        setNeedsVerification(true);
+        setError(detail);
+        return;
+      }
       setError(
         err instanceof ApiError
           ? "Неверный email или пароль"
@@ -80,6 +93,26 @@ export function LoginPage() {
             <p className="text-sm text-primary" role="alert">
               {error}
             </p>
+          )}
+
+          {needsVerification && (
+            <div className="rounded-lg border border-border bg-cream p-3 text-sm">
+              <button
+                type="button"
+                className="font-medium text-primary hover:underline"
+                onClick={async () => {
+                  await api.resendVerification(email);
+                  setResendMessage("Новая ссылка отправлена.");
+                }}
+              >
+                Отправить ссылку повторно
+              </button>
+              {resendMessage && (
+                <p className="mt-1 text-xs text-secondary" role="status">
+                  {resendMessage}
+                </p>
+              )}
+            </div>
           )}
 
           <button

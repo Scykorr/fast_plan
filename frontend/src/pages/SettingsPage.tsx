@@ -2,15 +2,24 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { api } from "../api/client";
 import { parseApiError } from "../api/errors";
-import type { WorkspaceInvitation, WorkspaceMember } from "../api/workspace";
+import type {
+  WebhookEndpoint,
+  WorkspaceAPIToken,
+  WorkspaceInvitation,
+  WorkspaceMember,
+} from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { InviteMemberForm } from "../components/workspace/InviteMemberForm";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { useLocale, type Currency, type Locale } from "../context/LocaleContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, updateProfile, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const { locale, currency, setLocale, setCurrency } = useLocale();
   const { activeWorkspace, workspaces, switchWorkspace, workspaceEpoch } =
     useWorkspace();
   const workspaceApi = useWorkspaceApi();
@@ -23,6 +32,26 @@ export function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [profileUsername, setProfileUsername] = useState(user?.username ?? "");
+  const [profileFirstName, setProfileFirstName] = useState(user?.first_name ?? "");
+  const [profileLastName, setProfileLastName] = useState(user?.last_name ?? "");
+  const [profileAvatar, setProfileAvatar] = useState<File | null>(null);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [apiTokens, setApiTokens] = useState<WorkspaceAPIToken[]>([]);
+  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([]);
+  const [tokenName, setTokenName] = useState("");
+  const [tokenCanWrite, setTokenCanWrite] = useState(false);
+  const [revealedToken, setRevealedToken] = useState("");
+  const [webhookName, setWebhookName] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [revealedSecret, setRevealedSecret] = useState("");
+
+  useEffect(() => {
+    setProfileUsername(user?.username ?? "");
+    setProfileFirstName(user?.first_name ?? "");
+    setProfileLastName(user?.last_name ?? "");
+  }, [user]);
 
   const load = useCallback(async () => {
     if (!workspaceApi) {
@@ -35,10 +64,21 @@ export function SettingsPage() {
       ]);
       setMembers(membersData);
       setInvitations(invitationsData);
+      if (activeWorkspace?.role === "owner") {
+        const [tokenData, webhookData] = await Promise.all([
+          workspaceApi.getApiTokens(),
+          workspaceApi.getWebhooks(),
+        ]);
+        setApiTokens(tokenData);
+        setWebhooks(webhookData);
+      } else {
+        setApiTokens([]);
+        setWebhooks([]);
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить workspace"));
     }
-  }, [workspaceApi]);
+  }, [workspaceApi, activeWorkspace?.role]);
 
   useEffect(() => {
     void load();
@@ -79,6 +119,29 @@ export function SettingsPage() {
     }
   };
 
+  const handleProfileSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setProfileMessage("");
+    setProfileLoading(true);
+    const formData = new FormData();
+    formData.append("username", profileUsername);
+    formData.append("first_name", profileFirstName);
+    formData.append("last_name", profileLastName);
+    if (profileAvatar) {
+      formData.append("avatar", profileAvatar);
+    }
+    try {
+      await updateProfile(formData);
+      setProfileAvatar(null);
+      setProfileMessage("Профиль сохранён.");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось сохранить профиль"));
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -89,17 +152,151 @@ export function SettingsPage() {
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
 
       <div className="max-w-lg rounded-xl border border-border bg-surface p-6">
+        <h2 className="text-lg font-semibold text-text">Оформление</h2>
+        <p className="mt-1 text-sm text-text-muted">
+          Выберите светлую или тёмную тёплую палитру.
+        </p>
+        <div className="mt-4 flex gap-2">
+          {(["light", "dark"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTheme(value)}
+              className={[
+                "rounded-lg border px-4 py-2 text-sm font-medium",
+                theme === value
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-cream text-text hover:border-primary",
+              ].join(" ")}
+            >
+              {value === "light" ? "Светлая" : "Тёмная"}
+            </button>
+          ))}
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <label className="text-xs text-text-muted">
+            Язык интерфейса
+            <select
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as Locale)}
+              className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text"
+            >
+              <option value="ru">Русский</option>
+              <option value="en">English (beta)</option>
+            </select>
+          </label>
+          <label className="text-xs text-text-muted">
+            Валюта
+            <select
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value as Currency)}
+              className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text"
+            >
+              <option value="RUB">RUB — ₽</option>
+              <option value="USD">USD — $</option>
+              <option value="EUR">EUR — €</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="max-w-lg rounded-xl border border-border bg-surface p-6">
         <h2 className="mb-4 text-lg font-semibold text-text">Профиль</h2>
-        <dl className="space-y-4 text-sm">
-          <div>
-            <dt className="text-text-muted">Email</dt>
-            <dd className="mt-1 font-medium">{user?.email}</dd>
+        <form onSubmit={handleProfileSubmit} className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-border bg-cream text-lg font-semibold text-primary">
+              {user?.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt="Аватар"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                (user?.first_name || user?.username || "?").slice(0, 1).toUpperCase()
+              )}
+            </div>
+            <div>
+              <label htmlFor="profile-avatar" className="block text-xs text-text-muted">
+                Аватар (до 2 МБ)
+              </label>
+              <input
+                id="profile-avatar"
+                type="file"
+                accept="image/*"
+                onChange={(event) =>
+                  setProfileAvatar(event.target.files?.[0] ?? null)
+                }
+                className="mt-1 max-w-xs text-xs text-text-muted"
+              />
+            </div>
           </div>
           <div>
-            <dt className="text-text-muted">Имя пользователя</dt>
-            <dd className="mt-1 font-medium">{user?.username}</dd>
+            <label htmlFor="profile-email" className="mb-1 block text-xs text-text-muted">
+              Email
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="profile-email"
+                value={user?.email ?? ""}
+                readOnly
+                className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text-muted"
+              />
+              {user?.is_email_verified && (
+                <span className="whitespace-nowrap text-xs text-secondary">
+                  Подтверждён
+                </span>
+              )}
+            </div>
           </div>
-        </dl>
+          <div>
+            <label htmlFor="profile-username" className="mb-1 block text-xs text-text-muted">
+              Имя пользователя
+            </label>
+            <input
+              id="profile-username"
+              required
+              value={profileUsername}
+              onChange={(event) => setProfileUsername(event.target.value)}
+              className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="profile-first-name" className="mb-1 block text-xs text-text-muted">
+                Имя
+              </label>
+              <input
+                id="profile-first-name"
+                value={profileFirstName}
+                onChange={(event) => setProfileFirstName(event.target.value)}
+                className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div>
+              <label htmlFor="profile-last-name" className="mb-1 block text-xs text-text-muted">
+                Фамилия
+              </label>
+              <input
+                id="profile-last-name"
+                value={profileLastName}
+                onChange={(event) => setProfileLastName(event.target.value)}
+                className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+          {profileMessage && (
+            <p className="text-sm text-secondary" role="status">
+              {profileMessage}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={profileLoading}
+            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+          >
+            {profileLoading ? "Сохранение..." : "Сохранить профиль"}
+          </button>
+        </form>
 
         <form onSubmit={handleChangePassword} className="mt-6 space-y-3" noValidate>
           <h3 className="text-sm font-semibold text-text">Смена пароля</h3>
@@ -292,6 +489,177 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+
+      {activeWorkspace?.role === "owner" && (
+        <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
+          <h2 className="text-lg font-semibold text-text">API-токены</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Токены привязаны к текущему workspace. Значение показывается один раз.
+          </p>
+          <form
+            className="mt-4 flex flex-wrap items-end gap-3"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!workspaceApi || !tokenName.trim()) return;
+              try {
+                const created = await workspaceApi.createApiToken(
+                  tokenName.trim(),
+                  tokenCanWrite ? ["read", "write"] : ["read"],
+                );
+                setRevealedToken(created.token ?? "");
+                setTokenName("");
+                await load();
+              } catch (err) {
+                setError(parseApiError(err, "Не удалось создать API-токен"));
+              }
+            }}
+          >
+            <label className="flex-1 text-xs text-text-muted">
+              Название
+              <input
+                required
+                value={tokenName}
+                onChange={(event) => setTokenName(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text"
+              />
+            </label>
+            <label className="flex items-center gap-2 pb-2 text-sm text-text">
+              <input
+                type="checkbox"
+                checked={tokenCanWrite}
+                onChange={(event) => setTokenCanWrite(event.target.checked)}
+              />
+              Запись
+            </label>
+            <button
+              type="submit"
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+            >
+              Создать
+            </button>
+          </form>
+          {revealedToken && (
+            <input
+              readOnly
+              value={revealedToken}
+              onFocus={(event) => event.currentTarget.select()}
+              className="mt-3 w-full rounded border border-secondary bg-cream px-3 py-2 font-mono text-xs text-text"
+            />
+          )}
+          <ul className="mt-4 space-y-2 text-sm">
+            {apiTokens.map((token) => (
+              <li
+                key={token.id}
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+              >
+                <span>
+                  {token.name} · <code>{token.prefix}…</code> · {token.scopes.join(", ")}
+                </span>
+                {!token.revoked_at && (
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={async () => {
+                      if (!workspaceApi) return;
+                      await workspaceApi.revokeApiToken(token.id);
+                      await load();
+                    }}
+                  >
+                    Отозвать
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {activeWorkspace?.role === "owner" && (
+        <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
+          <h2 className="text-lg font-semibold text-text">Исходящие webhooks</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            HTTPS-события по рискам и приближающимся дедлайнам, подписанные HMAC-SHA256.
+          </p>
+          <form
+            className="mt-4 grid gap-3 sm:grid-cols-[1fr_2fr_auto]"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!workspaceApi) return;
+              try {
+                const created = await workspaceApi.createWebhook({
+                  name: webhookName,
+                  url: webhookUrl,
+                  events: [
+                    "risk.created",
+                    "risk.updated",
+                    "risk.deleted",
+                    "deadline.upcoming",
+                  ],
+                });
+                setRevealedSecret(created.secret ?? "");
+                setWebhookName("");
+                setWebhookUrl("");
+                await load();
+              } catch (err) {
+                setError(parseApiError(err, "Не удалось создать webhook"));
+              }
+            }}
+          >
+            <input
+              required
+              placeholder="Название"
+              value={webhookName}
+              onChange={(event) => setWebhookName(event.target.value)}
+              className="rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text"
+            />
+            <input
+              required
+              type="url"
+              placeholder="https://example.com/webhooks"
+              value={webhookUrl}
+              onChange={(event) => setWebhookUrl(event.target.value)}
+              className="rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+            >
+              Добавить
+            </button>
+          </form>
+          {revealedSecret && (
+            <p className="mt-3 rounded border border-secondary bg-cream px-3 py-2 font-mono text-xs text-text">
+              Secret: {revealedSecret}
+            </p>
+          )}
+          <ul className="mt-4 space-y-2 text-sm">
+            {webhooks.map((webhook) => (
+              <li
+                key={webhook.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"
+              >
+                <span className="min-w-0">
+                  <strong>{webhook.name}</strong>
+                  <span className="ml-2 break-all text-xs text-text-muted">
+                    {webhook.url}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-xs text-primary hover:underline"
+                  onClick={async () => {
+                    if (!workspaceApi) return;
+                    await workspaceApi.deleteWebhook(webhook.id);
+                    await load();
+                  }}
+                >
+                  Удалить
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

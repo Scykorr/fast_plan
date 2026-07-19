@@ -1,3 +1,4 @@
+import secrets
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -16,10 +17,21 @@ from workspaces.invitation_services import (
     resend_workspace_invitation,
 )
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, IsWorkspaceOwner, WorkspaceMixin
-from workspaces.models import MemberCapacity, WorkspaceInvitation, WorkspaceMember
+from workspaces.models import (
+    MemberCapacity,
+    WebhookDelivery,
+    WebhookEndpoint,
+    WorkspaceAPIToken,
+    WorkspaceInvitation,
+    WorkspaceMember,
+)
 from workspaces.search import build_capacity_report, list_my_tasks, search_workspace
 from workspaces.serializers import (
     WorkspaceInvitationSerializer,
+    WebhookDeliverySerializer,
+    WebhookEndpointSerializer,
+    WorkspaceAPITokenCreateSerializer,
+    WorkspaceAPITokenSerializer,
     WorkspaceMemberSerializer,
     WorkspaceSummarySerializer,
 )
@@ -31,6 +43,7 @@ from workspaces.services import (
 )
 from django.contrib.auth import get_user_model
 from datetime import date
+from django.utils import timezone
 
 
 class WorkspaceDashboardView(WorkspaceMixin, APIView):
@@ -137,6 +150,134 @@ class WorkspaceCapacityView(WorkspaceMixin, APIView):
                 "hours_per_week": capacity.hours_per_week,
             }
         )
+
+
+def _require_session_owner(view, request, workspace):
+    if isinstance(getattr(request, "auth", None), WorkspaceAPIToken):
+        raise PermissionDenied("Manage integrations with an interactive session.")
+    view.require_owner(workspace, request.user)
+
+
+class WorkspaceAPITokenListCreateView(WorkspaceMixin, APIView):
+    def get(self, request):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        return Response(
+            WorkspaceAPITokenSerializer(workspace.api_tokens.all(), many=True).data
+        )
+
+    def post(self, request):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        serializer = WorkspaceAPITokenCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        expires_at = serializer.validated_data.get("expires_at")
+        if expires_at is not None and expires_at <= timezone.now():
+            raise ValidationError({"expires_at": "Expiration must be in the future."})
+        token, raw_token = WorkspaceAPIToken.issue(
+            workspace=workspace,
+            name=serializer.validated_data["name"],
+            scopes=serializer.validated_data["scopes"],
+            created_by=request.user,
+            expires_at=expires_at,
+        )
+        data = WorkspaceAPITokenSerializer(token).data
+        data["token"] = raw_token
+        log_audit(
+            workspace,
+            request.user,
+            "api_token.create",
+            "WorkspaceAPIToken",
+            token.id,
+            summary=f"Created API token: {token.name}",
+            changes={"scopes": token.scopes},
+        )
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class WorkspaceAPITokenDetailView(WorkspaceMixin, APIView):
+    def delete(self, request, token_id):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        token = get_object_or_404(workspace.api_tokens, pk=token_id)
+        token.revoked_at = timezone.now()
+        token.save(update_fields=["revoked_at"])
+        log_audit(
+            workspace,
+            request.user,
+            "api_token.revoke",
+            "WorkspaceAPIToken",
+            token.id,
+            summary=f"Revoked API token: {token.name}",
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WorkspaceWebhookListCreateView(WorkspaceMixin, APIView):
+    def get(self, request):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        return Response(
+            WebhookEndpointSerializer(workspace.webhook_endpoints.all(), many=True).data
+        )
+
+    def post(self, request):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        serializer = WebhookEndpointSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        secret = secrets.token_urlsafe(32)
+        endpoint = serializer.save(
+            workspace=workspace,
+            created_by=request.user,
+            secret=secret,
+        )
+        data = WebhookEndpointSerializer(endpoint).data
+        data["secret"] = secret
+        log_audit(
+            workspace,
+            request.user,
+            "webhook.create",
+            "WebhookEndpoint",
+            endpoint.id,
+            summary=f"Created webhook: {endpoint.name}",
+            changes={"url": endpoint.url, "events": endpoint.events},
+        )
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class WorkspaceWebhookDetailView(WorkspaceMixin, APIView):
+    def _get_endpoint(self, workspace, endpoint_id):
+        return get_object_or_404(workspace.webhook_endpoints, pk=endpoint_id)
+
+    def patch(self, request, endpoint_id):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        endpoint = self._get_endpoint(workspace, endpoint_id)
+        serializer = WebhookEndpointSerializer(
+            endpoint,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, endpoint_id):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        endpoint = self._get_endpoint(workspace, endpoint_id)
+        endpoint.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WorkspaceWebhookDeliveryListView(WorkspaceMixin, APIView):
+    def get(self, request, endpoint_id):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        endpoint = get_object_or_404(workspace.webhook_endpoints, pk=endpoint_id)
+        deliveries = WebhookDelivery.objects.filter(endpoint=endpoint)[:50]
+        return Response(WebhookDeliverySerializer(deliveries, many=True).data)
 
 
 class WorkspaceListView(APIView):

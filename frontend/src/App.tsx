@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { GuestRoute, ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { LocaleProvider } from "./context/LocaleContext";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { AdministrationPage } from "./pages/AdministrationPage";
 import { CalendarPage } from "./pages/CalendarPage";
@@ -20,13 +22,16 @@ import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { AuditPage } from "./pages/AuditPage";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <WorkspaceProvider>
-        <BrowserRouter>
+    <ThemeProvider>
+      <LocaleProvider>
+        <AuthProvider>
+          <WorkspaceProvider>
+            <BrowserRouter>
           <Routes>
             <Route
               path="/login"
@@ -61,6 +66,7 @@ export default function App() {
               }
             />
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route
               element={
                 <ProtectedRoute>
@@ -83,8 +89,10 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </BrowserRouter>
-      </WorkspaceProvider>
-    </AuthProvider>
+            </BrowserRouter>
+          </WorkspaceProvider>
+        </AuthProvider>
+      </LocaleProvider>
+    </ThemeProvider>
   );
 }

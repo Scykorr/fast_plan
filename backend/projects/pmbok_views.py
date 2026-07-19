@@ -34,6 +34,7 @@ from projects.serializers_pmbok import (
 )
 from projects.views import WorkspaceMixin
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly
+from workspaces.webhooks import emit_webhook
 
 
 class RiskListCreateView(WorkspaceMixin, APIView):
@@ -57,6 +58,18 @@ class RiskListCreateView(WorkspaceMixin, APIView):
             risk.id,
             summary=f"Created risk: {risk.title}",
             changes={"title": risk.title, "probability": risk.probability, "impact": risk.impact},
+        )
+        emit_webhook(
+            project.workspace,
+            "risk.created",
+            {
+                "risk_id": risk.id,
+                "project_id": project.id,
+                "title": risk.title,
+                "probability": risk.probability,
+                "impact": risk.impact,
+                "status": risk.status,
+            },
         )
         return Response(RiskSerializer(risk).data, status=status.HTTP_201_CREATED)
 
@@ -84,6 +97,18 @@ class RiskDetailView(WorkspaceMixin, APIView):
             summary=f"Updated risk: {risk.title}",
             changes={key: request.data[key] for key in request.data},
         )
+        emit_webhook(
+            risk.project.workspace,
+            "risk.updated",
+            {
+                "risk_id": risk.id,
+                "project_id": risk.project_id,
+                "title": risk.title,
+                "probability": risk.probability,
+                "impact": risk.impact,
+                "status": risk.status,
+            },
+        )
         return Response(RiskSerializer(risk).data)
 
     def delete(self, request, risk_id):
@@ -96,6 +121,15 @@ class RiskDetailView(WorkspaceMixin, APIView):
             risk.id,
             summary=f"Deleted risk: {risk.title}",
             changes={"title": risk.title},
+        )
+        emit_webhook(
+            risk.project.workspace,
+            "risk.deleted",
+            {
+                "risk_id": risk.id,
+                "project_id": risk.project_id,
+                "title": risk.title,
+            },
         )
         risk.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

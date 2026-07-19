@@ -16,6 +16,18 @@
   --color-border: #e8e2d9;
 }
 
+:root[data-theme="dark"] {
+  --color-cream: #1f1a17;
+  --color-surface: #2b2420;
+  --color-primary: #e47d5d;
+  --color-primary-hover: #f09273;
+  --color-secondary: #8fb596;
+  --color-accent: #e9b85f;
+  --color-text: #f4ece5;
+  --color-text-muted: #b9aaa0;
+  --color-border: #4a3e37;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -30,25 +42,25 @@ body {
 }
 
 .birthday-calendar .fc {
-  --fc-border-color: #e8e2d9;
-  --fc-button-bg-color: #c45c3e;
-  --fc-button-border-color: #c45c3e;
-  --fc-button-hover-bg-color: #a84b32;
-  --fc-button-hover-border-color: #a84b32;
-  --fc-button-active-bg-color: #a84b32;
-  --fc-button-active-border-color: #a84b32;
-  --fc-today-bg-color: #faf7f2;
+  --fc-border-color: var(--color-border);
+  --fc-button-bg-color: var(--color-primary);
+  --fc-button-border-color: var(--color-primary);
+  --fc-button-hover-bg-color: var(--color-primary-hover);
+  --fc-button-hover-border-color: var(--color-primary-hover);
+  --fc-button-active-bg-color: var(--color-primary-hover);
+  --fc-button-active-border-color: var(--color-primary-hover);
+  --fc-today-bg-color: var(--color-cream);
   font-family: var(--font-sans);
 }
 
 .birthday-calendar .fc .fc-toolbar-title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #2d2926;
+  color: var(--color-text);
 }
 
 .birthday-calendar .fc .fc-daygrid-day-number {
-  color: #6b6560;
+  color: var(--color-text-muted);
   padding: 6px;
 }
 
@@ -60,26 +72,26 @@ body {
 }
 
 .gantt-wrapper .bar {
-  fill: #c45c3e;
+  fill: var(--color-primary);
 }
 
 .gantt-wrapper .bar-progress {
-  fill: #a84b32;
+  fill: var(--color-primary-hover);
 }
 
 .gantt-wrapper .bar-milestone .bar {
-  fill: #e8a838;
+  fill: var(--color-accent);
 }
 
 .gantt-wrapper .grid-header {
-  fill: #faf7f2;
+  fill: var(--color-cream);
 }
 
 .gantt-wrapper .grid-row {
-  fill: #ffffff;
+  fill: var(--color-surface);
 }
 
 .gantt-wrapper .today-highlight {
-  fill: #faf7f2;
+  fill: var(--color-cream);
   opacity: 0.6;
 }

@@ -1,5 +1,9 @@
+import hashlib
+import secrets
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Workspace(models.Model):
@@ -102,3 +106,96 @@ class MemberCapacity(models.Model):
 
     def __str__(self):
         return f"{self.user} @ {self.workspace}: {self.hours_per_week}h"
+
+
+class WorkspaceAPIToken(models.Model):
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="api_tokens",
+    )
+    name = models.CharField(max_length=100)
+    prefix = models.CharField(max_length=12, db_index=True)
+    token_hash = models.CharField(max_length=64, unique=True)
+    scopes = models.JSONField(default=list)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_workspace_tokens",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @classmethod
+    def issue(cls, *, workspace, name, scopes, created_by, expires_at=None):
+        raw = f"fp_{secrets.token_urlsafe(32)}"
+        token = cls.objects.create(
+            workspace=workspace,
+            name=name,
+            prefix=raw[:12],
+            token_hash=hashlib.sha256(raw.encode()).hexdigest(),
+            scopes=scopes,
+            created_by=created_by,
+            expires_at=expires_at,
+        )
+        return token, raw
+
+    def matches(self, raw_token):
+        digest = hashlib.sha256(raw_token.encode()).hexdigest()
+        return secrets.compare_digest(self.token_hash, digest)
+
+    @property
+    def is_active(self):
+        return self.revoked_at is None and (
+            self.expires_at is None or self.expires_at > timezone.now()
+        )
+
+
+class WebhookEndpoint(models.Model):
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="webhook_endpoints",
+    )
+    name = models.CharField(max_length=100)
+    url = models.URLField(max_length=500)
+    secret = models.CharField(max_length=128)
+    events = models.JSONField(default=list)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_webhooks",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} → {self.url}"
+
+
+class WebhookDelivery(models.Model):
+    endpoint = models.ForeignKey(
+        WebhookEndpoint,
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+    )
+    event = models.CharField(max_length=100)
+    payload = models.JSONField(default=dict)
+    dedupe_key = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    response_body = models.TextField(blank=True)
+    error = models.TextField(blank=True)
+    attempt_count = models.PositiveSmallIntegerField(default=0)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]

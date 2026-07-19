@@ -44,6 +44,7 @@ import {
   filterWbsTree,
 } from "../components/projects/wbs/filterWbs";
 import { useAuth } from "../context/AuthContext";
+import { useLocale } from "../context/LocaleContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useConfirm } from "../hooks/useConfirm";
 import { useFinanceApi } from "../hooks/useFinanceApi";
@@ -103,6 +104,7 @@ export function ProjectDetailPage() {
   const trackingApi = useTrackingApi();
   const workspaceApi = useWorkspaceApi();
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const { formatMoney } = useLocale();
 
   const tab: Tab = isTab(deepLink.tab) ? deepLink.tab : "overview";
   const [project, setProject] = useState<Project | null>(null);
@@ -775,7 +777,7 @@ export function ProjectDetailPage() {
                 <div className="rounded-xl border border-border bg-surface p-5">
                   <p className="text-sm text-text-muted">Бюджет</p>
                   <p className="mt-1 text-2xl font-bold text-text">
-                    {dashboard.budget.toLocaleString("ru-RU")} ₽
+                    {formatMoney(dashboard.budget)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border bg-surface p-5">
@@ -1079,15 +1081,21 @@ export function ProjectDetailPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="rounded-xl border border-border bg-surface p-4">
                 <p className="text-sm text-text-muted">Earned Value</p>
-                <p className="text-xl font-bold">{dashboard.evm.earned_value} ₽</p>
+                <p className="text-xl font-bold">
+                  {formatMoney(dashboard.evm.earned_value)}
+                </p>
               </div>
               <div className="rounded-xl border border-border bg-surface p-4">
                 <p className="text-sm text-text-muted">Planned Value</p>
-                <p className="text-xl font-bold">{dashboard.evm.planned_value} ₽</p>
+                <p className="text-xl font-bold">
+                  {formatMoney(dashboard.evm.planned_value)}
+                </p>
               </div>
               <div className="rounded-xl border border-border bg-surface p-4">
                 <p className="text-sm text-text-muted">Actual Cost</p>
-                <p className="text-xl font-bold">{dashboard.evm.actual_cost} ₽</p>
+                <p className="text-xl font-bold">
+                  {formatMoney(dashboard.evm.actual_cost)}
+                </p>
               </div>
             </div>
           )}

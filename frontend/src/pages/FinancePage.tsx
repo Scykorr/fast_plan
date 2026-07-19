@@ -10,6 +10,7 @@ import {
   type TransactionFormValues,
 } from "../components/finance/TransactionForm";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useLocale } from "../context/LocaleContext";
 import { useConfirm } from "../hooks/useConfirm";
 import { useFinanceApi } from "../hooks/useFinanceApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
@@ -20,6 +21,7 @@ export function FinancePage() {
   const projectsApi = useProjectsApi();
   const { workspaceEpoch } = useWorkspace();
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const { formatMoney } = useLocale();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filterProjectId, setFilterProjectId] = useState<number | "">("");
@@ -209,7 +211,7 @@ export function FinancePage() {
                   }
                 >
                   {item.transaction_type === "expense" ? "−" : "+"}
-                  {item.amount} ₽
+                  {formatMoney(item.amount)}
                 </span>
                 <button
                   type="button"

@@ -22,6 +22,7 @@ type AuthContextValue = {
     first_name?: string;
     last_name?: string;
   }) => Promise<void>;
+  updateProfile: (formData: FormData) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -58,10 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       last_name?: string;
     }) => {
       await api.register(data);
-      await login(data.email, data.password);
     },
-    [login],
+    [],
   );
+
+  const updateProfile = useCallback(async (formData: FormData) => {
+    const updatedUser = await api.updateProfile(formData);
+    setUser(updatedUser);
+  }, []);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -102,9 +107,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       login,
       register,
+      updateProfile,
       logout,
     }),
-    [user, isLoading, login, register, logout],
+    [user, isLoading, login, register, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

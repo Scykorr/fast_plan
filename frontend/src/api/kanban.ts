@@ -37,12 +37,25 @@ export type KanbanBoardListItem = {
   created_at: string;
 };
 
+export type BoardFlowAnalytics = {
+  board_id: number;
+  done_column_id?: number;
+  burndown: Array<{ date: string; remaining: number; ideal: number }>;
+  velocity: Array<{ week_start: string; completed: number }>;
+};
+
 export function createKanbanApi() {
   return {
     getBoards: () => request<KanbanBoardListItem[]>("/boards/", {}),
 
     getBoard: (boardId: number) =>
       request<KanbanBoard>(`/boards/${boardId}/`, {}),
+
+    getBoardAnalytics: (boardId: number, days = 14) =>
+      request<BoardFlowAnalytics>(
+        `/boards/${boardId}/analytics/?days=${days}`,
+        {},
+      ),
 
     createCard: (
       columnId: number,

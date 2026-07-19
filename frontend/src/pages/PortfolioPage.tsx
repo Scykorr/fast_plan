@@ -5,11 +5,13 @@ import { parseApiError } from "../api/errors";
 import type { WorkspaceDashboard } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useLocale } from "../context/LocaleContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function PortfolioPage() {
   const workspaceApi = useWorkspaceApi();
   const { workspaceEpoch, activeWorkspace } = useWorkspace();
+  const { formatMoney } = useLocale();
   const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,7 @@ export function PortfolioPage() {
                       <td className="px-4 py-3 text-text-muted">{row.status}</td>
                       <td className="px-4 py-3">{row.progress}%</td>
                       <td className="px-4 py-3">
-                        {row.budget.toLocaleString("ru-RU")} ₽
+                        {formatMoney(row.budget)}
                       </td>
                       <td className="px-4 py-3">{row.spi ?? "—"}</td>
                       <td className="px-4 py-3">{row.cpi ?? "—"}</td>

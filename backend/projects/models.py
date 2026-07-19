@@ -57,6 +57,32 @@ class Project(models.Model):
         return self.name
 
 
+class ProjectTemplate(models.Model):
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="project_templates",
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    structure = models.JSONField(default=dict)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_project_templates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        unique_together = [("workspace", "name")]
+
+    def __str__(self):
+        return self.name
+
+
 class WBSNode(models.Model):
     class NodeType(models.TextChoices):
         DELIVERABLE = "deliverable", "Deliverable"

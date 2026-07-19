@@ -1,6 +1,7 @@
 import factory
 from datetime import date
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from birthdays.models import Birthday, Contact
 from kanban.models import Board, Card, Column
@@ -19,6 +20,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     username = factory.Sequence(lambda n: f"user{n}")
     first_name = "Test"
     last_name = "User"
+    email_verified_at = factory.LazyFunction(timezone.now)
 
     @factory.post_generation
     def password(self, create, extracted, **kwargs):

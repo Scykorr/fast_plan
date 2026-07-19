@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { parseApiError } from "../api/errors";
-import type { Project } from "../api/projects";
+import type { Project, ProjectTemplate } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 
@@ -20,6 +20,7 @@ const inputClass =
 export function ProjectsPage() {
   const projectsApi = useProjectsApi();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -28,6 +29,9 @@ export function ProjectsPage() {
   const [status, setStatus] = useState("planning");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [templateId, setTemplateId] = useState<number | "">("");
+  const [templateName, setTemplateName] = useState("");
+  const [templateSourceId, setTemplateSourceId] = useState<number | "">("");
 
   const loadProjects = useCallback(async () => {
     if (!projectsApi) {
@@ -36,8 +40,12 @@ export function ProjectsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await projectsApi.getProjects();
-      setProjects(data);
+      const [projectData, templateData] = await Promise.all([
+        projectsApi.getProjects(),
+        projectsApi.getProjectTemplates(),
+      ]);
+      setProjects(projectData);
+      setTemplates(templateData);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить проекты"));
     } finally {
@@ -53,6 +61,7 @@ export function ProjectsPage() {
     setName("");
     setDescription("");
     setStatus("planning");
+    setTemplateId("");
     setFormError("");
     setShowForm(false);
   };
@@ -73,6 +82,7 @@ export function ProjectsPage() {
         name: name.trim(),
         description: description.trim() || undefined,
         status,
+        template_id: templateId || undefined,
       });
       resetForm();
       await loadProjects();
@@ -120,6 +130,26 @@ export function ProjectsPage() {
               className={inputClass}
               autoFocus
             />
+          </div>
+          <div>
+            <label htmlFor="project-template" className="mb-1 block text-sm font-medium">
+              Шаблон
+            </label>
+            <select
+              id="project-template"
+              value={templateId}
+              onChange={(event) =>
+                setTemplateId(event.target.value ? Number(event.target.value) : "")
+              }
+              className={inputClass}
+            >
+              <option value="">Без шаблона</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label htmlFor="project-description" className="mb-1 block text-sm font-medium">
@@ -172,6 +202,74 @@ export function ProjectsPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {projects.length > 0 && (
+        <section className="max-w-2xl rounded-xl border border-border bg-surface p-4">
+          <h2 className="font-semibold text-text">Шаблоны проектов</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            Сохраните WBS, выбранные трекеры и колонки Kanban существующего проекта.
+          </p>
+          <form
+            className="mt-3 flex flex-wrap gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!projectsApi || !templateName.trim() || !templateSourceId) return;
+              try {
+                await projectsApi.createProjectTemplate({
+                  name: templateName.trim(),
+                  source_project_id: templateSourceId,
+                });
+                setTemplateName("");
+                setTemplateSourceId("");
+                await loadProjects();
+              } catch (err) {
+                setError(parseApiError(err, "Не удалось создать шаблон"));
+              }
+            }}
+          >
+            <input
+              required
+              placeholder="Название шаблона"
+              value={templateName}
+              onChange={(event) => setTemplateName(event.target.value)}
+              className={`${inputClass} min-w-48 flex-1`}
+            />
+            <select
+              required
+              value={templateSourceId}
+              onChange={(event) =>
+                setTemplateSourceId(event.target.value ? Number(event.target.value) : "")
+              }
+              className={`${inputClass} min-w-48 flex-1`}
+            >
+              <option value="">Исходный проект</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-white"
+            >
+              Сохранить
+            </button>
+          </form>
+          {templates.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {templates.map((template) => (
+                <li
+                  key={template.id}
+                  className="rounded-full border border-border bg-cream px-3 py-1 text-xs text-text"
+                >
+                  {template.name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
       {loading ? (
