@@ -4,6 +4,12 @@ from rest_framework.test import APIClient
 from tests.factories import CardFactory, UserFactory
 
 
+@pytest.fixture(autouse=True)
+def _isolated_media_root(tmp_path, settings):
+    """Keep file uploads created during tests out of the real media/ dir."""
+    settings.MEDIA_ROOT = tmp_path
+
+
 @pytest.fixture
 def api_client():
     return APIClient()

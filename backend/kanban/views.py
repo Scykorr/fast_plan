@@ -17,6 +17,7 @@ from kanban.serializers import (
 )
 from kanban.services import move_card, move_column, reorder_column_positions, reorder_positions
 from projects.sync import sync_activity_from_card
+from workspaces.events import publish_event
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 
 
@@ -177,4 +178,13 @@ class CardMoveView(BoardWorkspaceMixin, APIView):
             serializer.validated_data["position"],
         )
         sync_activity_from_card(card)
+        publish_event(
+            self.get_workspace().id,
+            "card.moved",
+            {
+                "card_id": card.id,
+                "column_id": card.column_id,
+                "board_id": target_column.board_id,
+            },
+        )
         return Response(CardSerializer(card).data)

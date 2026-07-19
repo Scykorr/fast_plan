@@ -12,6 +12,7 @@ from projects.serializers_comments import (
     WorkItemCommentWriteSerializer,
 )
 from projects.views import WorkspaceMixin
+from workspaces.events import publish_event
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly
 from workspaces.models import WorkspaceMember
 from workspaces.services import get_membership, has_min_role
@@ -40,6 +41,11 @@ class WBSCommentListCreateView(WorkspaceMixin, APIView):
             body=serializer.validated_data["body"].strip(),
         )
         notify_new_comment(comment)
+        publish_event(
+            node.project.workspace_id,
+            "comment.created",
+            {"comment_id": comment.id, "wbs_id": node.id},
+        )
         return Response(
             WorkItemCommentSerializer(comment).data,
             status=status.HTTP_201_CREATED,
@@ -72,6 +78,11 @@ class CardCommentListCreateView(WorkspaceMixin, APIView):
             body=serializer.validated_data["body"].strip(),
         )
         notify_new_comment(comment)
+        publish_event(
+            card.column.board.workspace_id,
+            "comment.created",
+            {"comment_id": comment.id, "card_id": card.id},
+        )
         return Response(
             WorkItemCommentSerializer(comment).data,
             status=status.HTTP_201_CREATED,

@@ -8,10 +8,13 @@ import { ContactForm } from "../components/calendar/ContactForm";
 import { useAuth } from "../context/AuthContext";
 import { useCalendarApi } from "../hooks/useCalendarApi";
 import { useConfirm } from "../hooks/useConfirm";
+import { useProjectsApi } from "../hooks/useProjectsApi";
+import { downloadBlob } from "../utils/download";
 
 export function CalendarPage() {
   const { isAuthenticated } = useAuth();
   const calendarApi = useCalendarApi();
+  const projectsApi = useProjectsApi();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -70,6 +73,18 @@ export function CalendarPage() {
     }
   };
 
+  const handleDownloadIcs = async () => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const blob = await projectsApi.downloadWorkspaceCalendarIcs();
+      downloadBlob(blob, "workspace-calendar.ics");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось скачать календарь"));
+    }
+  };
+
   if (!isAuthenticated) {
     return null;
   }
@@ -86,13 +101,22 @@ export function CalendarPage() {
             Дни рождения и вехи проектов
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((value) => !value)}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
-        >
-          {showForm ? "Скрыть форму" : "+ Добавить контакт"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleDownloadIcs()}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-cream"
+          >
+            Экспорт .ics
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowForm((value) => !value)}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
+          >
+            {showForm ? "Скрыть форму" : "+ Добавить контакт"}
+          </button>
+        </div>
       </div>
 
       {showForm && (

@@ -431,6 +431,14 @@ export function createProjectsApi() {
     exportProjectPdf: (projectId: number) =>
       requestBlob(`/projects/${projectId}/export/?output=pdf`),
 
+    exportWbs: (projectId: number, format: "csv" | "xlsx") =>
+      requestBlob(`/projects/${projectId}/export/?output=${format}`),
+
+    downloadProjectMilestonesIcs: (projectId: number) =>
+      requestBlob(`/projects/${projectId}/milestones.ics`),
+
+    downloadWorkspaceCalendarIcs: () => requestBlob("/workspace/calendar.ics"),
+
     getWbsComments: (wbsId: number) =>
       request<WorkItemComment[]>(`/wbs/${wbsId}/comments/`, {}),
 

@@ -19,6 +19,8 @@
 | 2026-07-19 | **P0 (v0.5.0)** SMTP email + invite/digest, forgot/reset/change password, убраны `window.prompt`, RACI с явным выбором |
 | 2026-07-19 | **P1 (v0.6.0)** budget UI, revoke/resend invite, редакторы Risk/Stakeholder/Baseline, mark-all-read + пагинация уведомлений, comment-уведомления (@mention), `ConfirmDialog`, CI hardening |
 | 2026-07-19 | Релиз **v0.6.0** |
+| 2026-07-19 | **P2 (v0.7.0)** audit log, вложения файлов, time entries, экспорт CSV/XLSX/ICS, SSE realtime, Celery/Redis, портфельный обзор, observability (LOGGING + Sentry) |
+| 2026-07-19 | Релиз **v0.7.0** |
 
 ---
 
@@ -36,14 +38,16 @@ _Выполнено (2026-07-19 / v0.6.0)._
 
 ## P2 — коллаборация, отчётность, эксплуатация
 
-- [ ] **Realtime** — SSE или WebSocket: обновления Kanban/WBS/комментариев для других участников workspace. **L**
-- [ ] **Вложения файлов** — на карточках и WBS work packages (storage + лимиты + preview). **M**
-- [ ] **Учёт фактических трудозатрат** — time entries / logged hours; связать с capacity и EVM (сейчас только plan `hours_per_week` и ручной %). **L**
-- [ ] **Портфельный обзор** — сводка по всем проектам workspace (SPI/CPI, просрочки, бюджет) одной страницей. **M**
-- [ ] **Экспорт** — CSV/XLSX транзакций и WBS; опционально ICS для вех/дедлайнов. **M**
-- [ ] **Observability** — structured `LOGGING`, Sentry (backend + frontend), базовые метрики запросов. **S**
-- [ ] **Audit log** — неизменяемая история изменений ролей, WBS, финансов (поверх decision-comments). **M**
-- [ ] **Фоновые задачи** — переход scheduler → Celery/Redis (retry, очереди) или явный lock + healthcheck для текущего loop. **M**
+_Выполнено (2026-07-19 / v0.7.0)._
+
+- [x] **Realtime** — SSE (`GET /api/workspace/events/`, in-process pub/sub) для card move / WBS update / комментариев + `useWorkspaceEvents` и toast на фронте. **L**
+- [x] **Вложения файлов** — `WorkItemAttachment` (WBS work packages и Kanban-карточки), лимит `ATTACHMENT_MAX_BYTES`, UI на панели WBS-детали. **M**
+- [x] **Учёт фактических трудозатрат** — `TimeEntry` (workspace/user/wbs_node/hours/date), CRUD API, `logged_hours` в `build_capacity_report`, форма+список на панели WBS-детали. **L**
+- [x] **Портфельный обзор** — `PortfolioPage` (`/portfolio`) со сводкой по всем проектам workspace. **M**
+- [x] **Экспорт** — CSV/XLSX для WBS и транзакций Finance, ICS для вех проекта и календаря workspace + кнопки в UI. **M**
+- [x] **Observability** — structured `LOGGING` + опциональный Sentry (`SENTRY_DSN`). **S**
+- [x] **Audit log** — неизменяемый `AuditLogEntry` для member/invitation/finance/WBS/risk мутаций, `GET /api/workspace/audit/`, страница `/audit`. **M**
+- [x] **Фоновые задачи** — Celery + Redis (`backend/config/celery.py`, `run_reminders` task, beat schedule раз в час), cache-lock fallback для `send_reminders` без Redis. **M**
 
 ---
 

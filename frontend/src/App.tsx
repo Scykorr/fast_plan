@@ -14,11 +14,13 @@ import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { KanbanPage } from "./pages/KanbanPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MyTasksPage } from "./pages/MyTasksPage";
+import { PortfolioPage } from "./pages/PortfolioPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { AuditPage } from "./pages/AuditPage";
 
 export default function App() {
   return (
@@ -67,6 +69,7 @@ export default function App() {
               }
             >
               <Route index element={<DashboardPage />} />
+              <Route path="portfolio" element={<PortfolioPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
               <Route path="tasks" element={<MyTasksPage />} />
@@ -74,6 +77,7 @@ export default function App() {
               <Route path="kanban" element={<KanbanPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="finance" element={<FinancePage />} />
+              <Route path="audit" element={<AuditPage />} />
               <Route path="administration" element={<AdministrationPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

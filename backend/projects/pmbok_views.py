@@ -5,8 +5,14 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from audit.services import log_audit
 from projects.baseline import create_baseline
 from projects.cpm import compute_critical_path
+from projects.exports import (
+    project_milestones_ics,
+    render_wbs_csv,
+    render_wbs_xlsx,
+)
 from projects.models import (
     ProjectBaseline,
     ProjectCharter,
@@ -43,6 +49,15 @@ class RiskListCreateView(WorkspaceMixin, APIView):
         serializer = RiskWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         risk = Risk.objects.create(project=project, **serializer.validated_data)
+        log_audit(
+            project.workspace,
+            request.user,
+            "risk.create",
+            "Risk",
+            risk.id,
+            summary=f"Created risk: {risk.title}",
+            changes={"title": risk.title, "probability": risk.probability, "impact": risk.impact},
+        )
         return Response(RiskSerializer(risk).data, status=status.HTTP_201_CREATED)
 
 
@@ -60,10 +75,28 @@ class RiskDetailView(WorkspaceMixin, APIView):
         serializer = RiskWriteSerializer(risk, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        log_audit(
+            risk.project.workspace,
+            request.user,
+            "risk.update",
+            "Risk",
+            risk.id,
+            summary=f"Updated risk: {risk.title}",
+            changes={key: request.data[key] for key in request.data},
+        )
         return Response(RiskSerializer(risk).data)
 
     def delete(self, request, risk_id):
         risk = self.get_risk(risk_id)
+        log_audit(
+            risk.project.workspace,
+            request.user,
+            "risk.delete",
+            "Risk",
+            risk.id,
+            summary=f"Deleted risk: {risk.title}",
+            changes={"title": risk.title},
+        )
         risk.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -238,8 +271,12 @@ class ProjectExportView(WorkspaceMixin, APIView):
 
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
-        report = build_status_report(project)
         fmt = (request.query_params.get("output") or "json").lower()
+        if fmt == "csv":
+            return render_wbs_csv(project)
+        if fmt == "xlsx":
+            return render_wbs_xlsx(project)
+        report = build_status_report(project)
         if fmt == "pdf":
             pdf_bytes = render_status_report_pdf(report)
             response = HttpResponse(pdf_bytes, content_type="application/pdf")
@@ -248,3 +285,11 @@ class ProjectExportView(WorkspaceMixin, APIView):
             )
             return response
         return Response(report)
+
+
+class ProjectMilestonesIcsView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        return project_milestones_ics(project)

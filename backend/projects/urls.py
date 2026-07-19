@@ -11,6 +11,7 @@ from projects.pmbok_views import (
     CriticalPathView,
     ProjectCharterView,
     ProjectExportView,
+    ProjectMilestonesIcsView,
     RACIDetailView,
     RACIListCreateView,
     RiskDetailView,
@@ -28,6 +29,7 @@ from projects.views import (
     ScheduleActivityDetailView,
     WBSNodeDetailView,
     WBSTreeView,
+    WorkspaceCalendarIcsView,
     WorkspaceMilestonesCalendarView,
 )
 
@@ -64,6 +66,11 @@ urlpatterns = [
         "projects/<int:project_id>/export/",
         ProjectExportView.as_view(),
         name="project-export",
+    ),
+    path(
+        "projects/<int:project_id>/milestones.ics",
+        ProjectMilestonesIcsView.as_view(),
+        name="project-milestones-ics",
     ),
     path(
         "projects/<int:project_id>/risks/",
@@ -106,6 +113,11 @@ urlpatterns = [
         "calendar/milestones/",
         WorkspaceMilestonesCalendarView.as_view(),
         name="workspace-milestones-calendar",
+    ),
+    path(
+        "workspace/calendar.ics",
+        WorkspaceCalendarIcsView.as_view(),
+        name="workspace-calendar-ics",
     ),
     path("wbs/<int:wbs_id>/", WBSNodeDetailView.as_view(), name="wbs-detail"),
     path(

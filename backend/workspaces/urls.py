@@ -4,6 +4,7 @@ from workspaces.views import (
     WorkspaceActivateView,
     WorkspaceCapacityView,
     WorkspaceDashboardView,
+    WorkspaceEventsView,
     WorkspaceInvitationAcceptView,
     WorkspaceInvitationDetailView,
     WorkspaceInvitationListCreateView,
@@ -30,6 +31,11 @@ urlpatterns = [
         "workspace/search/",
         WorkspaceSearchView.as_view(),
         name="workspace-search",
+    ),
+    path(
+        "workspace/events/",
+        WorkspaceEventsView.as_view(),
+        name="workspace-events",
     ),
     path(
         "workspace/my-tasks/",

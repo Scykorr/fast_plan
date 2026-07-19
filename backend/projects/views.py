@@ -8,9 +8,11 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from audit.services import log_audit
 from projects.cpm import compute_critical_path, compute_evm_lite
 from projects.models import ActivityDependency, Project, ProjectCharter, ScheduleActivity, WBSNode
 from projects.calendar import project_milestone_events, workspace_milestone_events
+from projects.exports import workspace_calendar_ics
 from projects.serializers import (
     ActivityDependencySerializer,
     ActivityDependencyWriteSerializer,
@@ -24,6 +26,7 @@ from projects.serializers import (
 from projects.serializers_pmbok import ProjectCharterSerializer, RiskSerializer
 from projects.services import build_wbs_tree, create_work_package
 from projects.sync import sync_card_from_activity
+from workspaces.events import publish_event
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin as BaseWorkspaceMixin
 
 
@@ -178,6 +181,16 @@ class WBSTreeView(WorkspaceMixin, APIView):
             node.description = data["description"]
             node.save(update_fields=["description"])
 
+        log_audit(
+            project.workspace,
+            request.user,
+            "wbs.create",
+            "WBSNode",
+            node.id,
+            summary=f"Created WBS node {node.code} {node.title}",
+            changes={"title": node.title, "node_type": node.node_type},
+        )
+
         nodes = (
             project.wbs_nodes.select_related(
                 "schedule", "card", "tracker", "workflow_status", "assignee"
@@ -201,6 +214,24 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
         serializer = WBSNodeUpdateSerializer(node, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        log_audit(
+            node.project.workspace,
+            request.user,
+            "wbs.update",
+            "WBSNode",
+            node.id,
+            summary=f"Updated WBS node {node.code} {node.title}",
+            changes={
+                key: value
+                for key, value in request.data.items()
+                if key != "custom_values"
+            },
+        )
+        publish_event(
+            node.project.workspace_id,
+            "wbs.updated",
+            {"wbs_id": node.id, "project_id": node.project_id},
+        )
         nodes = (
             node.project.wbs_nodes.select_related("schedule", "card")
             .order_by("position", "id")
@@ -211,6 +242,15 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
         node = self.get_node(wbs_id)
         if node.parent_id is None:
             raise ValidationError("Root WBS node cannot be deleted.")
+        log_audit(
+            node.project.workspace,
+            request.user,
+            "wbs.delete",
+            "WBSNode",
+            node.id,
+            summary=f"Deleted WBS node {node.code} {node.title}",
+            changes={"title": node.title},
+        )
         node.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -323,3 +363,10 @@ class WorkspaceMilestonesCalendarView(WorkspaceMixin, APIView):
         return Response(
             workspace_milestone_events(self.get_workspace(), year, month)
         )
+
+
+class WorkspaceCalendarIcsView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        return workspace_calendar_ics(self.get_workspace())

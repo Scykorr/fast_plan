@@ -19,6 +19,23 @@
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
 
+## [0.7.0] — 2026-07-19
+
+### Added
+
+- **Audit log**: приложение `audit` — модель `AuditLogEntry` (workspace, actor, action, entity_type/id, summary, changes JSON), неизменяема (нет update/delete в API); хелпер `log_audit(...)`; вызовы из создания/удаления инвайтов, смены роли/удаления участника, create/update/delete транзакций, WBS-узлов и рисков; `GET /api/workspace/audit/?page=` (owner/editor); страница `/audit`
+- **Вложения**: приложение `attachments` — модель `WorkItemAttachment` (`file`, `uploaded_by`, `wbs_node` XOR `card` через `CheckConstraint`, `name`, `size`, `content_type`); лимит `ATTACHMENT_MAX_BYTES`; `GET/POST /api/wbs/<id>/attachments/`, `GET/POST /api/cards/<id>/attachments/`, `DELETE /api/attachments/<id>/`; медиа отдаётся через `MEDIA_URL`/`MEDIA_ROOT` в DEBUG; список + загрузка файлов на панели деталей WBS-задачи
+- **Учёт трудозатрат**: приложение `timelog` — модель `TimeEntry` (workspace, user, wbs_node, hours, work_date, notes); CRUD `GET/POST /api/workspace/time-entries/`, `PATCH/DELETE .../<id>/`; `build_capacity_report` дополнен полем `logged_hours` (фактические часы из `TimeEntry` за неделю) как ориентир по факту относительно `capacity_hours`/`allocated_hours`; форма логирования времени и список записей на панели деталей WBS-задачи
+- **Экспорт**: `openpyxl` для XLSX; `GET /api/projects/<id>/export/?output=csv|xlsx` (WBS flatten), `GET /api/finance/transactions/export/?format=csv|xlsx`, `GET /api/projects/<id>/milestones.ics` и `GET /api/workspace/calendar.ics` (вехи/дедлайны в формате iCalendar); кнопки экспорта CSV/XLSX на Finance и Project Overview, .ics на Calendar и Project Overview
+- **Realtime (SSE)**: `GET /api/workspace/events/` (`StreamingHttpResponse`, `text/event-stream`), in-process pub/sub по `workspace_id` (см. ограничение однопроцессности в докстринге `workspaces/events.py`); `publish_event(...)` при перемещении Kanban-карточки, обновлении WBS-узла и создании комментария; хук `useWorkspaceEvents` (EventSource с cookie-авторизацией) + toast «Данные обновлены» в `AppLayout`
+- **Celery + Redis**: `backend/config/celery.py`, задача `run_reminders` (обёртка над `run_all_reminders`), беат-расписание раз в час; `docker-compose` сервисы `redis`, `celery-worker`, `celery-beat` вместо shell-`scheduler`; cache-lock (Redis либо locmem) в `send_reminders`, защищающий от параллельного запуска
+- Портфельный обзор (`PortfolioPage`, `/portfolio`) — сводка SPI/CPI, просрочек и бюджета по всем проектам workspace
+- `.env.example`: `REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `CELERY_TASK_ALWAYS_EAGER`, `SENTRY_DSN`, `ATTACHMENT_MAX_BYTES`, `LOG_LEVEL`
+
+### Changed
+
+- `docker-compose.yml`: `redis` сервис + volume `redis_data`; `celery-worker`/`celery-beat` заменяют предыдущий `scheduler`
+
 ## [0.6.0] — 2026-07-19
 
 ### Added

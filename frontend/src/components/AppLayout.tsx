@@ -1,20 +1,23 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { NotificationBell } from "./NotificationBell";
 import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useWorkspaceEvents } from "../hooks/useWorkspaceEvents";
 import { APP_VERSION } from "../version";
 
 const navItems = [
   { to: "/", label: "Дашборд", end: true },
+  { to: "/portfolio", label: "Портфель" },
   { to: "/projects", label: "Проекты" },
   { to: "/tasks", label: "Мои задачи" },
   { to: "/capacity", label: "Capacity" },
   { to: "/kanban", label: "Kanban" },
   { to: "/calendar", label: "Календарь" },
   { to: "/finance", label: "Финансы" },
+  { to: "/audit", label: "Аудит" },
   { to: "/administration", label: "Администрирование" },
   { to: "/settings", label: "Настройки" },
 ];
@@ -101,10 +104,37 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { workspaceEpoch } = useWorkspace();
+  const { workspaceEpoch, activeWorkspace } = useWorkspace();
+  const { isAuthenticated } = useAuth();
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number | null>(null);
+
+  useWorkspaceEvents(isAuthenticated && Boolean(activeWorkspace), () => {
+    setToast("Данные обновлены");
+    if (toastTimer.current) {
+      window.clearTimeout(toastTimer.current);
+    }
+    toastTimer.current = window.setTimeout(() => setToast(null), 3000);
+  });
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) {
+        window.clearTimeout(toastTimer.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="flex min-h-screen">
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-4 right-4 z-[60] rounded-lg bg-text px-4 py-2 text-sm font-medium text-white shadow-lg"
+        >
+          {toast}
+        </div>
+      )}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface px-4 py-6 md:flex">
         <SidebarContent />
       </aside>

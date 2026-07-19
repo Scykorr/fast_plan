@@ -197,6 +197,45 @@ async function requestBlob(
   return response.blob();
 }
 
+async function requestForm<T>(
+  path: string,
+  formData: FormData,
+  { retry = true }: { retry?: boolean } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {};
+
+  if (activeWorkspaceId != null) {
+    headers["X-Workspace-Id"] = String(activeWorkspaceId);
+  }
+
+  const csrf = await ensureCsrfCookie();
+  if (csrf) {
+    headers["X-CSRFToken"] = csrf;
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "include",
+  });
+
+  if (response.status === 401 && retry) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return requestForm<T>(path, formData, { retry: false });
+    }
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new ApiError(response.status, data);
+  }
+
+  return data as T;
+}
+
 export const api = {
   ensureCsrf: () => ensureCsrfCookie(),
 
@@ -249,4 +288,4 @@ export const api = {
     }),
 };
 
-export { ApiError, request, requestBlob, WORKSPACE_STORAGE_KEY };
+export { ApiError, request, requestBlob, requestForm, WORKSPACE_STORAGE_KEY };

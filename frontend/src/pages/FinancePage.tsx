@@ -13,6 +13,7 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { useConfirm } from "../hooks/useConfirm";
 import { useFinanceApi } from "../hooks/useFinanceApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
+import { downloadBlob } from "../utils/download";
 
 export function FinancePage() {
   const financeApi = useFinanceApi();
@@ -83,6 +84,19 @@ export function FinancePage() {
     }
   };
 
+  const handleExport = async (format: "csv" | "xlsx") => {
+    if (!financeApi) {
+      return;
+    }
+    try {
+      const projectId = filterProjectId === "" ? undefined : Number(filterProjectId);
+      const blob = await financeApi.exportTransactions(format, projectId);
+      downloadBlob(blob, `transactions.${format}`);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось экспортировать транзакции"));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -92,16 +106,32 @@ export function FinancePage() {
             Учёт расходов и доходов workspace
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setShowForm((value) => !value);
-          }}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
-        >
-          {showForm && !editing ? "Скрыть форму" : "+ Транзакция"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleExport("csv")}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-cream"
+          >
+            Экспорт CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleExport("xlsx")}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-cream"
+          >
+            Экспорт XLSX
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setShowForm((value) => !value);
+            }}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
+          >
+            {showForm && !editing ? "Скрыть форму" : "+ Транзакция"}
+          </button>
+        </div>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
 

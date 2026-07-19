@@ -56,6 +56,7 @@ import {
   mergeDeepLinkSearch,
   parseDeepLinkParams,
 } from "../utils/deepLinks";
+import { downloadBlob } from "../utils/download";
 
 type Tab =
   | "overview"
@@ -616,14 +617,33 @@ export function ProjectDetailPage() {
     }
     try {
       const blob = await projectsApi.exportProjectPdf(id);
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `project-${id}-status.pdf`;
-      anchor.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `project-${id}-status.pdf`);
     } catch (err) {
       setError(parseApiError(err, "Не удалось экспортировать PDF"));
+    }
+  };
+
+  const handleExportWbs = async (format: "csv" | "xlsx") => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const blob = await projectsApi.exportWbs(id, format);
+      downloadBlob(blob, `project-${id}-wbs.${format}`);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось экспортировать WBS"));
+    }
+  };
+
+  const handleDownloadMilestonesIcs = async () => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      const blob = await projectsApi.downloadProjectMilestonesIcs(id);
+      downloadBlob(blob, `project-${id}-milestones.ics`);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось скачать календарь вех"));
     }
   };
 
@@ -717,6 +737,31 @@ export function ProjectDetailPage() {
               onExportPdf={() => void handleExportPdf()}
             />
           )}
+
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-4">
+            <span className="text-sm font-medium text-text-muted">Экспорт WBS:</span>
+            <button
+              type="button"
+              onClick={() => void handleExportWbs("csv")}
+              className="rounded-lg border border-border bg-cream px-3 py-1.5 text-sm font-medium text-text hover:bg-border/30"
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExportWbs("xlsx")}
+              className="rounded-lg border border-border bg-cream px-3 py-1.5 text-sm font-medium text-text hover:bg-border/30"
+            >
+              XLSX
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDownloadMilestonesIcs()}
+              className="rounded-lg border border-border bg-cream px-3 py-1.5 text-sm font-medium text-text hover:bg-border/30"
+            >
+              Вехи в календарь (.ics)
+            </button>
+          </div>
 
           {dashboard && (
             <>

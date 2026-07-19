@@ -1,11 +1,12 @@
 from django.core.exceptions import ObjectDoesNotExist
 from datetime import date, timedelta
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from birthdays.models import Contact
 from kanban.models import Card
 from projects.models import Project, Risk, ScheduleActivity, WBSNode
+from timelog.models import TimeEntry
 from workspaces.models import MemberCapacity, WorkspaceMember
 
 
@@ -321,6 +322,17 @@ def build_capacity_report(workspace, *, week_start: date | None = None):
             }
         )
 
+    logged = (
+        TimeEntry.objects.filter(
+            workspace=workspace,
+            work_date__gte=week_start,
+            work_date__lte=week_end,
+        )
+        .values("user_id")
+        .annotate(total=Sum("hours"))
+    )
+    logged_map = {item["user_id"]: float(item["total"] or 0) for item in logged}
+
     members = []
     for membership in memberships:
         user = membership.user
@@ -334,6 +346,9 @@ def build_capacity_report(workspace, *, week_start: date | None = None):
                 "role": membership.role,
                 "capacity_hours": capacity_hours,
                 "allocated_hours": allocated_hours,
+                # Actual effort hint from logged time entries (see CHANGELOG) — not
+                # yet blended into EVM actual cost/effort, shown alongside plan.
+                "logged_hours": round(logged_map.get(user.id, 0), 1),
                 "utilization": round(allocated_hours / capacity_hours, 2)
                 if capacity_hours
                 else None,

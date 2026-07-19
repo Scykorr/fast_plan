@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, requestBlob } from "./client";
 
 export type Transaction = {
   id: number;
@@ -73,5 +73,13 @@ export function createFinanceApi() {
 
     getProjectFinance: (projectId: number) =>
       request<ProjectFinance>(`/projects/${projectId}/finance/`, {}),
+
+    exportTransactions: (format: "csv" | "xlsx", projectId?: number) => {
+      const query = new URLSearchParams({ format });
+      if (projectId) {
+        query.set("project_id", String(projectId));
+      }
+      return requestBlob(`/finance/transactions/export/?${query.toString()}`);
+    },
   };
 }

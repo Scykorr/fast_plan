@@ -1,12 +1,15 @@
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from audit.services import log_audit
 from notifications.models import Notification
 from notifications.services import create_notification
 from workspaces.dashboard import build_workspace_dashboard
+from workspaces.events import event_stream, subscribe, unsubscribe
 from workspaces.invitation_services import (
     accept_invitation,
     create_workspace_invitation,
@@ -34,6 +37,30 @@ class WorkspaceDashboardView(WorkspaceMixin, APIView):
     def get(self, request):
         workspace = self.get_workspace()
         return Response(build_workspace_dashboard(workspace, request.user))
+
+
+class WorkspaceEventsView(WorkspaceMixin, APIView):
+    """SSE stream of realtime workspace events (Kanban moves, WBS edits, comments).
+
+    In-process pub/sub only (see ``workspaces.events`` docstring) — works for
+    a single Django process; use cookie auth so ``EventSource`` (which can't
+    set custom headers) authenticates the same way as regular GET requests.
+    """
+
+    def get(self, request):
+        workspace = self.get_workspace()
+        q = subscribe(workspace.id)
+
+        def stream():
+            try:
+                yield from event_stream(workspace.id, q)
+            finally:
+                unsubscribe(workspace.id, q)
+
+        response = StreamingHttpResponse(stream(), content_type="text/event-stream")
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"
+        return response
 
 
 class WorkspaceSearchView(WorkspaceMixin, APIView):
@@ -193,6 +220,15 @@ class WorkspaceInvitationListCreateView(WorkspaceMixin, APIView):
         if WorkspaceMember.objects.filter(workspace=workspace, user__email__iexact=email).exists():
             raise ValidationError({"email": "User is already a member."})
         invitation = create_workspace_invitation(workspace, email, role, request.user)
+        log_audit(
+            workspace,
+            request.user,
+            "invitation.create",
+            "WorkspaceInvitation",
+            invitation.id,
+            summary=f"Invited {invitation.email} as {invitation.role}",
+            changes={"email": invitation.email, "role": invitation.role},
+        )
         return Response(
             WorkspaceInvitationSerializer(invitation).data,
             status=status.HTTP_201_CREATED,
@@ -241,6 +277,16 @@ class WorkspaceInvitationDetailView(WorkspaceMixin, APIView):
 
     def delete(self, request, invitation_id):
         invitation = self.get_pending(invitation_id)
+        workspace = self.get_workspace()
+        log_audit(
+            workspace,
+            request.user,
+            "invitation.revoke",
+            "WorkspaceInvitation",
+            invitation.id,
+            summary=f"Revoked invitation for {invitation.email}",
+            changes={"email": invitation.email, "role": invitation.role},
+        )
         invitation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -264,8 +310,18 @@ class WorkspaceMemberDetailView(WorkspaceMixin, APIView):
         role = request.data.get("role")
         if role not in WorkspaceMember.Role.values:
             raise ValidationError({"role": "Invalid role."})
+        old_role = member.role
         member.role = role
         member.save(update_fields=["role"])
+        log_audit(
+            workspace,
+            request.user,
+            "member.role_change",
+            "WorkspaceMember",
+            member.id,
+            summary=f"Changed {member.user.email} role: {old_role} → {role}",
+            changes={"old_role": old_role, "new_role": role, "user_id": member.user_id},
+        )
         return Response(WorkspaceMemberSerializer(member).data)
 
     def delete(self, request, member_id):
@@ -277,6 +333,15 @@ class WorkspaceMemberDetailView(WorkspaceMixin, APIView):
         )
         if member.user_id == workspace.owner_id:
             raise ValidationError("Cannot remove workspace owner.")
+        log_audit(
+            workspace,
+            request.user,
+            "member.remove",
+            "WorkspaceMember",
+            member.id,
+            summary=f"Removed {member.user.email} from workspace",
+            changes={"user_id": member.user_id, "role": member.role},
+        )
         member.delete()
         from workspaces.services import clear_invalid_active_workspace
 
