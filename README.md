@@ -1,12 +1,28 @@
 # Fast Plan
 
-Личный мультипользовательский планировщик: Kanban-заметки и календарь дней рождения.
+Личный мультипользовательский планировщик: Kanban, календарь дней рождения, проекты (WBS/Gantt), трекеры и кастомные поля.
+
+**Текущая версия:** см. [`VERSION`](VERSION) · история изменений — [`CHANGELOG.md`](CHANGELOG.md) · бэклог — [`ROADMAP.md`](ROADMAP.md)
 
 ## Стек
 
 - **Backend:** Django 6 + DRF + JWT + PostgreSQL
 - **Frontend:** React + TypeScript + Vite + Tailwind
 - **Инфраструктура:** Docker Compose, GitHub Actions CI
+
+## Версионирование
+
+Используем [Semantic Versioning](https://semver.org/lang/ru/) и [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
+
+При релизе:
+
+1. Обновить `VERSION` (например `0.4.0`)
+2. Перенести пункты из `CHANGELOG.md` → `[Unreleased]` в новую секцию `[x.y.z] — YYYY-MM-DD`
+3. Синхронизировать `frontend/package.json` и `frontend/src/version.ts`
+4. Закоммитить: `chore(release): v0.4.0`
+5. (Опционально) git-тег: `git tag v0.4.0`
+
+`GET /api/health/` возвращает `{ "status": "ok", "version": "…" }`.
 
 ## Быстрый старт (локально)
 

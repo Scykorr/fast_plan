@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "../context/AuthContext";
+import { APP_VERSION } from "../version";
 
 const navItems = [
   { to: "/", label: "Дашборд", end: true },
@@ -22,6 +23,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="mb-8 px-2">
         <h1 className="text-xl font-bold text-primary">Fast Plan</h1>
         <p className="mt-1 text-sm text-text-muted">Ваш личный планировщик</p>
+        <p className="mt-1 text-xs text-text-muted" title="Версия продукта">
+          v{APP_VERSION}
+        </p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">

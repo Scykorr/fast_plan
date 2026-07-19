@@ -5,4 +5,7 @@ import pytest
 def test_health_endpoint(api_client):
     response = api_client.get("/api/health/")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["version"]
+    assert isinstance(body["version"], str)
