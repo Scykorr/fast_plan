@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useState } from "react";
 
 import { NotificationBell } from "./NotificationBell";
+import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { APP_VERSION } from "../version";
@@ -9,6 +10,8 @@ import { APP_VERSION } from "../version";
 const navItems = [
   { to: "/", label: "Дашборд", end: true },
   { to: "/projects", label: "Проекты" },
+  { to: "/tasks", label: "Мои задачи" },
+  { to: "/capacity", label: "Capacity" },
   { to: "/kanban", label: "Kanban" },
   { to: "/calendar", label: "Календарь" },
   { to: "/finance", label: "Финансы" },
@@ -125,7 +128,7 @@ export function AppLayout() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-surface px-4 py-3 md:hidden">
+        <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 md:hidden">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -134,13 +137,15 @@ export function AppLayout() {
           >
             ☰ Меню
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+            <GlobalSearchBar />
             <NotificationBell />
-            <span className="text-sm font-semibold text-primary">Fast Plan</span>
+            <span className="shrink-0 text-sm font-semibold text-primary">Fast Plan</span>
           </div>
         </header>
 
-        <header className="hidden items-center justify-end border-b border-border bg-surface px-8 py-3 md:flex">
+        <header className="hidden items-center justify-end gap-3 border-b border-border bg-surface px-8 py-3 md:flex">
+          <GlobalSearchBar />
           <NotificationBell />
         </header>
 

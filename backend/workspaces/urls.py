@@ -2,12 +2,15 @@ from django.urls import path
 
 from workspaces.views import (
     WorkspaceActivateView,
+    WorkspaceCapacityView,
     WorkspaceDashboardView,
     WorkspaceInvitationAcceptView,
     WorkspaceInvitationListCreateView,
     WorkspaceListView,
     WorkspaceMemberDetailView,
     WorkspaceMemberListView,
+    WorkspaceMyTasksView,
+    WorkspaceSearchView,
 )
 
 urlpatterns = [
@@ -21,6 +24,21 @@ urlpatterns = [
         "workspace/dashboard/",
         WorkspaceDashboardView.as_view(),
         name="workspace-dashboard",
+    ),
+    path(
+        "workspace/search/",
+        WorkspaceSearchView.as_view(),
+        name="workspace-search",
+    ),
+    path(
+        "workspace/my-tasks/",
+        WorkspaceMyTasksView.as_view(),
+        name="workspace-my-tasks",
+    ),
+    path(
+        "workspace/capacity/",
+        WorkspaceCapacityView.as_view(),
+        name="workspace-capacity",
     ),
     path("workspace/members/", WorkspaceMemberListView.as_view(), name="workspace-members"),
     path(

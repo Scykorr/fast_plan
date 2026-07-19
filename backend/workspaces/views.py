@@ -8,8 +8,9 @@ from notifications.models import Notification
 from notifications.services import create_notification
 from workspaces.dashboard import build_workspace_dashboard
 from workspaces.invitation_services import accept_invitation, create_workspace_invitation
-from workspaces.mixins import IsWorkspaceOwner, WorkspaceMixin
-from workspaces.models import WorkspaceInvitation, WorkspaceMember
+from workspaces.mixins import IsWorkspaceEditorOrReadOnly, IsWorkspaceOwner, WorkspaceMixin
+from workspaces.models import MemberCapacity, WorkspaceInvitation, WorkspaceMember
+from workspaces.search import build_capacity_report, list_my_tasks, search_workspace
 from workspaces.serializers import (
     WorkspaceInvitationSerializer,
     WorkspaceMemberSerializer,
@@ -21,12 +22,90 @@ from workspaces.services import (
     get_user_workspaces,
     set_active_workspace,
 )
+from django.contrib.auth import get_user_model
+from datetime import date
 
 
 class WorkspaceDashboardView(WorkspaceMixin, APIView):
     def get(self, request):
         workspace = self.get_workspace()
         return Response(build_workspace_dashboard(workspace, request.user))
+
+
+class WorkspaceSearchView(WorkspaceMixin, APIView):
+    def get(self, request):
+        workspace = self.get_workspace()
+        query = request.query_params.get("q", "")
+        types = request.query_params.get("types")
+        type_list = (
+            [item.strip() for item in types.split(",") if item.strip()]
+            if types
+            else None
+        )
+        limit = min(int(request.query_params.get("limit", 20)), 50)
+        return Response(
+            search_workspace(workspace, query, types=type_list, limit=limit)
+        )
+
+
+class WorkspaceMyTasksView(WorkspaceMixin, APIView):
+    def get(self, request):
+        workspace = self.get_workspace()
+        User = get_user_model()
+        assignee_param = request.query_params.get("assignee")
+        if assignee_param:
+            assignee = get_object_or_404(
+                User.objects.filter(workspace_memberships__workspace=workspace),
+                pk=int(assignee_param),
+            )
+        else:
+            assignee = request.user
+        include_done = request.query_params.get("include_done", "false").lower() == "true"
+        overdue_only = request.query_params.get("overdue_only", "false").lower() == "true"
+        limit = min(int(request.query_params.get("limit", 50)), 100)
+        return Response(
+            list_my_tasks(
+                workspace,
+                assignee,
+                include_done=include_done,
+                overdue_only=overdue_only,
+                limit=limit,
+            )
+        )
+
+
+class WorkspaceCapacityView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        workspace = self.get_workspace()
+        week_start_raw = request.query_params.get("week_start")
+        week_start = date.fromisoformat(week_start_raw) if week_start_raw else None
+        return Response(build_capacity_report(workspace, week_start=week_start))
+
+    def patch(self, request):
+        workspace = self.get_workspace()
+        self.require_owner(workspace, request.user)
+        user_id = request.data.get("user_id")
+        hours = request.data.get("hours_per_week")
+        if user_id is None or hours is None:
+            raise ValidationError({"detail": "user_id and hours_per_week are required."})
+        User = get_user_model()
+        user = get_object_or_404(
+            User.objects.filter(workspace_memberships__workspace=workspace),
+            pk=int(user_id),
+        )
+        capacity, _ = MemberCapacity.objects.update_or_create(
+            workspace=workspace,
+            user=user,
+            defaults={"hours_per_week": int(hours)},
+        )
+        return Response(
+            {
+                "user_id": capacity.user_id,
+                "hours_per_week": capacity.hours_per_week,
+            }
+        )
 
 
 class WorkspaceListView(APIView):

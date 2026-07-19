@@ -6,11 +6,13 @@ import { AuthProvider } from "./context/AuthContext";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { AdministrationPage } from "./pages/AdministrationPage";
 import { CalendarPage } from "./pages/CalendarPage";
+import { CapacityPage } from "./pages/CapacityPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { FinancePage } from "./pages/FinancePage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { KanbanPage } from "./pages/KanbanPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MyTasksPage } from "./pages/MyTasksPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -49,6 +51,8 @@ export default function App() {
               <Route index element={<DashboardPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+              <Route path="tasks" element={<MyTasksPage />} />
+              <Route path="capacity" element={<CapacityPage />} />
               <Route path="kanban" element={<KanbanPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="finance" element={<FinancePage />} />
