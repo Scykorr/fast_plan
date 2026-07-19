@@ -25,6 +25,58 @@ export type WorkspaceInvitation = {
   created_at: string;
 };
 
+export type WorkspaceDashboard = {
+  workspace_id: number;
+  generated_at: string;
+  summary: {
+    project_count: number;
+    overdue_count: number;
+    open_risk_count: number;
+    unread_notification_count: number;
+  };
+  overdue_tasks: Array<{
+    activity_id: number;
+    wbs_id: number;
+    wbs_code: string;
+    title: string;
+    project_id: number;
+    project_name: string;
+    end_date: string;
+    progress: number;
+    assignee_id: number | null;
+    assignee_name: string | null;
+    days_overdue: number;
+  }>;
+  top_risks: Array<{
+    id: number;
+    title: string;
+    score: number;
+    probability: number;
+    impact: number;
+    status: string;
+    project_id: number;
+    project_name: string;
+  }>;
+  project_health: Array<{
+    project_id: number;
+    name: string;
+    status: string;
+    progress: number;
+    budget: number;
+    spi: number | null;
+    cpi: number | null;
+    overdue_count: number;
+  }>;
+  unread_notifications: Array<{
+    id: number;
+    notification_type: string;
+    title: string;
+    message: string;
+    link: string;
+    created_at: string;
+  }>;
+};
+
 export function createWorkspaceApi(token: string) {
   return {
     listWorkspaces: () =>
@@ -37,14 +89,21 @@ export function createWorkspaceApi(token: string) {
         token,
       ),
 
+    getDashboard: () =>
+      request<WorkspaceDashboard>("/workspace/dashboard/", {}, token),
+
     getMembers: () =>
       request<WorkspaceMember[]>("/workspace/members/", {}, token),
 
     inviteMember: (email: string, role = "editor") =>
-      request<WorkspaceInvitation>("/workspace/invitations/", {
-        method: "POST",
-        body: JSON.stringify({ email, role }),
-      }, token),
+      request<WorkspaceInvitation>(
+        "/workspace/invitations/",
+        {
+          method: "POST",
+          body: JSON.stringify({ email, role }),
+        },
+        token,
+      ),
 
     getInvitations: () =>
       request<WorkspaceInvitation[]>("/workspace/invitations/", {}, token),
