@@ -81,3 +81,24 @@ class WorkspaceInvitation(models.Model):
     @property
     def is_accepted(self):
         return self.accepted_at is not None
+
+
+class MemberCapacity(models.Model):
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="member_capacities",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="workspace_capacities",
+    )
+    hours_per_week = models.PositiveSmallIntegerField(default=40)
+
+    class Meta:
+        unique_together = [("workspace", "user")]
+        verbose_name_plural = "member capacities"
+
+    def __str__(self):
+        return f"{self.user} @ {self.workspace}: {self.hours_per_week}h"

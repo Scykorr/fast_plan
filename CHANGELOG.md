@@ -17,6 +17,13 @@
 
 ### Added
 
+- PDF и digest статус-отчёта проекта (`/export/?output=pdf` + UI на Overview)
+- Комментарии / лог решений на WBS (`WorkItemComment`) и API для карточек
+- Глобальный поиск: `GET /api/workspace/search/` + search bar в header
+- «Мои задачи»: `GET /api/workspace/my-tasks/` и страница `/tasks`
+- Capacity по неделе: `GET/PATCH /api/workspace/capacity/` и страница `/capacity`
+- P3 UI: status report digest, WBS comment thread, global search bar
+- Страницы «Мои задачи» (`/tasks`) и Capacity (`/capacity`)
 - Активный workspace: `User.active_workspace`, API `GET /api/workspaces/`, `POST /api/workspaces/<id>/activate/`
 - Заголовок `X-Workspace-Id` для явного выбора пространства
 - UI switcher workspace в sidebar и на странице настроек
