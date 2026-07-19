@@ -10,19 +10,18 @@ export type Notification = {
   created_at: string;
 };
 
-export function createNotificationsApi(token: string) {
+export function createNotificationsApi() {
   return {
     getNotifications: (unreadOnly = false) =>
       request<Notification[]>(
         unreadOnly ? "/notifications/?unread=true" : "/notifications/",
-        {},
-        token,
+        {}
       ),
 
     markRead: (id: number) =>
       request<Notification>(`/notifications/${id}/`, {
         method: "PATCH",
         body: JSON.stringify({ is_read: true }),
-      }, token),
+      }),
   };
 }

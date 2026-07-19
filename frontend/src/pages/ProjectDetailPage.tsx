@@ -82,7 +82,7 @@ export function ProjectDetailPage() {
   const { projectId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLink = parseDeepLinkParams(searchParams);
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { activeWorkspace, switchWorkspace, isLoading: workspaceLoading } =
     useWorkspace();
   const id = Number(projectId);
@@ -710,7 +710,7 @@ export function ProjectDetailPage() {
         />
       )}
 
-      {tab === "kanban" && board && accessToken && (
+      {tab === "kanban" && board && isAuthenticated && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-text-muted">
@@ -758,7 +758,6 @@ export function ProjectDetailPage() {
           </div>
           <KanbanBoardView
             board={board}
-            token={accessToken}
             onBoardChange={(updated) => void handleBoardChange(updated)}
             selectedCardId={deepLink.card}
             filter={{
@@ -776,8 +775,8 @@ export function ProjectDetailPage() {
         <p className="text-sm text-text-muted">Kanban-доска проекта не найдена</p>
       )}
 
-      {tab === "calendar" && accessToken && (
-        <ProjectCalendar projectId={project.id} token={accessToken} />
+      {tab === "calendar" && isAuthenticated && (
+        <ProjectCalendar projectId={project.id} />
       )}
 
       {tab === "risks" && (

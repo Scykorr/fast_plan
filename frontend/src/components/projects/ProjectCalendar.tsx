@@ -8,11 +8,10 @@ import { createProjectsApi } from "../../api/projects";
 
 type ProjectCalendarProps = {
   projectId: number;
-  token: string;
 };
 
-export function ProjectCalendar({ projectId, token }: ProjectCalendarProps) {
-  const projectsApi = createProjectsApi(token);
+export function ProjectCalendar({ projectId }: ProjectCalendarProps) {
+  const projectsApi = createProjectsApi();
   const [events, setEvents] = useState<EventInput[]>([]);
   const [loading, setLoading] = useState(false);
 

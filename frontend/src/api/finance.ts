@@ -21,15 +21,14 @@ export type ProjectFinance = {
   transactions: Transaction[];
 };
 
-export function createFinanceApi(token: string) {
+export function createFinanceApi() {
   return {
     getTransactions: (projectId?: number) =>
       request<Transaction[]>(
         projectId
           ? `/finance/transactions/?project_id=${projectId}`
           : "/finance/transactions/",
-        {},
-        token,
+        {}
       ),
 
     createTransaction: (body: {
@@ -46,8 +45,7 @@ export function createFinanceApi(token: string) {
         {
           method: "POST",
           body: JSON.stringify(body),
-        },
-        token,
+        }
       ),
 
     updateTransaction: (
@@ -67,14 +65,13 @@ export function createFinanceApi(token: string) {
         {
           method: "PATCH",
           body: JSON.stringify(body),
-        },
-        token,
+        }
       ),
 
     deleteTransaction: (id: number) =>
-      request<void>(`/finance/transactions/${id}/`, { method: "DELETE" }, token),
+      request<void>(`/finance/transactions/${id}/`, { method: "DELETE" }),
 
     getProjectFinance: (projectId: number) =>
-      request<ProjectFinance>(`/projects/${projectId}/finance/`, {}, token),
+      request<ProjectFinance>(`/projects/${projectId}/finance/`, {}),
   };
 }

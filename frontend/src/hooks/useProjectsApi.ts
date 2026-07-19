@@ -4,12 +4,12 @@ import { createProjectsApi } from "../api/projects";
 import { useAuth } from "../context/AuthContext";
 
 export function useProjectsApi() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   return useMemo(() => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       return null;
     }
-    return createProjectsApi(accessToken);
-  }, [accessToken]);
+    return createProjectsApi();
+  }, [isAuthenticated]);
 }

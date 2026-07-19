@@ -4,9 +4,9 @@ import { createTrackingApi } from "../api/tracking";
 import { useAuth } from "../context/AuthContext";
 
 export function useTrackingApi() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   return useMemo(
-    () => (accessToken ? createTrackingApi(accessToken) : null),
-    [accessToken],
+    () => (isAuthenticated ? createTrackingApi() : null),
+    [isAuthenticated],
   );
 }

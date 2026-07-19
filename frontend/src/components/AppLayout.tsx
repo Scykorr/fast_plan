@@ -86,7 +86,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <p className="truncate px-2 text-sm font-medium">{user?.email}</p>
         <button
           type="button"
-          onClick={logout}
+          onClick={() => void logout()}
           className="mt-2 w-full rounded-lg px-3 py-2 text-left text-sm text-text-muted transition-colors hover:bg-cream hover:text-primary"
         >
           Выйти

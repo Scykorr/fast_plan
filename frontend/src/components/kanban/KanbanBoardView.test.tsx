@@ -45,7 +45,6 @@ describe("KanbanBoardView", () => {
     render(
       <KanbanBoardView
         board={mockBoard}
-        token="test-token"
         onBoardChange={() => {}}
       />,
     );

@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCalendarApi } from "../hooks/useCalendarApi";
 
 export function CalendarPage() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   const calendarApi = useCalendarApi();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -68,7 +68,7 @@ export function CalendarPage() {
     }
   };
 
-  if (!accessToken) {
+  if (!isAuthenticated) {
     return null;
   }
 
@@ -122,7 +122,7 @@ export function CalendarPage() {
       </div>
 
       <WorkspaceCalendar
-        token={accessToken}
+        
         refreshKey={refreshKey}
         showBirthdays={showBirthdays}
         showMilestones={showMilestones}

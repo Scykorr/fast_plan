@@ -31,7 +31,6 @@ import {
 
 type KanbanBoardViewProps = {
   board: KanbanBoard;
-  token: string;
   onBoardChange: (board: KanbanBoard) => void;
   selectedCardId?: number | null;
   filter?: KanbanFilter;
@@ -40,13 +39,12 @@ type KanbanBoardViewProps = {
 
 export function KanbanBoardView({
   board,
-  token,
   onBoardChange,
   selectedCardId = null,
   filter,
   onSelectCard,
 }: KanbanBoardViewProps) {
-  const kanbanApi = createKanbanApi(token);
+  const kanbanApi = createKanbanApi();
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
   const [activeColumn, setActiveColumn] = useState<KanbanColumn | null>(null);
 

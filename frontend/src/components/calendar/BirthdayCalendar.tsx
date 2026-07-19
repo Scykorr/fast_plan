@@ -7,12 +7,11 @@ import type { CalendarEvent } from "../../api/calendar";
 import { createCalendarApi } from "../../api/calendar";
 
 type BirthdayCalendarProps = {
-  token: string;
   refreshKey?: number;
 };
 
-export function BirthdayCalendar({ token, refreshKey = 0 }: BirthdayCalendarProps) {
-  const calendarApi = createCalendarApi(token);
+export function BirthdayCalendar({ refreshKey = 0 }: BirthdayCalendarProps) {
+  const calendarApi = createCalendarApi();
   const [events, setEvents] = useState<EventInput[]>([]);
   const [loading, setLoading] = useState(false);
 

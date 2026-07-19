@@ -207,9 +207,9 @@ export type ProjectPatchBody = {
   custom_values?: Record<string, string>;
 };
 
-export function createProjectsApi(token: string) {
+export function createProjectsApi() {
   return {
-    getProjects: () => request<Project[]>("/projects/", {}, token),
+    getProjects: () => request<Project[]>("/projects/", {}),
 
     createProject: (body: {
       name: string;
@@ -222,22 +222,22 @@ export function createProjectsApi(token: string) {
       request<Project>("/projects/", {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     getProject: (id: number) =>
-      request<Project>(`/projects/${id}/`, {}, token),
+      request<Project>(`/projects/${id}/`, {}),
 
     patchProject: (id: number, body: ProjectPatchBody) =>
       request<Project>(`/projects/${id}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     getDashboard: (id: number) =>
-      request<ProjectDashboard>(`/projects/${id}/dashboard/`, {}, token),
+      request<ProjectDashboard>(`/projects/${id}/dashboard/`, {}),
 
     getWBS: (projectId: number) =>
-      request<WBSNode[]>(`/projects/${projectId}/wbs/`, {}, token),
+      request<WBSNode[]>(`/projects/${projectId}/wbs/`, {}),
 
     createWBSNode: (
       projectId: number,
@@ -251,7 +251,7 @@ export function createProjectsApi(token: string) {
       request<WBSNode[]>(`/projects/${projectId}/wbs/`, {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     updateWBSNode: (
       wbsId: number,
@@ -269,13 +269,13 @@ export function createProjectsApi(token: string) {
       request<WBSNode[]>(`/wbs/${wbsId}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteWBSNode: (wbsId: number) =>
-      request<void>(`/wbs/${wbsId}/`, { method: "DELETE" }, token),
+      request<void>(`/wbs/${wbsId}/`, { method: "DELETE" }),
 
     getSchedule: (projectId: number) =>
-      request<ProjectSchedule>(`/projects/${projectId}/schedule/`, {}, token),
+      request<ProjectSchedule>(`/projects/${projectId}/schedule/`, {}),
 
     updateActivity: (
       activityId: number,
@@ -284,50 +284,49 @@ export function createProjectsApi(token: string) {
       request<ScheduleActivity>(`/activities/${activityId}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     getProjectCalendar: (projectId: number, year: number, month: number) =>
       request<ProjectCalendarEvent[]>(
         `/projects/${projectId}/calendar/?year=${year}&month=${month}`,
-        {},
-        token,
+        {}
       ),
 
     getRisks: (projectId: number) =>
-      request<Risk[]>(`/projects/${projectId}/risks/`, {}, token),
+      request<Risk[]>(`/projects/${projectId}/risks/`, {}),
 
     createRisk: (projectId: number, body: Partial<Risk>) =>
       request<Risk>(`/projects/${projectId}/risks/`, {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteRisk: (riskId: number) =>
-      request<void>(`/risks/${riskId}/`, { method: "DELETE" }, token),
+      request<void>(`/risks/${riskId}/`, { method: "DELETE" }),
 
     getStakeholders: (projectId: number) =>
-      request<Stakeholder[]>(`/projects/${projectId}/stakeholders/`, {}, token),
+      request<Stakeholder[]>(`/projects/${projectId}/stakeholders/`, {}),
 
     createStakeholder: (projectId: number, body: Partial<Stakeholder>) =>
       request<Stakeholder>(`/projects/${projectId}/stakeholders/`, {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteStakeholder: (id: number) =>
-      request<void>(`/stakeholders/${id}/`, { method: "DELETE" }, token),
+      request<void>(`/stakeholders/${id}/`, { method: "DELETE" }),
 
     getCharter: (projectId: number) =>
-      request<ProjectCharter>(`/projects/${projectId}/charter/`, {}, token),
+      request<ProjectCharter>(`/projects/${projectId}/charter/`, {}),
 
     patchCharter: (projectId: number, body: Partial<ProjectCharter>) =>
       request<ProjectCharter>(`/projects/${projectId}/charter/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     getRACI: (projectId: number) =>
-      request<RACIEntry[]>(`/projects/${projectId}/raci/`, {}, token),
+      request<RACIEntry[]>(`/projects/${projectId}/raci/`, {}),
 
     createRACI: (
       projectId: number,
@@ -336,24 +335,24 @@ export function createProjectsApi(token: string) {
       request<RACIEntry>(`/projects/${projectId}/raci/`, {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteRACI: (id: number) =>
-      request<void>(`/raci/${id}/`, { method: "DELETE" }, token),
+      request<void>(`/raci/${id}/`, { method: "DELETE" }),
 
     getBaselines: (projectId: number) =>
-      request<ProjectBaseline[]>(`/projects/${projectId}/baselines/`, {}, token),
+      request<ProjectBaseline[]>(`/projects/${projectId}/baselines/`, {}),
 
     createBaseline: (projectId: number, name?: string) =>
       request<ProjectBaseline>(`/projects/${projectId}/baselines/`, {
         method: "POST",
         body: JSON.stringify({ name }),
-      }, token),
+      }),
 
     getCriticalPath: (projectId: number) =>
-      request<CriticalPath>(`/projects/${projectId}/critical-path/`, {}, token),
+      request<CriticalPath>(`/projects/${projectId}/critical-path/`, {}),
 
     exportProject: (projectId: number) =>
-      request<Record<string, unknown>>(`/projects/${projectId}/export/`, {}, token),
+      request<Record<string, unknown>>(`/projects/${projectId}/export/`, {}),
   };
 }

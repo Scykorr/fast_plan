@@ -50,54 +50,54 @@ export type TrackingMetadata = {
   custom_fields: CustomField[];
 };
 
-export function createTrackingApi(token: string) {
+export function createTrackingApi() {
   return {
     getMetadata: () =>
-      request<TrackingMetadata>("/tracking/metadata/", {}, token),
+      request<TrackingMetadata>("/tracking/metadata/", {}),
 
     createTracker: (body: Partial<Tracker>) =>
       request<Tracker>("/tracking/trackers/", {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     updateTracker: (id: number, body: Partial<Tracker>) =>
       request<Tracker>(`/tracking/trackers/${id}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteTracker: (id: number) =>
-      request<void>(`/tracking/trackers/${id}/`, { method: "DELETE" }, token),
+      request<void>(`/tracking/trackers/${id}/`, { method: "DELETE" }),
 
     createStatus: (body: Partial<IssueStatus>) =>
       request<IssueStatus>("/tracking/statuses/", {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     updateStatus: (id: number, body: Partial<IssueStatus>) =>
       request<IssueStatus>(`/tracking/statuses/${id}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteStatus: (id: number) =>
-      request<void>(`/tracking/statuses/${id}/`, { method: "DELETE" }, token),
+      request<void>(`/tracking/statuses/${id}/`, { method: "DELETE" }),
 
     createCustomField: (body: Partial<CustomField>) =>
       request<CustomField>("/tracking/custom-fields/", {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     updateCustomField: (id: number, body: Partial<CustomField>) =>
       request<CustomField>(`/tracking/custom-fields/${id}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteCustomField: (id: number) =>
-      request<void>(`/tracking/custom-fields/${id}/`, { method: "DELETE" }, token),
+      request<void>(`/tracking/custom-fields/${id}/`, { method: "DELETE" }),
   };
 }

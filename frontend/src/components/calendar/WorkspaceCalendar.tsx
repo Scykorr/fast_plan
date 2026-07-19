@@ -7,19 +7,17 @@ import type { CalendarEvent } from "../../api/calendar";
 import { createCalendarApi } from "../../api/calendar";
 
 type WorkspaceCalendarProps = {
-  token: string;
   refreshKey?: number;
   showBirthdays?: boolean;
   showMilestones?: boolean;
 };
 
 export function WorkspaceCalendar({
-  token,
   refreshKey = 0,
   showBirthdays = true,
   showMilestones = true,
 }: WorkspaceCalendarProps) {
-  const calendarApi = createCalendarApi(token);
+  const calendarApi = createCalendarApi();
   const [events, setEvents] = useState<EventInput[]>([]);
   const [loading, setLoading] = useState(false);
 

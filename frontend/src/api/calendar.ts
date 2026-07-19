@@ -36,9 +36,9 @@ export type UpcomingBirthday = {
   days_until: number;
 };
 
-export function createCalendarApi(token: string) {
+export function createCalendarApi() {
   return {
-    getContacts: () => request<Contact[]>("/contacts/", {}, token),
+    getContacts: () => request<Contact[]>("/contacts/", {}),
 
     createContact: (body: {
       name: string;
@@ -50,26 +50,24 @@ export function createCalendarApi(token: string) {
       request<Contact>("/contacts/", {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteContact: (contactId: number) =>
-      request<void>(`/contacts/${contactId}/`, { method: "DELETE" }, token),
+      request<void>(`/contacts/${contactId}/`, { method: "DELETE" }),
 
     getBirthdayEvents: (year: number, month: number) =>
       request<CalendarEvent[]>(
         `/calendar/birthdays/?year=${year}&month=${month}`,
-        {},
-        token,
+        {}
       ),
 
     getMilestoneEvents: (year: number, month: number) =>
       request<CalendarEvent[]>(
         `/calendar/milestones/?year=${year}&month=${month}`,
-        {},
-        token,
+        {}
       ),
 
     getUpcoming: (limit = 5) =>
-      request<UpcomingBirthday[]>(`/calendar/upcoming/?limit=${limit}`, {}, token),
+      request<UpcomingBirthday[]>(`/calendar/upcoming/?limit=${limit}`, {}),
   };
 }

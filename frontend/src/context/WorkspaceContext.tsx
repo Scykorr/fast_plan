@@ -30,19 +30,19 @@ type WorkspaceContextValue = {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const { accessToken, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [workspaceEpoch, setWorkspaceEpoch] = useState(0);
 
   const refreshWorkspaces = useCallback(async () => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       setWorkspaces([]);
       return;
     }
     setIsLoading(true);
     try {
-      const api = createWorkspaceApi(accessToken);
+      const api = createWorkspaceApi();
       const items = await api.listWorkspaces();
       setWorkspaces(items);
       const preferred =
@@ -56,14 +56,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, user?.active_workspace_id]);
+  }, [isAuthenticated, user?.active_workspace_id]);
 
   const switchWorkspace = useCallback(
     async (workspaceId: number) => {
-      if (!accessToken) {
+      if (!isAuthenticated) {
         return;
       }
-      const api = createWorkspaceApi(accessToken);
+      const api = createWorkspaceApi();
       setActiveWorkspaceId(workspaceId);
       const activated = await api.activateWorkspace(workspaceId);
       setWorkspaces((prev) =>
@@ -74,11 +74,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       );
       setWorkspaceEpoch((value) => value + 1);
     },
-    [accessToken],
+    [isAuthenticated],
   );
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       setWorkspaces([]);
       return;
     }
@@ -86,7 +86,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setActiveWorkspaceId(user.active_workspace_id);
     }
     void refreshWorkspaces();
-  }, [accessToken, user?.active_workspace_id, refreshWorkspaces]);
+  }, [isAuthenticated, user?.active_workspace_id, refreshWorkspaces]);
 
   const activeWorkspace = useMemo(() => {
     const activeId = getActiveWorkspaceId();

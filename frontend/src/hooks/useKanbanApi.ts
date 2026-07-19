@@ -4,12 +4,12 @@ import { createKanbanApi } from "../api/kanban";
 import { useAuth } from "../context/AuthContext";
 
 export function useKanbanApi() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   return useMemo(() => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       return null;
     }
-    return createKanbanApi(accessToken);
-  }, [accessToken]);
+    return createKanbanApi();
+  }, [isAuthenticated]);
 }

@@ -61,7 +61,7 @@ describe("WorkspaceCalendar", () => {
   });
 
   it("loads and renders birthday and milestone events", async () => {
-    render(<WorkspaceCalendar token="test-token" />);
+    render(<WorkspaceCalendar />);
 
     await waitFor(() => {
       expect(screen.getByText("ДР: Анна")).toBeInTheDocument();

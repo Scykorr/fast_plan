@@ -4,9 +4,9 @@ import { createFinanceApi } from "../api/finance";
 import { useAuth } from "../context/AuthContext";
 
 export function useFinanceApi() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   return useMemo(
-    () => (accessToken ? createFinanceApi(accessToken) : null),
-    [accessToken],
+    () => (isAuthenticated ? createFinanceApi() : null),
+    [isAuthenticated],
   );
 }

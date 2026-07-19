@@ -77,23 +77,22 @@ export type WorkspaceDashboard = {
   }>;
 };
 
-export function createWorkspaceApi(token: string) {
+export function createWorkspaceApi() {
   return {
     listWorkspaces: () =>
-      request<WorkspaceSummary[]>("/workspaces/", {}, token),
+      request<WorkspaceSummary[]>("/workspaces/", {}),
 
     activateWorkspace: (workspaceId: number) =>
       request<WorkspaceSummary>(
         `/workspaces/${workspaceId}/activate/`,
-        { method: "POST" },
-        token,
+        { method: "POST" }
       ),
 
     getDashboard: () =>
-      request<WorkspaceDashboard>("/workspace/dashboard/", {}, token),
+      request<WorkspaceDashboard>("/workspace/dashboard/", {}),
 
     getMembers: () =>
-      request<WorkspaceMember[]>("/workspace/members/", {}, token),
+      request<WorkspaceMember[]>("/workspace/members/", {}),
 
     inviteMember: (email: string, role = "editor") =>
       request<WorkspaceInvitation>(
@@ -101,18 +100,16 @@ export function createWorkspaceApi(token: string) {
         {
           method: "POST",
           body: JSON.stringify({ email, role }),
-        },
-        token,
+        }
       ),
 
     getInvitations: () =>
-      request<WorkspaceInvitation[]>("/workspace/invitations/", {}, token),
+      request<WorkspaceInvitation[]>("/workspace/invitations/", {}),
 
     acceptInvitation: (tokenValue: string) =>
       request<{ workspace_id: number; name: string; role: string | null }>(
         `/workspace/invitations/${tokenValue}/accept/`,
-        { method: "POST" },
-        token,
+        { method: "POST" }
       ),
   };
 }

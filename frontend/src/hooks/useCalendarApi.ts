@@ -4,12 +4,12 @@ import { createCalendarApi } from "../api/calendar";
 import { useAuth } from "../context/AuthContext";
 
 export function useCalendarApi() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   return useMemo(() => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       return null;
     }
-    return createCalendarApi(accessToken);
-  }, [accessToken]);
+    return createCalendarApi();
+  }, [isAuthenticated]);
 }

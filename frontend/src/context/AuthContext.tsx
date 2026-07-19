@@ -10,12 +10,9 @@ import {
 
 import { api, setActiveWorkspaceId, type User } from "../api/client";
 
-const ACCESS_KEY = "fast_plan_access";
-const REFRESH_KEY = "fast_plan_refresh";
-
 type AuthContextValue = {
   user: User | null;
-  accessToken: string | null;
+  isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: {
@@ -25,39 +22,31 @@ type AuthContextValue = {
     first_name?: string;
     last_name?: string;
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(
-    () => localStorage.getItem(ACCESS_KEY),
-  );
   const [isLoading, setIsLoading] = useState(true);
 
-  const persistTokens = (access: string, refresh: string) => {
-    localStorage.setItem(ACCESS_KEY, access);
-    localStorage.setItem(REFRESH_KEY, refresh);
-    setAccessToken(access);
-  };
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    setAccessToken(null);
+  const logout = useCallback(async () => {
+    try {
+      await api.logout();
+    } catch {
+      // Ignore network/session errors on logout.
+    }
     setUser(null);
+    setActiveWorkspaceId(null);
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const tokens = await api.login({ email, password });
-    persistTokens(tokens.access, tokens.refresh);
-    const me = await api.me(tokens.access);
-    if (me.active_workspace_id) {
-      setActiveWorkspaceId(me.active_workspace_id);
+    const result = await api.login({ email, password });
+    if (result.user.active_workspace_id) {
+      setActiveWorkspaceId(result.user.active_workspace_id);
     }
-    setUser(me);
+    setUser(result.user);
   }, []);
 
   const register = useCallback(
@@ -76,38 +65,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const bootstrap = async () => {
-      if (!accessToken) {
-        setIsLoading(false);
-        return;
-      }
       try {
-        const me = await api.me(accessToken);
+        await api.ensureCsrf();
+        const me = await api.me();
+        if (me.active_workspace_id) {
+          setActiveWorkspaceId(me.active_workspace_id);
+        }
         setUser(me);
       } catch {
-        const refresh = localStorage.getItem(REFRESH_KEY);
-        if (!refresh) {
-          logout();
+        const refreshed = await api.refresh();
+        if (!refreshed) {
+          setUser(null);
           setIsLoading(false);
           return;
         }
         try {
-          const { access } = await api.refresh(refresh);
-          persistTokens(access, refresh);
-          const me = await api.me(access);
+          const me = await api.me();
+          if (me.active_workspace_id) {
+            setActiveWorkspaceId(me.active_workspace_id);
+          }
           setUser(me);
         } catch {
-          logout();
+          setUser(null);
         }
       } finally {
         setIsLoading(false);
       }
     };
     void bootstrap();
-  }, [accessToken, logout]);
+  }, []);
 
   const value = useMemo(
-    () => ({ user, accessToken, isLoading, login, register, logout }),
-    [user, accessToken, isLoading, login, register, logout],
+    () => ({
+      user,
+      isAuthenticated: Boolean(user),
+      isLoading,
+      login,
+      register,
+      logout,
+    }),
+    [user, isLoading, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

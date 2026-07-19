@@ -19,7 +19,7 @@ import {
 } from "../utils/deepLinks";
 
 export function KanbanPage() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { activeWorkspace, switchWorkspace, isLoading: workspaceLoading } =
     useWorkspace();
   const kanbanApi = useKanbanApi();
@@ -123,7 +123,7 @@ export function KanbanPage() {
     );
   }
 
-  if (!board || !accessToken) {
+  if (!board || !isAuthenticated) {
     return <p className="text-text-muted">Доска не найдена</p>;
   }
 
@@ -174,7 +174,7 @@ export function KanbanPage() {
       </div>
       <KanbanBoardView
         board={board}
-        token={accessToken}
+        
         onBoardChange={setBoard}
         selectedCardId={deepLink.card}
         filter={{

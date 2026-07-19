@@ -37,12 +37,12 @@ export type KanbanBoardListItem = {
   created_at: string;
 };
 
-export function createKanbanApi(token: string) {
+export function createKanbanApi() {
   return {
-    getBoards: () => request<KanbanBoardListItem[]>("/boards/", {}, token),
+    getBoards: () => request<KanbanBoardListItem[]>("/boards/", {}),
 
     getBoard: (boardId: number) =>
-      request<KanbanBoard>(`/boards/${boardId}/`, {}, token),
+      request<KanbanBoard>(`/boards/${boardId}/`, {}),
 
     createCard: (
       columnId: number,
@@ -51,7 +51,7 @@ export function createKanbanApi(token: string) {
       request<KanbanCard>(`/columns/${columnId}/cards/`, {
         method: "POST",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     updateCard: (
       cardId: number,
@@ -60,36 +60,36 @@ export function createKanbanApi(token: string) {
       request<KanbanCard>(`/cards/${cardId}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     moveCard: (cardId: number, columnId: number, position: number) =>
       request<KanbanCard>(`/cards/${cardId}/move/`, {
         method: "POST",
         body: JSON.stringify({ column_id: columnId, position }),
-      }, token),
+      }),
 
     deleteCard: (cardId: number) =>
-      request<void>(`/cards/${cardId}/`, { method: "DELETE" }, token),
+      request<void>(`/cards/${cardId}/`, { method: "DELETE" }),
 
     createColumn: (boardId: number, title: string) =>
       request<KanbanColumn>(`/boards/${boardId}/columns/`, {
         method: "POST",
         body: JSON.stringify({ title }),
-      }, token),
+      }),
 
     moveColumn: (columnId: number, position: number) =>
       request<KanbanColumn>(`/columns/${columnId}/`, {
         method: "PATCH",
         body: JSON.stringify({ position }),
-      }, token),
+      }),
 
     updateColumn: (columnId: number, body: { title: string }) =>
       request<KanbanColumn>(`/columns/${columnId}/`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      }, token),
+      }),
 
     deleteColumn: (columnId: number) =>
-      request<void>(`/columns/${columnId}/`, { method: "DELETE" }, token),
+      request<void>(`/columns/${columnId}/`, { method: "DELETE" }),
   };
 }

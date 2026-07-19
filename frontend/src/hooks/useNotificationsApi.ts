@@ -4,9 +4,9 @@ import { createNotificationsApi } from "../api/notifications";
 import { useAuth } from "../context/AuthContext";
 
 export function useNotificationsApi() {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   return useMemo(
-    () => (accessToken ? createNotificationsApi(accessToken) : null),
-    [accessToken],
+    () => (isAuthenticated ? createNotificationsApi() : null),
+    [isAuthenticated],
   );
 }

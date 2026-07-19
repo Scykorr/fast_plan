@@ -12,11 +12,6 @@ export type User = {
   active_workspace_name: string | null;
 };
 
-export type AuthTokens = {
-  access: string;
-  refresh: string;
-};
-
 class ApiError extends Error {
   status: number;
   data: Record<string, unknown>;
@@ -50,28 +45,105 @@ export function setActiveWorkspaceId(workspaceId: number | null): void {
   }
 }
 
+function readCookie(name: string): string | null {
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+  if (!match) {
+    return null;
+  }
+  return decodeURIComponent(match.slice(name.length + 1));
+}
+
+export function getCsrfToken(): string | null {
+  return readCookie("csrftoken");
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function ensureCsrfCookie(): Promise<string | null> {
+  const existing = getCsrfToken();
+  if (existing) {
+    return existing;
+  }
+  try {
+    await fetch(`${API_BASE}/auth/csrf/`, {
+      method: "GET",
+      credentials: "include",
+    });
+  } catch {
+    return getCsrfToken();
+  }
+  return getCsrfToken();
+}
+
+async function refreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const csrf = await ensureCsrfCookie();
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (csrf) {
+          headers["X-CSRFToken"] = csrf;
+        }
+        const response = await fetch(`${API_BASE}/auth/refresh/`, {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: "{}",
+        });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
-  token?: string | null,
+  { retry = true }: { retry?: boolean } = {},
 ): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   if (activeWorkspaceId != null && !headers["X-Workspace-Id"]) {
     headers["X-Workspace-Id"] = String(activeWorkspaceId);
   }
 
+  if (!["GET", "HEAD", "OPTIONS", "TRACE"].includes(method)) {
+    const csrf = await ensureCsrfCookie();
+    if (csrf) {
+      headers["X-CSRFToken"] = csrf;
+    }
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
+    method,
     headers,
+    credentials: "include",
   });
+
+  if (response.status === 401 && retry && path !== "/auth/refresh/") {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return request<T>(path, options, { retry: false });
+    }
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
 
   const data = await response.json().catch(() => ({}));
 
@@ -83,6 +155,8 @@ async function request<T>(
 }
 
 export const api = {
+  ensureCsrf: () => ensureCsrfCookie(),
+
   register: (body: {
     email: string;
     username: string;
@@ -95,18 +169,22 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  login: (body: { email: string; password: string }) =>
-    request<AuthTokens>("/auth/login/", {
+  login: async (body: { email: string; password: string }) => {
+    await ensureCsrfCookie();
+    return request<{ detail: string; user: User }>("/auth/login/", {
       method: "POST",
       body: JSON.stringify(body),
-    }),
+    });
+  },
 
-  me: (token: string) => request<User>("/auth/me/", {}, token),
+  me: () => request<User>("/auth/me/"),
 
-  refresh: (refresh: string) =>
-    request<{ access: string }>("/auth/refresh/", {
+  refresh: () => refreshSession(),
+
+  logout: () =>
+    request<{ detail: string }>("/auth/logout/", {
       method: "POST",
-      body: JSON.stringify({ refresh }),
+      body: "{}",
     }),
 };
 
