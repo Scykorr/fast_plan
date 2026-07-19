@@ -55,13 +55,24 @@ API проксируется на http://127.0.0.1:8000
 
 ## Docker Compose
 
+1. Скопируйте `.env.example` → `.env` и задайте **обязательные** секреты:
+   - `DJANGO_SECRET_KEY` (≥32 символов, без `insecure`/`change-me`)
+   - `POSTGRES_PASSWORD`
+2. Для локального Docker без TLS оставьте `DJANGO_SECURE_SSL_REDIRECT=false`.
+3. Запуск:
+
 ```bash
+cp .env.example .env
+# отредактируйте .env
 docker compose up --build
 ```
 
 - **Frontend:** http://localhost:8080
-- **Backend API:** http://localhost:8000
+- **Backend API:** http://localhost:8000 (также через nginx `/api/`)
+- **Scheduler:** контейнер `scheduler` периодически запускает `manage.py send_reminders`
 - **PostgreSQL:** внутренняя сеть Docker
+
+Секреты **не** хардкодятся в `docker-compose.yml` — только через `.env`.
 
 ## Тесты
 
