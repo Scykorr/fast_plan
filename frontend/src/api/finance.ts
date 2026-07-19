@@ -41,10 +41,38 @@ export function createFinanceApi(token: string) {
       transaction_date: string;
       notes?: string;
     }) =>
-      request<Transaction>("/finance/transactions/", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }, token),
+      request<Transaction>(
+        "/finance/transactions/",
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+        token,
+      ),
+
+    updateTransaction: (
+      id: number,
+      body: {
+        project_id?: number | null;
+        title?: string;
+        amount?: string;
+        transaction_type?: string;
+        category?: string;
+        transaction_date?: string;
+        notes?: string;
+      },
+    ) =>
+      request<Transaction>(
+        `/finance/transactions/${id}/`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        },
+        token,
+      ),
+
+    deleteTransaction: (id: number) =>
+      request<void>(`/finance/transactions/${id}/`, { method: "DELETE" }, token),
 
     getProjectFinance: (projectId: number) =>
       request<ProjectFinance>(`/projects/${projectId}/finance/`, {}, token),

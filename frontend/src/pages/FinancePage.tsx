@@ -2,48 +2,72 @@ import { useCallback, useEffect, useState } from "react";
 
 import { parseApiError } from "../api/errors";
 import type { Transaction } from "../api/finance";
+import type { Project } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import {
+  TransactionForm,
+  type TransactionFormValues,
+} from "../components/finance/TransactionForm";
 import { useFinanceApi } from "../hooks/useFinanceApi";
+import { useProjectsApi } from "../hooks/useProjectsApi";
+import { useWorkspace } from "../context/WorkspaceContext";
 
 export function FinancePage() {
   const financeApi = useFinanceApi();
+  const projectsApi = useProjectsApi();
+  const { workspaceEpoch } = useWorkspace();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   const load = useCallback(async () => {
-    if (!financeApi) {
+    if (!financeApi || !projectsApi) {
       return;
     }
     try {
-      setTransactions(await financeApi.getTransactions());
+      const [items, projectItems] = await Promise.all([
+        financeApi.getTransactions(),
+        projectsApi.getProjects(),
+      ]);
+      setTransactions(items);
+      setProjects(projectItems);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить транзакции"));
     }
-  }, [financeApi]);
+  }, [financeApi, projectsApi]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, workspaceEpoch]);
 
-  const handleAdd = async () => {
+  const handleSubmit = async (values: TransactionFormValues) => {
     if (!financeApi) {
       return;
     }
-    const title = window.prompt("Название транзакции");
-    const amount = window.prompt("Сумма");
-    if (!title?.trim() || !amount) {
+    if (editing) {
+      await financeApi.updateTransaction(editing.id, values);
+    } else {
+      await financeApi.createTransaction(values);
+    }
+    setShowForm(false);
+    setEditing(null);
+    await load();
+  };
+
+  const handleDelete = async (transaction: Transaction) => {
+    if (!financeApi) {
+      return;
+    }
+    if (!window.confirm(`Удалить «${transaction.title}»?`)) {
       return;
     }
     try {
-      await financeApi.createTransaction({
-        title: title.trim(),
-        amount,
-        transaction_type: "expense",
-        transaction_date: new Date().toISOString().slice(0, 10),
-      });
+      await financeApi.deleteTransaction(transaction.id);
       await load();
     } catch (err) {
-      setError(parseApiError(err, "Не удалось создать транзакцию"));
+      setError(parseApiError(err, "Не удалось удалить транзакцию"));
     }
   };
 
@@ -58,13 +82,42 @@ export function FinancePage() {
         </div>
         <button
           type="button"
-          onClick={() => void handleAdd()}
+          onClick={() => {
+            setEditing(null);
+            setShowForm((value) => !value);
+          }}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
         >
-          + Транзакция
+          {showForm && !editing ? "Скрыть форму" : "+ Транзакция"}
         </button>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+
+      {(showForm || editing) && (
+        <TransactionForm
+          projects={projects}
+          initial={
+            editing
+              ? {
+                  title: editing.title,
+                  amount: editing.amount,
+                  transaction_type: editing.transaction_type,
+                  transaction_date: editing.transaction_date,
+                  category: editing.category,
+                  notes: editing.notes,
+                  project_id: editing.project_id,
+                }
+              : undefined
+          }
+          submitLabel={editing ? "Обновить" : "Создать"}
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+        />
+      )}
+
       {transactions.length === 0 ? (
         <p className="text-sm text-text-muted">Транзакций пока нет</p>
       ) : (
@@ -72,25 +125,45 @@ export function FinancePage() {
           {transactions.map((item) => (
             <li
               key={item.id}
-              className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-sm"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm"
             >
               <div>
                 <p className="font-medium text-text">{item.title}</p>
                 <p className="text-xs text-text-muted">
                   {item.transaction_date}
+                  {item.category ? ` · ${item.category}` : ""}
                   {item.project_id ? ` · проект #${item.project_id}` : ""}
                 </p>
               </div>
-              <span
-                className={
-                  item.transaction_type === "expense"
-                    ? "font-semibold text-primary"
-                    : "font-semibold text-secondary"
-                }
-              >
-                {item.transaction_type === "expense" ? "−" : "+"}
-                {item.amount} ₽
-              </span>
+              <div className="flex items-center gap-3">
+                <span
+                  className={
+                    item.transaction_type === "expense"
+                      ? "font-semibold text-primary"
+                      : "font-semibold text-secondary"
+                  }
+                >
+                  {item.transaction_type === "expense" ? "−" : "+"}
+                  {item.amount} ₽
+                </span>
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => {
+                    setEditing(item);
+                    setShowForm(true);
+                  }}
+                >
+                  Изменить
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-text-muted hover:underline"
+                  onClick={() => void handleDelete(item)}
+                >
+                  Удалить
+                </button>
+              </div>
             </li>
           ))}
         </ul>

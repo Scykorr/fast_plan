@@ -3,18 +3,21 @@ import { useCallback, useEffect, useState } from "react";
 import { parseApiError } from "../api/errors";
 import type { WorkspaceInvitation, WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { InviteMemberForm } from "../components/workspace/InviteMemberForm";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function SettingsPage() {
   const { user } = useAuth();
-  const { activeWorkspace, workspaces, switchWorkspace } = useWorkspace();
+  const { activeWorkspace, workspaces, switchWorkspace, workspaceEpoch } =
+    useWorkspace();
   const workspaceApi = useWorkspaceApi();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const [error, setError] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [showInviteForm, setShowInviteForm] = useState(false);
 
   const load = useCallback(async () => {
     if (!workspaceApi) {
@@ -34,25 +37,7 @@ export function SettingsPage() {
 
   useEffect(() => {
     void load();
-  }, [load, activeWorkspace?.id]);
-
-  const handleInvite = async () => {
-    if (!workspaceApi) {
-      return;
-    }
-    const email = window.prompt("Email участника");
-    if (!email?.trim()) {
-      return;
-    }
-    const role =
-      window.prompt("Роль (owner/editor/viewer)", "editor")?.trim() || "editor";
-    try {
-      await workspaceApi.inviteMember(email.trim(), role);
-      await load();
-    } catch (err) {
-      setError(parseApiError(err, "Не удалось отправить приглашение"));
-    }
-  };
+  }, [load, activeWorkspace?.id, workspaceEpoch]);
 
   const copyInviteLink = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
@@ -60,7 +45,7 @@ export function SettingsPage() {
       await navigator.clipboard.writeText(url);
       setCopiedToken(token);
     } catch {
-      window.prompt("Скопируйте ссылку приглашения", url);
+      setError("Не удалось скопировать ссылку — скопируйте вручную из поля ниже");
     }
   };
 
@@ -120,12 +105,29 @@ export function SettingsPage() {
           <h3 className="text-sm font-semibold text-text">Участники</h3>
           <button
             type="button"
-            onClick={() => void handleInvite()}
+            onClick={() => setShowInviteForm((value) => !value)}
             className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover"
           >
-            Пригласить
+            {showInviteForm ? "Скрыть" : "Пригласить"}
           </button>
         </div>
+
+        {showInviteForm && (
+          <div className="mb-4">
+            <InviteMemberForm
+              onSubmit={async (email, role) => {
+                if (!workspaceApi) {
+                  return;
+                }
+                await workspaceApi.inviteMember(email, role);
+                setShowInviteForm(false);
+                await load();
+              }}
+              onCancel={() => setShowInviteForm(false)}
+            />
+          </div>
+        )}
+
         <ul className="space-y-2 text-sm">
           {members.map((member) => (
             <li
@@ -142,24 +144,37 @@ export function SettingsPage() {
             <h3 className="mb-2 text-sm font-semibold text-text">
               Ожидающие приглашения
             </h3>
-            <ul className="space-y-2 text-sm">
-              {invitations.map((invite) => (
-                <li
-                  key={invite.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
-                >
-                  <span className="text-text-muted">
-                    {invite.email} · {invite.role}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-primary hover:underline"
-                    onClick={() => void copyInviteLink(invite.token)}
+            <ul className="space-y-3 text-sm">
+              {invitations.map((invite) => {
+                const url = `${window.location.origin}/invite/${invite.token}`;
+                return (
+                  <li
+                    key={invite.id}
+                    className="rounded-lg border border-border px-3 py-2"
                   >
-                    {copiedToken === invite.token ? "Скопировано" : "Копировать ссылку"}
-                  </button>
-                </li>
-              ))}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-text-muted">
+                        {invite.email} · {invite.role}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-primary hover:underline"
+                        onClick={() => void copyInviteLink(invite.token)}
+                      >
+                        {copiedToken === invite.token
+                          ? "Скопировано"
+                          : "Копировать ссылку"}
+                      </button>
+                    </div>
+                    <input
+                      readOnly
+                      value={url}
+                      className="mt-2 w-full rounded border border-border bg-cream px-2 py-1 text-xs text-text"
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
