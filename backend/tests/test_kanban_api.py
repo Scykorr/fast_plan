@@ -77,6 +77,25 @@ def test_move_card_to_another_column(authenticated_client, board, column):
 
 
 @pytest.mark.django_db
+def test_reorder_card_within_same_column(authenticated_client, column):
+    first = CardFactory(column=column, title="First", position=0)
+    second = CardFactory(column=column, title="Second", position=1)
+
+    response = authenticated_client.post(
+        f"/api/cards/{second.id}/move/",
+        {"column_id": column.id, "position": 0},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    first.refresh_from_db()
+    second.refresh_from_db()
+    assert second.position == 0
+    assert first.position == 1
+    assert first.column_id == column.id
+    assert second.column_id == column.id
+
+
+@pytest.mark.django_db
 def test_delete_card(authenticated_client, card):
     card_id = card.id
     response = authenticated_client.delete(f"/api/cards/{card_id}/")
