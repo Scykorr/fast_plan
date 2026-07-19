@@ -25,7 +25,7 @@ jobs:
         run: pip install -r ../requirements.txt
 
       - name: Run tests
-        run: pytest --cov=accounts --cov=workspaces --cov=kanban --cov=birthdays --cov-report=term-missing
+        run: pytest --cov=accounts --cov=workspaces --cov=kanban --cov=birthdays --cov=projects --cov=finance --cov=tracking --cov=notifications --cov-report=term-missing
 
   frontend:
     runs-on: ubuntu-latest
