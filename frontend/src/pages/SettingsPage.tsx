@@ -4,14 +4,17 @@ import { parseApiError } from "../api/errors";
 import type { WorkspaceInvitation, WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function SettingsPage() {
   const { user } = useAuth();
+  const { activeWorkspace, workspaces, switchWorkspace } = useWorkspace();
   const workspaceApi = useWorkspaceApi();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const [error, setError] = useState("");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!workspaceApi) {
@@ -31,7 +34,7 @@ export function SettingsPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, activeWorkspace?.id]);
 
   const handleInvite = async () => {
     if (!workspaceApi) {
@@ -41,11 +44,23 @@ export function SettingsPage() {
     if (!email?.trim()) {
       return;
     }
+    const role =
+      window.prompt("Роль (owner/editor/viewer)", "editor")?.trim() || "editor";
     try {
-      await workspaceApi.inviteMember(email.trim());
+      await workspaceApi.inviteMember(email.trim(), role);
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось отправить приглашение"));
+    }
+  };
+
+  const copyInviteLink = async (token: string) => {
+    const url = `${window.location.origin}/invite/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedToken(token);
+    } catch {
+      window.prompt("Скопируйте ссылку приглашения", url);
     }
   };
 
@@ -73,8 +88,36 @@ export function SettingsPage() {
       </div>
 
       <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
+        <h2 className="mb-4 text-lg font-semibold text-text">Workspace</h2>
+        <p className="mb-3 text-sm text-text-muted">
+          Активный:{" "}
+          <span className="font-medium text-text">
+            {activeWorkspace?.name ?? "—"}
+          </span>
+          {activeWorkspace ? ` · ${activeWorkspace.role}` : ""}
+        </p>
+        {workspaces.length > 1 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {workspaces.map((workspace) => (
+              <button
+                key={workspace.id}
+                type="button"
+                onClick={() => void switchWorkspace(workspace.id)}
+                className={[
+                  "rounded-lg border px-3 py-1.5 text-sm",
+                  workspace.id === activeWorkspace?.id
+                    ? "border-primary bg-cream text-primary"
+                    : "border-border text-text-muted hover:bg-cream",
+                ].join(" ")}
+              >
+                {workspace.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text">Участники workspace</h2>
+          <h3 className="text-sm font-semibold text-text">Участники</h3>
           <button
             type="button"
             onClick={() => void handleInvite()}
@@ -99,10 +142,22 @@ export function SettingsPage() {
             <h3 className="mb-2 text-sm font-semibold text-text">
               Ожидающие приглашения
             </h3>
-            <ul className="space-y-2 text-sm text-text-muted">
+            <ul className="space-y-2 text-sm">
               {invitations.map((invite) => (
-                <li key={invite.id}>
-                  {invite.email} · {invite.role}
+                <li
+                  key={invite.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                >
+                  <span className="text-text-muted">
+                    {invite.email} · {invite.role}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    onClick={() => void copyInviteLink(invite.token)}
+                  >
+                    {copiedToken === invite.token ? "Скопировано" : "Копировать ссылку"}
+                  </button>
                 </li>
               ))}
             </ul>

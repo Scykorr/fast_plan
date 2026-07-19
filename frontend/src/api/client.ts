@@ -1,4 +1,5 @@
 const API_BASE = "/api";
+const WORKSPACE_STORAGE_KEY = "fast_plan_workspace";
 
 export type User = {
   id: number;
@@ -7,6 +8,8 @@ export type User = {
   first_name: string;
   last_name: string;
   date_joined: string;
+  active_workspace_id: number | null;
+  active_workspace_name: string | null;
 };
 
 export type AuthTokens = {
@@ -25,6 +28,28 @@ class ApiError extends Error {
   }
 }
 
+let activeWorkspaceId: number | null = (() => {
+  const stored = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+  if (!stored) {
+    return null;
+  }
+  const parsed = Number(stored);
+  return Number.isFinite(parsed) ? parsed : null;
+})();
+
+export function getActiveWorkspaceId(): number | null {
+  return activeWorkspaceId;
+}
+
+export function setActiveWorkspaceId(workspaceId: number | null): void {
+  activeWorkspaceId = workspaceId;
+  if (workspaceId == null) {
+    localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+  } else {
+    localStorage.setItem(WORKSPACE_STORAGE_KEY, String(workspaceId));
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -37,6 +62,10 @@ async function request<T>(
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (activeWorkspaceId != null && !headers["X-Workspace-Id"]) {
+    headers["X-Workspace-Id"] = String(activeWorkspaceId);
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -81,4 +110,4 @@ export const api = {
     }),
 };
 
-export { ApiError, request };
+export { ApiError, request, WORKSPACE_STORAGE_KEY };

@@ -1,5 +1,12 @@
 import { request } from "./client";
 
+export type WorkspaceSummary = {
+  id: number;
+  name: string;
+  role: "owner" | "editor" | "viewer" | string;
+  is_active: boolean;
+};
+
 export type WorkspaceMember = {
   id: number;
   user_id: number;
@@ -20,6 +27,16 @@ export type WorkspaceInvitation = {
 
 export function createWorkspaceApi(token: string) {
   return {
+    listWorkspaces: () =>
+      request<WorkspaceSummary[]>("/workspaces/", {}, token),
+
+    activateWorkspace: (workspaceId: number) =>
+      request<WorkspaceSummary>(
+        `/workspaces/${workspaceId}/activate/`,
+        { method: "POST" },
+        token,
+      ),
+
     getMembers: () =>
       request<WorkspaceMember[]>("/workspace/members/", {}, token),
 
@@ -33,7 +50,7 @@ export function createWorkspaceApi(token: string) {
       request<WorkspaceInvitation[]>("/workspace/invitations/", {}, token),
 
     acceptInvitation: (tokenValue: string) =>
-      request<{ workspace_id: number; name: string }>(
+      request<{ workspace_id: number; name: string; role: string | null }>(
         `/workspace/invitations/${tokenValue}/accept/`,
         { method: "POST" },
         token,

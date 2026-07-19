@@ -1,11 +1,16 @@
 import { type FormEvent, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginPage() {
   const { login } = useAuth();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get("next");
+  const registerHref = next
+    ? `/register?next=${encodeURIComponent(next)}`
+    : "/register";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -83,7 +88,7 @@ export function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-text-muted">
           Нет аккаунта?{" "}
-          <Link to="/register" className="font-medium text-primary hover:underline">
+          <Link to={registerHref} className="font-medium text-primary hover:underline">
             Зарегистрироваться
           </Link>
         </p>

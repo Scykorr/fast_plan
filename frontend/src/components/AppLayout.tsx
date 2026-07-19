@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { APP_VERSION } from "../version";
 
 const navItems = [
@@ -17,6 +18,20 @@ const navItems = [
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
+  const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
+  const [switching, setSwitching] = useState(false);
+
+  const handleSwitch = async (workspaceId: number) => {
+    if (workspaceId === activeWorkspace?.id) {
+      return;
+    }
+    setSwitching(true);
+    try {
+      await switchWorkspace(workspaceId);
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   return (
     <>
@@ -26,6 +41,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <p className="mt-1 text-xs text-text-muted" title="Версия продукта">
           v{APP_VERSION}
         </p>
+        {workspaces.length > 0 && (
+          <label className="mt-3 block text-xs text-text-muted">
+            Workspace
+            <select
+              className="mt-1 w-full rounded-lg border border-border bg-cream px-2 py-1.5 text-sm text-text"
+              value={activeWorkspace?.id ?? ""}
+              disabled={switching || workspaces.length < 2}
+              onChange={(event) => void handleSwitch(Number(event.target.value))}
+              aria-label="Выбор workspace"
+            >
+              {workspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name} ({workspace.role})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -65,6 +98,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { workspaceEpoch } = useWorkspace();
 
   return (
     <div className="flex min-h-screen">
@@ -110,7 +144,7 @@ export function AppLayout() {
           <NotificationBell />
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-8">
+        <main className="flex-1 overflow-auto p-4 md:p-8" key={workspaceEpoch}>
           <Outlet />
         </main>
       </div>

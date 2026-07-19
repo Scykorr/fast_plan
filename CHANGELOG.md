@@ -15,6 +15,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- Активный workspace: `User.active_workspace`, API `GET /api/workspaces/`, `POST /api/workspaces/<id>/activate/`
+- Заголовок `X-Workspace-Id` для явного выбора пространства
+- UI switcher workspace в sidebar и на странице настроек
+- Страница принятия приглашения `/invite/:token` с возвратом после login/register
+- Копирование ссылки приглашения в Settings
+- RBAC: Viewer — только чтение; Editor — рабочие данные; Owner — участники, приглашения и tracking-настройки
+
+### Changed
+
+- Единый `WorkspaceMixin` и permission-классы в `workspaces/`
+- После accept invitation активный workspace переключается автоматически
+- GET charter/dashboard/tracking-metadata без лишних side-effect записей для viewer
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.

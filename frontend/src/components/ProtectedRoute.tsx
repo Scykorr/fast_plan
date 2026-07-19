@@ -1,9 +1,10 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -14,7 +15,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const next = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
   }
 
   return <>{children}</>;
@@ -22,6 +24,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export function GuestRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const next = params.get("next") || "/";
 
   if (isLoading) {
     return (
@@ -32,7 +37,7 @@ export function GuestRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={next.startsWith("/") ? next : "/"} replace />;
   }
 
   return <>{children}</>;

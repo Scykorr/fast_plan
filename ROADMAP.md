@@ -5,49 +5,39 @@
 
 ## P0 — закрыть дыры в уже заявленных возможностях
 
-1. **Принятие приглашения в UI**  
-   API `acceptInvitation` есть, страницы/роута нет — без `/invite/:token` shared workspaces полусломанны.
-
-2. **Роли owner / editor / viewer на запись**  
-   Роли в модели есть, но API почти везде только проверяет «есть workspace» — viewer может менять данные.
-
-3. **Переключение активного workspace**  
-   `get_user_workspace` берёт первый по `created_at` — после инвайта пользователь может не видеть приглашённое пространство. Нужен switcher + явный выбор.
+_Выполнено (2026-07-19): invite UI, RBAC owner/editor/viewer, workspace switcher._
 
 ## P1 — UX и качество продукта
 
-4. **Дашборд как командный центр**  
+1. **Дашборд как командный центр**  
    Сейчас в основном приветствие + ДР. Добавить просроченные задачи, риски, SPI/CPI, непрочитанные уведомления.
 
-5. **Формы вместо `window.prompt`**  
+2. **Формы вместо `window.prompt`**  
    Finance, Administration, часть Settings — полноценные формы разблокируют поля API (тип транзакции, роль инвайта и т.д.).
 
-6. **Фильтры Kanban/WBS и deep-link из уведомлений**  
+3. **Фильтры Kanban/WBS и deep-link из уведомлений**  
    Открывать карточку/узел из колокольчика; фильтр по исполнителю/статусу.
 
 ## P2 — техника и эксплуатация
 
-7. **Общий `WorkspaceMixin` + проверки ролей**  
-   Сейчас 6 копий mixin в приложениях — вынести в `workspaces/mixins.py`.
-
-8. **Расширить coverage в CI**  
+4. **Расширить coverage в CI**  
    Сейчас cov только accounts/workspaces/kanban/birthdays; добавить projects, finance, tracking, notifications.
 
-9. **Production hardening**  
+5. **Production hardening**  
    Падать при insecure `SECRET_KEY` если `DEBUG=false`; HSTS/secure cookies; не хардкодить секреты в compose.
 
-10. **JWT не в `localStorage`**  
+6. **JWT не в `localStorage`**  
     Предпочтительно httpOnly cookie (или короткий access + аккуратный refresh).
 
-11. **Фоновые напоминания**  
+7. **Фоновые напоминания**  
     Birthday/deadline notifications не должны зависеть только от открытия списка — Celery/cron + management command.
 
 ## P3 — следующие фичи (PM)
 
-12. PDF / digest статус-отчёта (сейчас экспорт JSON)
-13. Комментарии / лог решений на WBS и карточках
-14. Глобальный поиск + «Мои задачи» (по `assignee`)
-15. Загрузка ресурсов / capacity по неделе
+8. PDF / digest статус-отчёта (сейчас экспорт JSON)
+9. Комментарии / лог решений на WBS и карточках
+10. Глобальный поиск + «Мои задачи» (по `assignee`)
+11. Загрузка ресурсов / capacity по неделе
 
 ---
 

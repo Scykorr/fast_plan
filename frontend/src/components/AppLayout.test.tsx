@@ -5,16 +5,19 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "./AppLayout";
 import { AuthProvider } from "../context/AuthContext";
+import { WorkspaceProvider } from "../context/WorkspaceContext";
 
 function renderLayout() {
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route index element={<div>Home</div>} />
-          </Route>
-        </Routes>
+        <WorkspaceProvider>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route index element={<div>Home</div>} />
+            </Route>
+          </Routes>
+        </WorkspaceProvider>
       </AuthProvider>
     </MemoryRouter>,
   );

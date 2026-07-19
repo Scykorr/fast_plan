@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, type User } from "../api/client";
+import { api, setActiveWorkspaceId, type User } from "../api/client";
 
 const ACCESS_KEY = "fast_plan_access";
 const REFRESH_KEY = "fast_plan_refresh";
@@ -54,6 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tokens = await api.login({ email, password });
     persistTokens(tokens.access, tokens.refresh);
     const me = await api.me(tokens.access);
+    if (me.active_workspace_id) {
+      setActiveWorkspaceId(me.active_workspace_id);
+    }
     setUser(me);
   }, []);
 
