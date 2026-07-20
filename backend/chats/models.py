@@ -295,11 +295,18 @@ class ChatUserCryptoKey(models.Model):
         related_name="chat_crypto_key",
     )
     public_jwk = models.JSONField()
+    # AES-GCM ciphertext of private JWK, keyed by recovery phrase (opaque to server).
+    recovery_blob = models.TextField(blank=True, default="")
+    recovery_salt = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Crypto key for user {self.user_id}"
+
+    @property
+    def has_recovery(self) -> bool:
+        return bool(self.recovery_blob and self.recovery_salt)
 
 
 class ChatRoomKeyWrap(models.Model):

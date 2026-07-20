@@ -15,8 +15,10 @@ import { useWorkspace } from "../../context/WorkspaceContext";
 import { useProjectsApi } from "../../hooks/useProjectsApi";
 import { useWorkspaceApi } from "../../hooks/useWorkspaceApi";
 import {
-  decryptText,
-  encryptText,
+  decryptBytes,
+  decryptPayload,
+  encryptBytes,
+  encryptPayload,
   ensureDmRoomKey,
   ensureIdentity,
 } from "../../utils/chatE2E";
@@ -44,7 +46,9 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [displayBodies, setDisplayBodies] = useState<Record<number, string>>({});
+  const [displayBodies, setDisplayBodies] = useState<
+    Record<number, { text: string; mediaUrl?: string; mediaKind?: "attachment" | "voice"; fileName?: string }>
+  >({});
   const [roomKey, setRoomKey] = useState<CryptoKey | null>(null);
   const [e2eStatus, setE2eStatus] = useState("");
   const [pickerFor, setPickerFor] = useState<number | null>(null);
@@ -115,7 +119,7 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
             api: chatsApi,
           });
           setRoomKey(key);
-          setE2eStatus("E2E включён — текст шифруется на устройстве");
+          setE2eStatus("E2E включён — текст, файлы и голос шифруются на устройстве");
         } catch (err) {
           setRoomKey(null);
           setE2eStatus(
@@ -139,30 +143,63 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    const objectUrls: string[] = [];
     const run = async () => {
-      const next: Record<number, string> = {};
+      const next: Record<
+        number,
+        { text: string; mediaUrl?: string; mediaKind?: "attachment" | "voice"; fileName?: string }
+      > = {};
       for (const message of messages) {
         if (!message.is_encrypted) {
-          next[message.id] = message.body;
+          next[message.id] = {
+            text: message.body,
+            mediaUrl: message.attachment_url || message.voice_url || undefined,
+            mediaKind: message.voice_url
+              ? "voice"
+              : message.attachment_url
+                ? "attachment"
+                : undefined,
+          };
           continue;
         }
         if (!roomKey) {
-          next[message.id] = "🔒 Зашифрованное сообщение";
+          next[message.id] = { text: "🔒 Зашифрованное сообщение" };
           continue;
         }
         try {
-          next[message.id] = await decryptText(roomKey, message.body);
+          const payload = await decryptPayload(roomKey, message.body || "{}");
+          let mediaUrl: string | undefined;
+          const fileUrl = message.attachment_url || message.voice_url;
+          if (fileUrl && payload.file) {
+            const response = await fetch(fileUrl, { credentials: "include" });
+            const buf = await response.arrayBuffer();
+            const plain = await decryptBytes(roomKey, buf);
+            const blob = new Blob([plain], {
+              type: payload.file.mime || "application/octet-stream",
+            });
+            mediaUrl = URL.createObjectURL(blob);
+            objectUrls.push(mediaUrl);
+          }
+          next[message.id] = {
+            text: payload.text,
+            mediaUrl,
+            mediaKind: payload.file?.kind,
+            fileName: payload.file?.name,
+          };
         } catch {
-          next[message.id] = "🔒 Не удалось расшифровать";
+          next[message.id] = { text: "🔒 Не удалось расшифровать" };
         }
       }
       if (!cancelled) {
         setDisplayBodies(next);
+      } else {
+        objectUrls.forEach((url) => URL.revokeObjectURL(url));
       }
     };
     void run();
     return () => {
       cancelled = true;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [messages, roomKey]);
 
@@ -207,23 +244,57 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
     setSending(true);
     setError("");
     try {
-      const useE2E = Boolean(room.e2e_enabled && body.trim() && !file && !voice);
+      const useE2E = Boolean(room.e2e_enabled);
       if (useE2E && !roomKey) {
         throw new Error(e2eStatus || "E2E ключ недоступен");
       }
+
       let payloadBody = body.trim();
+      let uploadFile = file;
+      let uploadVoice = voice;
+      const voiceDuration: number | null = null;
+
       if (useE2E && roomKey) {
-        payloadBody = await encryptText(roomKey, payloadBody);
+        const media = file || voice;
+        const kind = voice ? ("voice" as const) : file ? ("attachment" as const) : null;
+        payloadBody = await encryptPayload(roomKey, {
+          text: body.trim(),
+          file: media && kind
+            ? {
+                kind,
+                name: media.name,
+                mime: media.type || "application/octet-stream",
+              }
+            : undefined,
+        });
+        if (media && kind) {
+          const encrypted = await encryptBytes(roomKey, await media.arrayBuffer());
+          const encFile = new File([encrypted], `${kind}-${Date.now()}.bin`, {
+            type: "application/octet-stream",
+          });
+          if (kind === "voice") {
+            uploadVoice = encFile;
+            uploadFile = null;
+          } else {
+            uploadFile = encFile;
+            uploadVoice = null;
+          }
+        }
       }
+
       if (editingId) {
+        if (uploadFile || uploadVoice) {
+          throw new Error("Редактирование вложений пока не поддерживается.");
+        }
         await chatsApi.editMessage(room.id, editingId, payloadBody, useE2E);
         setEditingId(null);
       } else {
         await chatsApi.postMessage(room.id, {
           body: payloadBody,
           replyTo: replyTo?.id ?? null,
-          file,
-          voice,
+          file: uploadFile,
+          voice: uploadVoice,
+          voiceDuration,
           isEncrypted: useE2E,
         });
       }
@@ -341,7 +412,7 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
             api: chatsApi,
           });
           setRoomKey(key);
-          setE2eStatus("E2E включён — текст шифруется на устройстве");
+          setE2eStatus("E2E включён — текст, файлы и голос шифруются на устройстве");
         } catch (err) {
           setRoomKey(null);
           setE2eStatus(
@@ -595,9 +666,10 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                 <p className="mt-1 italic text-text-muted">Сообщение удалено</p>
               ) : (
                 <>
-                  {message.body && (
+                  {(displayBodies[message.id]?.text ||
+                    (!message.is_encrypted && message.body)) && (
                     <p className="mt-1 whitespace-pre-wrap text-text">
-                      {displayBodies[message.id] ?? message.body}
+                      {displayBodies[message.id]?.text ?? message.body}
                       {message.is_encrypted && (
                         <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">
                           e2e
@@ -605,7 +677,18 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                       )}
                     </p>
                   )}
-                  {message.attachment_url && (
+                  {displayBodies[message.id]?.mediaKind === "attachment" &&
+                    displayBodies[message.id]?.mediaUrl && (
+                      <a
+                        href={displayBodies[message.id]?.mediaUrl}
+                        download={displayBodies[message.id]?.fileName || "file"}
+                        className="mt-1 inline-block text-xs text-primary hover:underline"
+                      >
+                        {displayBodies[message.id]?.fileName || "Вложение"}
+                        {message.is_encrypted ? " (e2e)" : ""}
+                      </a>
+                    )}
+                  {!message.is_encrypted && message.attachment_url && !displayBodies[message.id]?.mediaUrl && (
                     <a
                       href={message.attachment_url}
                       target="_blank"
@@ -615,8 +698,17 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                       Вложение
                     </a>
                   )}
-                  {message.voice_url && (
-                    <audio controls className="mt-2 w-full" src={message.voice_url}>
+                  {(displayBodies[message.id]?.mediaKind === "voice" ||
+                    (!message.is_encrypted && message.voice_url)) && (
+                    <audio
+                      controls
+                      className="mt-2 w-full"
+                      src={
+                        displayBodies[message.id]?.mediaUrl ||
+                        message.voice_url ||
+                        undefined
+                      }
+                    >
                       <track kind="captions" />
                     </audio>
                   )}
@@ -692,7 +784,7 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                         type="button"
                         onClick={() => {
                           setEditingId(message.id);
-                          setBody(displayBodies[message.id] ?? message.body);
+                          setBody(displayBodies[message.id]?.text ?? message.body);
                           setReplyTo(null);
                         }}
                         className="text-xs text-text-muted hover:text-primary"
@@ -756,14 +848,12 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
             className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <div className="flex flex-wrap items-center gap-2">
-            {!room.e2e_enabled && (
-              <input
-                type="file"
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                className="text-xs text-text-muted"
-              />
-            )}
-            {!editingId && !room.e2e_enabled && (
+            <input
+              type="file"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              className="text-xs text-text-muted"
+            />
+            {!editingId && (
               <button
                 type="button"
                 onClick={() => (recording ? stopRecording() : void startRecording())}
@@ -775,12 +865,15 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
             {voice && (
               <span className="text-xs text-text-muted">Голос: {voice.name}</span>
             )}
+            {file && (
+              <span className="text-xs text-text-muted">Файл: {file.name}</span>
+            )}
             <button
               type="submit"
               disabled={
                 sending ||
                 (!body.trim() && !file && !voice && !editingId) ||
-                (Boolean(room.e2e_enabled && body.trim()) && !roomKey)
+                (Boolean(room.e2e_enabled) && !roomKey)
               }
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
             >

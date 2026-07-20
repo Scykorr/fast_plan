@@ -135,11 +135,12 @@ _Выполнено (2026-07-20)._
 ### Вне scope (остаётся)
 
 - Видеозвонки
-- Multi-device E2E key sync / recovery phrase
-- Шифрование вложений и голосовых в DM
+- Hardware key / WebAuthn wrapping for recovery
 
 _Выполнено дополнительно:_
 - [x] Реакции с emoji-picker / GIF (allowlist giphy/tenor)
 - [x] End-to-end шифрование текста DM (ECDH P-256 + AES-GCM, ключи на клиенте)
+- [x] Multi-device E2E key sync / recovery phrase (Settings)
+- [x] Шифрование вложений и голосовых в DM
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

@@ -172,6 +172,58 @@ def test_dm_e2e_ciphertext_opaque(authenticated_client, project_pair, peer_clien
 
 
 @pytest.mark.django_db
+def test_crypto_recovery_backup(authenticated_client, project_pair):
+    jwk = {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "y": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    }
+    saved = authenticated_client.put(
+        "/api/chats/crypto/me/",
+        {
+            "public_jwk": jwk,
+            "recovery_blob": '{"v":1,"iv":"x","ct":"y"}',
+            "recovery_salt": "c2FsdA==",
+        },
+        format="json",
+    )
+    assert saved.status_code == status.HTTP_200_OK
+    assert saved.data["has_recovery"] is True
+
+    me = authenticated_client.get("/api/chats/crypto/me/")
+    assert me.data["recovery_blob"].startswith("{")
+    assert me.data["recovery_salt"] == "c2FsdA=="
+
+
+@pytest.mark.django_db
+def test_dm_encrypted_attachment_allowed(authenticated_client, project_pair):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    _project, peer = project_pair
+    created = authenticated_client.post(
+        "/api/chats/dm/", {"user_id": peer.id}, format="json"
+    )
+    room_id = created.data["id"]
+    cipher_meta = '{"v":1,"iv":"aa","ct":"meta"}'
+    upload = SimpleUploadedFile(
+        "voice.bin", b"\x00" * 32, content_type="application/octet-stream"
+    )
+    posted = authenticated_client.post(
+        f"/api/chats/{room_id}/messages/",
+        {
+            "body": cipher_meta,
+            "is_encrypted": True,
+            "attachment": upload,
+        },
+        format="multipart",
+    )
+    assert posted.status_code == status.HTTP_201_CREATED
+    assert posted.data["is_encrypted"] is True
+    assert posted.data["attachment_url"]
+
+
+@pytest.mark.django_db
 def test_gif_reaction_rejects_bad_host(authenticated_client, project_pair):
     project, _peer = project_pair
     room = authenticated_client.get(

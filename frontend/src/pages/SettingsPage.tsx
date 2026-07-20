@@ -12,6 +12,7 @@ import type {
 } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { InviteMemberForm } from "../components/workspace/InviteMemberForm";
+import { ChatE2ERecoveryPanel } from "../components/chats/ChatE2ERecoveryPanel";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLocale, type Currency, type Locale } from "../context/LocaleContext";
@@ -236,6 +237,8 @@ export function SettingsPage() {
           </p>
         )}
       </div>
+
+      <ChatE2ERecoveryPanel />
 
       <div className="max-w-lg rounded-xl border border-border bg-surface p-6">
         <h2 className="mb-4 text-lg font-semibold text-text">Профиль</h2>

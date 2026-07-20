@@ -372,12 +372,11 @@ class ChatMessageListCreateView(WorkspaceMixin, APIView):
                 raise ValidationError(
                     {"is_encrypted": "E2E encryption is only supported for DMs."}
                 )
-            if upload or voice:
+            # Attachments/voice allowed: client uploads ciphertext blobs.
+            if not body and not upload and not voice:
                 raise ValidationError(
-                    {"is_encrypted": "Encrypted messages cannot include attachments yet."}
+                    {"body": "Encrypted ciphertext or encrypted file is required."}
                 )
-            if not body:
-                raise ValidationError({"body": "Encrypted ciphertext is required."})
         reply_to_id = serializer.validated_data.get("reply_to")
         reply_to = None
         if reply_to_id:
@@ -647,15 +646,31 @@ class ChatCryptoMeView(WorkspaceMixin, APIView):
     def get(self, request):
         key = ChatUserCryptoKey.objects.filter(user=request.user).first()
         if key is None:
-            return Response({"user_id": request.user.id, "public_jwk": None})
+            return Response(
+                {
+                    "user_id": request.user.id,
+                    "public_jwk": None,
+                    "has_recovery": False,
+                    "recovery_blob": "",
+                    "recovery_salt": "",
+                }
+            )
         return Response(ChatCryptoKeySerializer(key).data)
 
     def put(self, request):
         serializer = ChatCryptoKeyWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        defaults = {"public_jwk": data["public_jwk"]}
+        if data.get("clear_recovery"):
+            defaults["recovery_blob"] = ""
+            defaults["recovery_salt"] = ""
+        elif data.get("recovery_blob"):
+            defaults["recovery_blob"] = data["recovery_blob"]
+            defaults["recovery_salt"] = data["recovery_salt"]
         key, _ = ChatUserCryptoKey.objects.update_or_create(
             user=request.user,
-            defaults={"public_jwk": serializer.validated_data["public_jwk"]},
+            defaults=defaults,
         )
         return Response(ChatCryptoKeySerializer(key).data)
 

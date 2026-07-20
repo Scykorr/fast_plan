@@ -288,15 +288,36 @@ class ChatDmCreateSerializer(serializers.Serializer):
 
 class ChatCryptoKeySerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id", read_only=True)
+    has_recovery = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = ChatUserCryptoKey
-        fields = ["user_id", "public_jwk", "updated_at"]
-        read_only_fields = ["user_id", "updated_at"]
+        fields = [
+            "user_id",
+            "public_jwk",
+            "has_recovery",
+            "recovery_blob",
+            "recovery_salt",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "user_id",
+            "has_recovery",
+            "recovery_blob",
+            "recovery_salt",
+            "updated_at",
+        ]
 
 
 class ChatCryptoKeyWriteSerializer(serializers.Serializer):
     public_jwk = serializers.JSONField()
+    recovery_blob = serializers.CharField(
+        required=False, allow_blank=True, max_length=16000, default=""
+    )
+    recovery_salt = serializers.CharField(
+        required=False, allow_blank=True, max_length=64, default=""
+    )
+    clear_recovery = serializers.BooleanField(required=False, default=False)
 
     def validate_public_jwk(self, value):
         if not isinstance(value, dict):
@@ -313,6 +334,23 @@ class ChatCryptoKeyWriteSerializer(serializers.Serializer):
             "ext": True,
             "key_ops": ["deriveBits", "deriveKey"],
         }
+
+    def validate(self, attrs):
+        blob = (attrs.get("recovery_blob") or "").strip()
+        salt = (attrs.get("recovery_salt") or "").strip()
+        clear = bool(attrs.get("clear_recovery"))
+        if clear:
+            attrs["recovery_blob"] = ""
+            attrs["recovery_salt"] = ""
+            return attrs
+        if blob or salt:
+            if not blob or not salt:
+                raise serializers.ValidationError(
+                    "recovery_blob and recovery_salt must be set together."
+                )
+            attrs["recovery_blob"] = blob
+            attrs["recovery_salt"] = salt
+        return attrs
 
 
 class ChatRoomKeyWrapSerializer(serializers.ModelSerializer):

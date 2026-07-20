@@ -36,6 +36,8 @@
 - **E2E Playwright** — пакет `e2e/` (login, PWA manifest/SW, SSE toast smoke) + CI job `e2e`
 - **Chat reaction picker** — emoji grid + GIF (curated Giphy + HTTPS URL allowlist)
 - **DM E2E encryption** — ECDH P-256 identity keys, AES-GCM ciphertext in DM bodies; server stores opaque wraps only
+- **E2E recovery phrase** — 12-word phrase encrypts identity backup (`recovery_blob`) for multi-device sync; UI in Settings
+- **E2E DM media** — attachments and voice encrypted client-side before upload; metadata in ciphertext envelope
 
 ### Planned
 

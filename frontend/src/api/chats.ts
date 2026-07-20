@@ -234,11 +234,32 @@ export function createChatsApi() {
         },
       ),
 
-    putMyPublicKey: (publicJwk: JsonWebKey) =>
-      request<{ user_id: number; public_jwk: JsonWebKey }>("/chats/crypto/me/", {
+    putMyPublicKey: (
+      publicJwk: JsonWebKey,
+      recovery?: { recovery_blob: string; recovery_salt: string; clear_recovery?: boolean },
+    ) =>
+      request<{
+        user_id: number;
+        public_jwk: JsonWebKey;
+        has_recovery: boolean;
+        recovery_blob: string;
+        recovery_salt: string;
+      }>("/chats/crypto/me/", {
         method: "PUT",
-        body: JSON.stringify({ public_jwk: publicJwk }),
+        body: JSON.stringify({
+          public_jwk: publicJwk,
+          ...(recovery ?? {}),
+        }),
       }),
+
+    getMyCryptoKey: () =>
+      request<{
+        user_id: number;
+        public_jwk: JsonWebKey | null;
+        has_recovery: boolean;
+        recovery_blob: string;
+        recovery_salt: string;
+      }>("/chats/crypto/me/", {}),
 
     getUserPublicKey: (userId: number) =>
       request<{ user_id: number; public_jwk: JsonWebKey | null }>(
