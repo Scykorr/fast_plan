@@ -555,11 +555,39 @@ export function createProjectsApi() {
     deleteComment: (commentId: number) =>
       request<void>(`/comments/${commentId}/`, { method: "DELETE" }),
 
-    importWbs: (projectId: number, file: File) => {
+    importWbs: (projectId: number, file: File, format: "wbs" | "jira" = "wbs") => {
       const form = new FormData();
       form.append("file", file);
+      form.append("format", format);
       return requestForm<ImportResult>(`/projects/${projectId}/import/`, form);
     },
+
+    draftProjectContent: (
+      projectId: number,
+      body: { target: "risks" | "charter"; prompt?: string },
+    ) =>
+      request<
+        | {
+            target: "risks";
+            source: string;
+            risks: Array<{
+              title: string;
+              description?: string;
+              probability: number;
+              impact: number;
+              mitigation?: string;
+              status?: string;
+            }>;
+          }
+        | {
+            target: "charter";
+            source: string;
+            charter: ProjectCharter;
+          }
+      >(`/projects/${projectId}/ai-draft/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
 
     getPert: (projectId: number) =>
       request<PertNetwork>(`/projects/${projectId}/pert/`, {}),

@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 
 from finance.imports import import_transactions_csv
 from finance.models import Transaction
-from projects.imports import import_wbs_csv
+from projects.imports import import_jira_csv, import_wbs_csv
 from projects.models import Project, ProjectMember, ProjectShareLink, ScheduleActivity
 from projects.permissions import has_project_min_role
 from projects.pert import compute_pert_network
@@ -57,6 +57,12 @@ def _csv_file(content: str, name: str = "import.csv") -> SimpleUploadedFile:
 WBS_CSV = """code,title,node_type,assignee,status,progress,start_date,end_date
 1,P4 Project Root,summary,,,0,,
 1.1,Imported Task,work_package,,,50,2026-08-01,2026-08-10
+"""
+
+JIRA_CSV = """Issue Type,Issue key,Summary,Parent key
+Epic,P4-1,Platform Epic,
+Story,P4-2,User story,P4-1
+Task,P4-3,Implementation,P4-2
 """
 
 
@@ -107,6 +113,30 @@ def test_import_wbs_csv_missing_file(authenticated_client, project):
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "file" in response.data
+
+
+@pytest.mark.django_db
+def test_import_jira_csv_creates_hierarchy(project):
+    result = import_jira_csv(project, JIRA_CSV.encode("utf-8"))
+
+    assert result["created"] == 3
+    assert result["format"] == "jira"
+    assert result["errors"] == []
+    story = project.wbs_nodes.get(code="P4-2")
+    assert story.title == "User story"
+    assert story.parent.code == "P4-1"
+
+
+@pytest.mark.django_db
+def test_import_jira_csv_api(authenticated_client, project):
+    response = authenticated_client.post(
+        f"/api/projects/{project.id}/import/",
+        {"file": _csv_file(JIRA_CSV), "format": "jira"},
+        format="multipart",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["format"] == "jira"
+    assert project.wbs_nodes.filter(code="P4-3", title="Implementation").exists()
 
 
 @pytest.mark.django_db

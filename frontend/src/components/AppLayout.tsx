@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { NotificationBell } from "./NotificationBell";
 import { FxSettingsLoader } from "./FxSettingsLoader";
+import { PwaUpdatePrompt } from "./PwaUpdatePrompt";
 import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { useAuth } from "../context/AuthContext";
 import { useLocale } from "../context/LocaleContext";
@@ -188,6 +189,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <PwaUpdatePrompt />
     </div>
   );
 }

@@ -117,3 +117,26 @@ def test_webhook_rejects_non_https_url(authenticated_client):
         format="json",
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_webhook_test_delivery(authenticated_client, workspace):
+    created = authenticated_client.post(
+        "/api/workspace/webhooks/",
+        {
+            "name": "Test receiver",
+            "url": "https://hooks.example.com/fast-plan",
+            "events": ["risk.created"],
+        },
+        format="json",
+    )
+    endpoint_id = created.data["id"]
+    response = authenticated_client.post(
+        f"/api/workspace/webhooks/{endpoint_id}/test/",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["delivery_id"]
+    assert response.data["status"] == "queued"
+    delivery = WebhookDelivery.objects.get(pk=response.data["delivery_id"])
+    assert delivery.payload["test"] is True
+    assert delivery.endpoint_id == endpoint_id

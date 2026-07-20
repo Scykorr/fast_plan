@@ -24,6 +24,7 @@ from workspaces.views import (
     WorkspaceWebhookDeliveryListView,
     WorkspaceWebhookDetailView,
     WorkspaceWebhookListCreateView,
+    WorkspaceWebhookTestView,
 )
 
 urlpatterns = [
@@ -82,6 +83,11 @@ urlpatterns = [
         "workspace/webhooks/<int:endpoint_id>/deliveries/",
         WorkspaceWebhookDeliveryListView.as_view(),
         name="workspace-webhook-deliveries",
+    ),
+    path(
+        "workspace/webhooks/<int:endpoint_id>/test/",
+        WorkspaceWebhookTestView.as_view(),
+        name="workspace-webhook-test",
     ),
     path(
         "workspace/settings/",

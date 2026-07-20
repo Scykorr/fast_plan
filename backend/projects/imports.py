@@ -132,4 +132,136 @@ def import_wbs_csv(project, raw: bytes) -> dict:
         "updated": updated,
         "errors": errors,
         "headers": WBS_HEADERS,
+        "format": "wbs",
+    }
+
+
+def _jira_field(row: dict, *names: str) -> str:
+    lowered = {key.lower(): key for key in row}
+    for name in names:
+        key = lowered.get(name.lower())
+        if key and (row.get(key) or "").strip():
+            return (row[key] or "").strip()
+    return ""
+
+
+def _jira_node_type(issue_type: str) -> str:
+    normalized = issue_type.lower()
+    if normalized == "epic":
+        return WBSNode.NodeType.DELIVERABLE
+    if normalized == "milestone":
+        return WBSNode.NodeType.MILESTONE
+    return WBSNode.NodeType.WORK_PACKAGE
+
+
+def _decode_jira_csv(raw: bytes) -> list[dict]:
+    text = raw.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        raise ValueError("CSV file is empty.")
+    rows = [dict(row) for row in reader]
+    if not rows:
+        raise ValueError("CSV file has no data rows.")
+    if not _jira_field(rows[0], "Issue key", "Key"):
+        raise ValueError("Jira CSV requires Issue key (or Key) column.")
+    if not _jira_field(rows[0], "Summary"):
+        raise ValueError("Jira CSV requires Summary column.")
+    return rows
+
+
+@transaction.atomic
+def import_jira_csv(project, raw: bytes) -> dict:
+    rows = _decode_jira_csv(raw)
+    root = project.wbs_nodes.filter(parent__isnull=True).order_by("id").first()
+    if root is None:
+        raise ValueError("Project has no root WBS node.")
+
+    by_key: dict[str, WBSNode] = {root.code: root}
+    created = 0
+    updated = 0
+    errors: list[str] = []
+
+    pending = []
+    for index, row in enumerate(rows, start=2):
+        issue_key = _jira_field(row, "Issue key", "Key")
+        summary = _jira_field(row, "Summary")
+        if not issue_key or not summary:
+            errors.append(f"Row {index}: Issue key and Summary are required.")
+            continue
+        pending.append(
+            {
+                "index": index,
+                "key": issue_key,
+                "summary": summary,
+                "issue_type": _jira_field(row, "Issue Type", "Type"),
+                "parent_key": _jira_field(row, "Parent key", "Parent"),
+            }
+        )
+
+    while pending:
+        progress = False
+        next_pending = []
+        for item in pending:
+            parent_key = item["parent_key"]
+            parent = None
+            if parent_key:
+                parent = by_key.get(parent_key) or project.wbs_nodes.filter(
+                    code=parent_key
+                ).first()
+                if parent is None:
+                    next_pending.append(item)
+                    continue
+                by_key.setdefault(parent_key, parent)
+            else:
+                parent = root
+
+            node_type = _jira_node_type(item["issue_type"])
+            code = item["key"]
+            node = project.wbs_nodes.filter(code=code).first()
+            if node is None:
+                node = create_work_package(
+                    project,
+                    parent,
+                    item["summary"],
+                    node_type,
+                    with_schedule=True,
+                    with_kanban_card=node_type == WBSNode.NodeType.WORK_PACKAGE,
+                )
+                if node.code != code:
+                    node.code = code
+                    node.save(update_fields=["code"])
+                created += 1
+            else:
+                node.title = item["summary"]
+                node.node_type = node_type
+                node.parent = parent
+                node.save(update_fields=["title", "node_type", "parent"])
+                updated += 1
+
+            by_key[code] = node
+            schedule, _ = ScheduleActivity.objects.get_or_create(
+                wbs_node=node,
+                defaults={
+                    "duration_days": 1,
+                    "progress": 0,
+                    "is_milestone": node_type == WBSNode.NodeType.MILESTONE,
+                },
+            )
+            schedule.is_milestone = node_type == WBSNode.NodeType.MILESTONE
+            schedule.save()
+            progress = True
+
+        if next_pending and not progress:
+            for item in next_pending:
+                errors.append(
+                    f"Row {item['index']}: parent key {item['parent_key']} not found for {item['key']}."
+                )
+            break
+        pending = next_pending
+
+    return {
+        "created": created,
+        "updated": updated,
+        "errors": errors,
+        "format": "jira",
     }

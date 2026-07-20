@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 
 from audit.services import log_audit
 from projects.ai import draft_project_content
-from projects.imports import import_wbs_csv
+from projects.imports import import_jira_csv, import_wbs_csv
 from projects.models import Project, ProjectMember, ProjectShareLink
 from projects.pert import compute_pert_network
 from projects.reports import build_status_report
@@ -30,8 +30,15 @@ class ProjectImportView(WorkspaceMixin, APIView):
         upload = request.FILES.get("file")
         if upload is None:
             raise ValidationError({"file": "CSV file is required."})
+        import_format = str(request.data.get("format", "wbs")).strip().lower()
         try:
-            result = import_wbs_csv(project, upload.read())
+            raw = upload.read()
+            if import_format == "jira":
+                result = import_jira_csv(project, raw)
+            elif import_format in ("wbs", ""):
+                result = import_wbs_csv(project, raw)
+            else:
+                raise ValidationError({"format": "Supported formats: wbs, jira."})
         except ValueError as exc:
             raise ValidationError({"file": str(exc)}) from exc
         log_audit(
@@ -40,7 +47,10 @@ class ProjectImportView(WorkspaceMixin, APIView):
             "wbs.import",
             "Project",
             project.id,
-            summary=f"Imported WBS CSV ({result['created']} created, {result['updated']} updated)",
+            summary=(
+                f"Imported {result.get('format', 'wbs')} CSV "
+                f"({result['created']} created, {result['updated']} updated)"
+            ),
             changes=result,
         )
         return Response(result)

@@ -34,6 +34,7 @@ import {
 import { CharterEditor } from "../components/projects/CharterEditor";
 import { GanttChart } from "../components/projects/GanttChart";
 import { PertDiagram } from "../components/projects/PertDiagram";
+import { ProjectAIDraftButton } from "../components/projects/ProjectAIDraftButton";
 import { ProjectMembersPanel } from "../components/projects/ProjectMembersPanel";
 import { ProjectShareLinksPanel } from "../components/projects/ProjectShareLinksPanel";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
@@ -130,6 +131,7 @@ export function ProjectDetailPage() {
   const [pertNetwork, setPertNetwork] = useState<PertNetwork | null>(null);
   const [importMessage, setImportMessage] = useState("");
   const [importingWbs, setImportingWbs] = useState(false);
+  const [importFormat, setImportFormat] = useState<"wbs" | "jira">("wbs");
   const [selectedNode, setSelectedNode] = useState<WBSNode | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailMode, setDetailMode] = useState<"project" | "issue">("issue");
@@ -677,7 +679,7 @@ export function ProjectDetailPage() {
     setImportingWbs(true);
     setImportMessage("");
     try {
-      const result = await projectsApi.importWbs(id, files[0]);
+      const result = await projectsApi.importWbs(id, files[0], importFormat);
       const parts = [
         `Создано: ${result.created}`,
         result.updated != null ? `Обновлено: ${result.updated}` : null,
@@ -794,6 +796,16 @@ export function ProjectDetailPage() {
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-4">
             <span className="text-sm font-medium text-text-muted">WBS:</span>
+            <select
+              value={importFormat}
+              onChange={(event) =>
+                setImportFormat(event.target.value as "wbs" | "jira")
+              }
+              className="rounded-lg border border-border bg-cream px-2 py-1.5 text-sm text-text"
+            >
+              <option value="wbs">CSV (Fast Plan)</option>
+              <option value="jira">CSV (Jira export)</option>
+            </select>
             <label className="cursor-pointer rounded-lg border border-border bg-cream px-3 py-1.5 text-sm font-medium text-text hover:bg-border/30">
               {importingWbs ? "Импорт..." : "Импорт CSV"}
               <input
@@ -870,7 +882,18 @@ export function ProjectDetailPage() {
               )}
 
               <div className="rounded-xl border border-border bg-surface p-5">
-                <h2 className="mb-4 text-lg font-semibold text-text">Устав проекта</h2>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-text">Устав проекта</h2>
+                  <ProjectAIDraftButton
+                    projectId={id}
+                    target="charter"
+                    onCharterApplied={(updated) => {
+                      setDashboard((current) =>
+                        current ? { ...current, charter: updated } : current,
+                      );
+                    }}
+                  />
+                </div>
                 <CharterEditor
                   charter={dashboard.charter}
                   onSave={async (data) => {
@@ -1086,7 +1109,21 @@ export function ProjectDetailPage() {
       )}
 
       {tab === "risks" && (
-        <RiskRegister
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <ProjectAIDraftButton
+              projectId={id}
+              target="risks"
+              onRisksApplied={async () => {
+                if (!projectsApi) {
+                  return;
+                }
+                setRisks(await projectsApi.getRisks(id));
+                setDashboard(await projectsApi.getDashboard(id));
+              }}
+            />
+          </div>
+          <RiskRegister
           risks={risks}
           highlightedRiskId={deepLink.risk}
           onAdd={(values) => handleAddRisk(values)}
@@ -1099,6 +1136,7 @@ export function ProjectDetailPage() {
             setRisks(await projectsApi.getRisks(id));
           }}
         />
+        </div>
       )}
 
       {tab === "stakeholders" && (

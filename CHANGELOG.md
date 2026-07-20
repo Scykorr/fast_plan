@@ -15,13 +15,23 @@
 
 ## [Unreleased]
 
-### Added
-
-- **Per-project roles UI** — панель «Участники проекта» на Project Overview (добавление, смена роли, удаление)
-
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+
+## [0.11.0] — 2026-07-20
+
+### Added
+
+- **Per-project roles UI** — панель «Участники проекта» на Project Overview (добавление, смена роли, удаление)
+- **Jira CSV import** — `POST /api/projects/<id>/import/` с `format=jira` (Issue key, Summary, Parent key); выбор формата в UI Project Overview
+- **AI drafts UI** — кнопки «AI-черновик рисков» и «AI-черновик устава» с превью и применением на странице проекта
+- **P3 hardening**: toast обновления PWA (`PwaUpdatePrompt`), повторная отправка письма подтверждения email в Settings, тестовая доставка webhook (`POST /api/workspace/webhooks/<id>/test/`)
+
+### Tests
+
+- `tests/test_p4_features.py` — Jira CSV import (unit + API)
+- `tests/test_integrations_api.py` — webhook test delivery
 
 ## [0.10.0] — 2026-07-20
 

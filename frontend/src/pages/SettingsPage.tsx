@@ -48,6 +48,9 @@ export function SettingsPage() {
   const [webhookName, setWebhookName] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [revealedSecret, setRevealedSecret] = useState("");
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [webhookTestMessage, setWebhookTestMessage] = useState("");
   const [wsSettings, setWsSettings] = useState<WorkspaceSettings | null>(null);
   const [baseCurrencyDraft, setBaseCurrencyDraft] = useState("RUB");
   const [fxCurrency, setFxCurrency] = useState("USD");
@@ -263,19 +266,52 @@ export function SettingsPage() {
             <label htmlFor="profile-email" className="mb-1 block text-xs text-text-muted">
               Email
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 id="profile-email"
                 value={user?.email ?? ""}
                 readOnly
-                className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text-muted"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text-muted"
               />
-              {user?.is_email_verified && (
+              {user?.is_email_verified ? (
                 <span className="whitespace-nowrap text-xs text-secondary">
                   Подтверждён
                 </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={verificationLoading}
+                  onClick={async () => {
+                    if (!user?.email) {
+                      return;
+                    }
+                    setVerificationLoading(true);
+                    setVerificationMessage("");
+                    try {
+                      const result = await api.resendVerification(user.email);
+                      setVerificationMessage(result.detail);
+                    } catch (err) {
+                      setVerificationMessage(
+                        parseApiError(err, "Не удалось отправить письмо"),
+                      );
+                    } finally {
+                      setVerificationLoading(false);
+                    }
+                  }}
+                  className="whitespace-nowrap rounded-lg border border-primary px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 disabled:opacity-60"
+                >
+                  {verificationLoading ? "Отправка..." : "Подтвердить email"}
+                </button>
               )}
             </div>
+            {!user?.is_email_verified && verificationMessage && (
+              <p className="mt-1 text-xs text-text-muted">{verificationMessage}</p>
+            )}
+            {!user?.is_email_verified && (
+              <p className="mt-1 text-xs text-primary">
+                Проверьте почту и перейдите по ссылке из письма для подтверждения.
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor="profile-username" className="mb-1 block text-xs text-text-muted">
@@ -803,20 +839,49 @@ export function SettingsPage() {
                     {webhook.url}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  className="shrink-0 text-xs text-primary hover:underline"
-                  onClick={async () => {
-                    if (!workspaceApi) return;
-                    await workspaceApi.deleteWebhook(webhook.id);
-                    await load();
-                  }}
-                >
-                  Удалить
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    className="text-xs text-secondary hover:underline"
+                    onClick={async () => {
+                      if (!workspaceApi) return;
+                      setWebhookTestMessage("");
+                      try {
+                        const result = await workspaceApi.testWebhook(webhook.id);
+                        const detail =
+                          result.status_code != null
+                            ? `HTTP ${result.status_code}`
+                            : result.error || result.status;
+                        setWebhookTestMessage(
+                          `Тест webhook «${webhook.name}»: ${detail}`,
+                        );
+                      } catch (err) {
+                        setWebhookTestMessage(
+                          parseApiError(err, "Не удалось отправить тест"),
+                        );
+                      }
+                    }}
+                  >
+                    Тест
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={async () => {
+                      if (!workspaceApi) return;
+                      await workspaceApi.deleteWebhook(webhook.id);
+                      await load();
+                    }}
+                  >
+                    Удалить
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
+          {webhookTestMessage && (
+            <p className="mt-3 text-xs text-text-muted">{webhookTestMessage}</p>
+          )}
         </div>
       )}
     </div>

@@ -27,6 +27,8 @@
 | 2026-07-20 | Релиз **v0.9.0** |
 | 2026-07-20 | **Мультивалюта (v0.10.0)** FX settings, exchange rates, конвертация Finance/Portfolio |
 | 2026-07-20 | Релиз **v0.10.0** |
+| 2026-07-20 | **v0.11.0** Jira CSV import, AI drafts UI, P3 hardening (PWA update, email resend, webhook test), per-project roles UI |
+| 2026-07-20 | Релиз **v0.11.0** |
 
 ---
 
@@ -74,24 +76,25 @@ _Выполнено (2026-07-19 / v0.8.0)._
 
 ## P4 — идеи на потом
 
-_Выполнено (2026-07-20 / v0.9.0), кроме мультивалюты и MS Project/Jira._
+_Выполнено (2026-07-20 / v0.9.0–v0.11.0)._
 
 - [x] **Импорт CSV** — WBS и транзакции Finance (backend + UI). **M**
-- [ ] **Импорт MS Project / Jira** — отложено, пока нет подтверждённого формата. **L**
+- [x] **Импорт Jira CSV** — экспорт Issue key / Summary / Parent key → WBS; MS Project XML отложен. **M**
 - [x] **PERT / сетевой график** — API + вкладка PERT на странице проекта. **M**
 - [x] **Гостевой статус-отчёт** — share links, `/share/:token`, панель управления. **M**
-- [x] **AI-черновики** — risks/charter (OpenAI или эвристика). **M**
-- [x] **Per-project roles** — `ProjectMember` + `has_project_min_role` + UI на Project Overview. **M**
-- [x] **Мультивалютность и курсы** — API settings/exchange-rates, конвертация в Finance/Portfolio через `LocaleContext`. **M**
+- [x] **AI-черновики** — risks/charter API + UI на странице проекта. **M**
+- [x] **Per-project roles** — `ProjectMember` + UI на Project Overview. **M**
+- [x] **Мультивалютность и курсы** — API settings/exchange-rates, конвертация в Finance/Portfolio. **M**
+- [x] **P3 hardening** — PWA update toast, повторная отправка email verification, тест webhook из Settings. **S**
 
 ---
 
 ## Как выбирать следующий спринт
 
-Рекомендуемый порядок «максимум пользы / минимум риска» после v0.10.0:
+Рекомендуемый порядок после v0.11.0:
 
-1. **MS Project / Jira import** — только при подтверждённой потребности.
-2. **AI drafts UI** — кнопки черновика рисков/устава на странице проекта.
-3. Параллельно на staging: SMTP verification, webhook delivery, PWA install/update (P3 hardening).
+1. **MS Project XML import** — при подтверждённой потребности и образце файла.
+2. **Staging checklist** — SMTP verification, webhook delivery, PWA install на реальном окружении.
+3. **Расширение AI** — черновики WBS/schedule, сохранение промптов per-project.
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

@@ -319,5 +319,13 @@ export function createWorkspaceApi() {
 
     deleteWebhook: (endpointId: number) =>
       request<void>(`/workspace/webhooks/${endpointId}/`, { method: "DELETE" }),
+
+    testWebhook: (endpointId: number) =>
+      request<{
+        delivery_id: number;
+        status: string;
+        status_code: number | null;
+        error: string;
+      }>(`/workspace/webhooks/${endpointId}/test/`, { method: "POST" }),
   };
 }

@@ -1,4 +1,7 @@
+import logging
 import secrets
+
+from django.db import transaction
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -45,6 +48,8 @@ from workspaces.services import (
 from django.contrib.auth import get_user_model
 from datetime import date
 from django.utils import timezone
+
+logger = logging.getLogger("fast_plan")
 
 
 class WorkspaceDashboardView(WorkspaceMixin, APIView):
@@ -279,6 +284,51 @@ class WorkspaceWebhookDeliveryListView(WorkspaceMixin, APIView):
         endpoint = get_object_or_404(workspace.webhook_endpoints, pk=endpoint_id)
         deliveries = WebhookDelivery.objects.filter(endpoint=endpoint)[:50]
         return Response(WebhookDeliverySerializer(deliveries, many=True).data)
+
+
+class WorkspaceWebhookTestView(WorkspaceMixin, APIView):
+    def post(self, request, endpoint_id):
+        workspace = self.get_workspace()
+        _require_session_owner(self, request, workspace)
+        endpoint = get_object_or_404(workspace.webhook_endpoints, pk=endpoint_id)
+        delivery = WebhookDelivery.objects.create(
+            endpoint=endpoint,
+            event="risk.created",
+            payload={
+                "test": True,
+                "workspace_id": workspace.id,
+                "message": "Fast Plan webhook connectivity test",
+            },
+        )
+
+        def enqueue():
+            from workspaces.tasks import deliver_webhook
+
+            try:
+                deliver_webhook.delay(delivery.id)
+            except Exception:
+                logger.exception(
+                    "Failed to enqueue webhook test delivery %s", delivery.id
+                )
+
+        transaction.on_commit(enqueue)
+        log_audit(
+            workspace,
+            request.user,
+            "webhook.test",
+            "WebhookEndpoint",
+            endpoint.id,
+            summary=f"Sent test webhook to {endpoint.name}",
+            changes={"delivery_id": delivery.id, "status": "queued"},
+        )
+        return Response(
+            {
+                "delivery_id": delivery.id,
+                "status": "queued",
+                "status_code": None,
+                "error": "",
+            }
+        )
 
 
 class WorkspaceListView(APIView):
