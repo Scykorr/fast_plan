@@ -17,6 +17,7 @@ export type Project = {
   wbs_count: number;
   progress: number;
   board_id: number | null;
+  ai_prompts?: Record<string, string>;
 };
 
 export type ProjectTemplate = {
@@ -309,7 +310,27 @@ export type ProjectPatchBody = {
   tracker_id?: number | null;
   workflow_status_id?: number | null;
   custom_values?: Record<string, string>;
+  ai_prompts?: Record<string, string>;
 };
+
+export type AiDraftWbsNode = {
+  code: string;
+  title: string;
+  node_type?: string;
+  parent_code?: string;
+  duration_days?: number;
+  start_date?: string;
+  end_date?: string;
+};
+
+export type AiDraftWbsDependency = {
+  predecessor_code: string;
+  successor_code: string;
+  dependency_type?: string;
+  lag_days?: number;
+};
+
+export type AiDraftTarget = "risks" | "charter" | "wbs";
 
 export function createProjectsApi() {
   return {
@@ -564,12 +585,21 @@ export function createProjectsApi() {
 
     draftProjectContent: (
       projectId: number,
-      body: { target: "risks" | "charter"; prompt?: string },
+      body: {
+        target: AiDraftTarget;
+        prompt?: string;
+        refinement?: string;
+        current_draft?: {
+          nodes: AiDraftWbsNode[];
+          dependencies?: AiDraftWbsDependency[];
+        };
+      },
     ) =>
       request<
         | {
             target: "risks";
             source: string;
+            saved_prompt?: string;
             risks: Array<{
               title: string;
               description?: string;
@@ -582,9 +612,42 @@ export function createProjectsApi() {
         | {
             target: "charter";
             source: string;
+            saved_prompt?: string;
             charter: ProjectCharter;
           }
+        | {
+            target: "wbs";
+            source: string;
+            saved_prompt?: string;
+            refinement?: string;
+            nodes: AiDraftWbsNode[];
+            dependencies: AiDraftWbsDependency[];
+          }
       >(`/projects/${projectId}/ai-draft/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    getAiPrompts: (projectId: number) =>
+      request<{ ai_prompts: Record<string, string> }>(
+        `/projects/${projectId}/ai-draft/`,
+        {},
+      ),
+
+    applyAiDraft: (
+      projectId: number,
+      body: {
+        target: "wbs";
+        nodes: AiDraftWbsNode[];
+        dependencies?: AiDraftWbsDependency[];
+      },
+    ) =>
+      request<{
+        created: number;
+        updated: number;
+        dependencies_created: number;
+        errors: string[];
+      }>(`/projects/${projectId}/ai-draft/apply/`, {
         method: "POST",
         body: JSON.stringify(body),
       }),

@@ -15,6 +15,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Staging checklist** — [`STAGING.md`](STAGING.md): SMTP verification, webhooks, PWA install/update, smoke-тесты
+- **Extended health** — `GET /api/health/?extended=1` (database, redis, email backend, celery_eager)
+- **AI WBS/schedule drafts** — target `wbs` в `POST /api/projects/<id>/ai-draft/`, применение через `POST …/ai-draft/apply/`, UI на Project Overview
+- **Per-project AI prompts** — поле `Project.ai_prompts`, автосохранение промпта при генерации, префилл в UI
+- **Итеративное уточнение WBS** — `refinement` + `current_draft` в ai-draft API, кнопка «Уточнить черновик» в диалоге
+- **Staging smoke script** — `node scripts/staging-smoke-check.mjs` (health, extended checks, optional auth/PWA/share)
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.

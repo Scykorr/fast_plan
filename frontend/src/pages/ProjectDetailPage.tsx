@@ -373,6 +373,23 @@ export function ProjectDetailPage() {
     }
   };
 
+  const handleAiPromptChange = async (
+    target: "risks" | "charter" | "wbs",
+    prompt: string,
+  ) => {
+    if (!projectsApi || !project) {
+      return;
+    }
+    const ai_prompts = { ...(project.ai_prompts ?? {}), [target]: prompt };
+    setProject((current) => (current ? { ...current, ai_prompts } : current));
+    try {
+      const updated = await projectsApi.patchProject(id, { ai_prompts });
+      setProject(updated);
+    } catch {
+      // Prompt is already saved by ai-draft POST; ignore patch failures.
+    }
+  };
+
   const handleSaveNodeDetail = async (
     nodeId: number,
     body: {
@@ -840,6 +857,15 @@ export function ProjectDetailPage() {
             >
               Вехи в календарь (.ics)
             </button>
+            <ProjectAIDraftButton
+              projectId={id}
+              target="wbs"
+              initialPrompt={project?.ai_prompts?.wbs ?? ""}
+              onPromptChange={(target, prompt) =>
+                void handleAiPromptChange(target, prompt)
+              }
+              onWbsApplied={() => loadAll()}
+            />
             {importMessage && (
               <span className="text-xs text-text-muted">{importMessage}</span>
             )}
@@ -887,6 +913,10 @@ export function ProjectDetailPage() {
                   <ProjectAIDraftButton
                     projectId={id}
                     target="charter"
+                    initialPrompt={project?.ai_prompts?.charter ?? ""}
+                    onPromptChange={(target, prompt) =>
+                      void handleAiPromptChange(target, prompt)
+                    }
                     onCharterApplied={(updated) => {
                       setDashboard((current) =>
                         current ? { ...current, charter: updated } : current,
@@ -1114,6 +1144,10 @@ export function ProjectDetailPage() {
             <ProjectAIDraftButton
               projectId={id}
               target="risks"
+              initialPrompt={project?.ai_prompts?.risks ?? ""}
+              onPromptChange={(target, prompt) =>
+                void handleAiPromptChange(target, prompt)
+              }
               onRisksApplied={async () => {
                 if (!projectsApi) {
                   return;

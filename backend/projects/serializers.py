@@ -37,6 +37,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "progress",
             "board_id",
             "custom_values",
+            "ai_prompts",
         )
         read_only_fields = (
             "id",
@@ -88,11 +89,13 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             "workflow_status_id",
             "custom_values",
             "template_id",
+            "ai_prompts",
         )
 
     def update(self, instance, validated_data):
         validated_data.pop("template_id", None)
         custom_values = validated_data.pop("custom_values", None)
+        ai_prompts = validated_data.pop("ai_prompts", None)
         tracker_id = validated_data.pop("tracker_id", None)
         workflow_status_id = validated_data.pop("workflow_status_id", None)
         for attr, value in validated_data.items():
@@ -101,6 +104,8 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             instance.tracker_id = tracker_id
         if workflow_status_id is not None:
             instance.workflow_status_id = workflow_status_id
+        if ai_prompts is not None:
+            instance.ai_prompts = ai_prompts
         instance.save()
         if custom_values is not None:
             save_custom_values(instance, custom_values)

@@ -7,6 +7,7 @@ import logging
 import os
 import urllib.error
 import urllib.request
+from datetime import date, timedelta
 
 logger = logging.getLogger("fast_plan")
 
@@ -104,6 +105,235 @@ def _call_openai(system: str, user: str) -> dict | None:
         return None
 
 
+def _heuristic_wbs(project) -> dict:
+    root = project.wbs_nodes.filter(parent__isnull=True).order_by("id").first()
+    root_code = root.code if root else "1"
+    today = date.today()
+    phase1 = f"{root_code}.1"
+    phase2 = f"{root_code}.2"
+    phase3 = f"{root_code}.3"
+    return {
+        "nodes": [
+            {
+                "code": phase1,
+                "title": "Инициация и планирование",
+                "node_type": "deliverable",
+                "parent_code": root_code,
+                "duration_days": 7,
+                "start_date": today.isoformat(),
+            },
+            {
+                "code": f"{phase1}.1",
+                "title": "Kick-off и устав проекта",
+                "node_type": "work_package",
+                "parent_code": phase1,
+                "duration_days": 3,
+            },
+            {
+                "code": phase2,
+                "title": "Реализация",
+                "node_type": "deliverable",
+                "parent_code": root_code,
+                "duration_days": 14,
+                "start_date": (today + timedelta(days=7)).isoformat(),
+            },
+            {
+                "code": f"{phase2}.1",
+                "title": f"Разработка «{project.name}»",
+                "node_type": "work_package",
+                "parent_code": phase2,
+                "duration_days": 10,
+            },
+            {
+                "code": phase3,
+                "title": "Завершение",
+                "node_type": "deliverable",
+                "parent_code": root_code,
+                "duration_days": 5,
+                "start_date": (today + timedelta(days=21)).isoformat(),
+            },
+            {
+                "code": f"{phase3}.1",
+                "title": "Приёмка и закрытие",
+                "node_type": "milestone",
+                "parent_code": phase3,
+                "duration_days": 1,
+            },
+        ],
+        "dependencies": [
+            {
+                "predecessor_code": phase1,
+                "successor_code": phase2,
+                "dependency_type": "FS",
+                "lag_days": 0,
+            },
+            {
+                "predecessor_code": phase2,
+                "successor_code": phase3,
+                "dependency_type": "FS",
+                "lag_days": 0,
+            },
+        ],
+    }
+
+
+def _next_wbs_code(nodes: list[dict], parent_code: str) -> str:
+    max_suffix = 0
+    prefix = f"{parent_code}."
+    for node in nodes:
+        code = str(node.get("code", ""))
+        if not code.startswith(prefix):
+            continue
+        suffix_part = code[len(prefix) :].split(".", 1)[0]
+        try:
+            max_suffix = max(max_suffix, int(suffix_part))
+        except ValueError:
+            continue
+    return f"{parent_code}.{max_suffix + 1}"
+
+
+def _default_parent_code(nodes: list[dict], root_code: str) -> str:
+    for node in nodes:
+        title = str(node.get("title", "")).lower()
+        if "реализац" in title:
+            return str(node["code"])
+    for node in nodes:
+        if node.get("node_type") == "deliverable" and str(node.get("code", "")).startswith(
+            f"{root_code}."
+        ):
+            return str(node["code"])
+    return f"{root_code}.2"
+
+
+def _heuristic_refine_wbs(
+    project,
+    nodes: list[dict],
+    dependencies: list[dict],
+    refinement: str,
+) -> dict:
+    root = project.wbs_nodes.filter(parent__isnull=True).order_by("id").first()
+    root_code = root.code if root else "1"
+    updated_nodes = [dict(node) for node in nodes]
+    updated_deps = [dict(dep) for dep in dependencies]
+    text = refinement.strip()
+    text_lower = text.lower()
+
+    if any(keyword in text_lower for keyword in ("удал", "убери", "remove", "delete")):
+        codes_to_remove = {
+            str(node.get("code", ""))
+            for node in updated_nodes
+            if str(node.get("code", "")) and str(node.get("code", "")) in text
+        }
+        if codes_to_remove:
+            updated_nodes = [
+                node for node in updated_nodes if str(node.get("code", "")) not in codes_to_remove
+            ]
+            updated_deps = [
+                dep
+                for dep in updated_deps
+                if str(dep.get("predecessor_code", "")) not in codes_to_remove
+                and str(dep.get("successor_code", "")) not in codes_to_remove
+            ]
+            return {"nodes": updated_nodes, "dependencies": updated_deps}
+
+    parent_code = _default_parent_code(updated_nodes, root_code)
+
+    if any(keyword in text_lower for keyword in ("тест", "qa", "testing")):
+        test_code = _next_wbs_code(updated_nodes, parent_code)
+        updated_nodes.append(
+            {
+                "code": test_code,
+                "title": "Тестирование и QA",
+                "node_type": "work_package",
+                "parent_code": parent_code,
+                "duration_days": 5,
+            }
+        )
+    elif any(keyword in text_lower for keyword in ("деплой", "deploy", "релиз", "release")):
+        deploy_parent = _next_wbs_code(updated_nodes, root_code)
+        if not any(str(node.get("code", "")) == deploy_parent for node in updated_nodes):
+            updated_nodes.append(
+                {
+                    "code": deploy_parent,
+                    "title": "Деплой и релиз",
+                    "node_type": "deliverable",
+                    "parent_code": root_code,
+                    "duration_days": 3,
+                }
+            )
+        updated_nodes.append(
+            {
+                "code": _next_wbs_code(updated_nodes, deploy_parent),
+                "title": "Вывод в production",
+                "node_type": "milestone",
+                "parent_code": deploy_parent,
+                "duration_days": 1,
+            }
+        )
+    elif text:
+        updated_nodes.append(
+            {
+                "code": _next_wbs_code(updated_nodes, parent_code),
+                "title": text[:120],
+                "node_type": "work_package",
+                "parent_code": parent_code,
+                "duration_days": 5,
+            }
+        )
+
+    return {"nodes": updated_nodes, "dependencies": updated_deps}
+
+
+def refine_wbs_draft(
+    project,
+    *,
+    nodes: list[dict],
+    dependencies: list[dict],
+    refinement: str,
+    prompt: str = "",
+) -> dict:
+    if not refinement.strip():
+        raise ValueError("refinement text is required.")
+    if not nodes:
+        raise ValueError("current draft nodes are required for refinement.")
+
+    context = (
+        f"Project: {project.name}\n"
+        f"Status: {project.status}\n"
+        f"Budget: {project.budget}\n"
+        f"Description: {project.description or ''}\n"
+        f"Base prompt: {prompt}\n"
+        f"Refinement request: {refinement}"
+    )
+    draft_json = json.dumps(
+        {"nodes": nodes, "dependencies": dependencies},
+        ensure_ascii=False,
+    )
+    ai = _call_openai(
+        "You refine an existing project WBS draft. Return JSON with keys "
+        '"nodes" (array of {code,title,node_type,parent_code,duration_days,start_date,end_date}) '
+        'and "dependencies" (array of {predecessor_code,successor_code,dependency_type,lag_days}). '
+        "Apply the refinement request to the current draft. Return the FULL updated draft. Russian titles.",
+        f"{context}\n\nCurrent draft:\n{draft_json}",
+    )
+    if isinstance(ai, dict) and isinstance(ai.get("nodes"), list) and ai["nodes"]:
+        return {
+            "target": "wbs",
+            "source": "openai",
+            "nodes": ai.get("nodes") or [],
+            "dependencies": ai.get("dependencies") or [],
+            "refinement": refinement,
+        }
+    heuristic = _heuristic_refine_wbs(project, nodes, dependencies, refinement)
+    return {
+        "target": "wbs",
+        "source": "heuristic",
+        "nodes": heuristic["nodes"],
+        "dependencies": heuristic["dependencies"],
+        "refinement": refinement,
+    }
+
+
 def draft_project_content(project, *, target: str, prompt: str = "") -> dict:
     context = (
         f"Project: {project.name}\n"
@@ -142,4 +372,28 @@ def draft_project_content(project, *, target: str, prompt: str = "") -> dict:
             "charter": _heuristic_charter(project),
         }
 
-    raise ValueError("target must be 'risks' or 'charter'")
+    if target == "wbs":
+        ai = _call_openai(
+            "You are a project planner. Return JSON with keys "
+            '"nodes" (array of {code,title,node_type,parent_code,duration_days,start_date,end_date}) '
+            'and "dependencies" (array of {predecessor_code,successor_code,dependency_type,lag_days}). '
+            "Use hierarchical codes like 1.1, 1.2 under project root. node_type: deliverable, work_package, milestone. "
+            "dependency_type: FS, SS, FF, SF. Russian titles.",
+            context,
+        )
+        if isinstance(ai, dict) and isinstance(ai.get("nodes"), list):
+            return {
+                "target": "wbs",
+                "source": "openai",
+                "nodes": ai.get("nodes") or [],
+                "dependencies": ai.get("dependencies") or [],
+            }
+        heuristic = _heuristic_wbs(project)
+        return {
+            "target": "wbs",
+            "source": "heuristic",
+            "nodes": heuristic["nodes"],
+            "dependencies": heuristic["dependencies"],
+        }
+
+    raise ValueError("target must be 'risks', 'charter', or 'wbs'")

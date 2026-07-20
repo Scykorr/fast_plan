@@ -67,3 +67,6 @@ jobs:
 
       - name: Check VERSION / package.json / version.ts are in sync
         run: node scripts/check-version-sync.mjs
+
+      - name: Staging smoke-check (offline)
+        run: node scripts/staging-smoke-check.mjs --offline

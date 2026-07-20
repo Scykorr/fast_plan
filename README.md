@@ -2,7 +2,7 @@
 
 Личный мультипользовательский планировщик: Kanban, календарь дней рождения, проекты (WBS/Gantt), трекеры и кастомные поля.
 
-**Текущая версия:** см. [`VERSION`](VERSION) · история изменений — [`CHANGELOG.md`](CHANGELOG.md) · бэклог — [`ROADMAP.md`](ROADMAP.md)
+**Текущая версия:** см. [`VERSION`](VERSION) · история изменений — [`CHANGELOG.md`](CHANGELOG.md) · бэклог — [`ROADMAP.md`](ROADMAP.md) · staging — [`STAGING.md`](STAGING.md)
 
 ## Стек
 
@@ -22,7 +22,7 @@
 4. Закоммитить: `chore(release): v0.4.0`
 5. (Опционально) git-тег: `git tag v0.4.0`
 
-`GET /api/health/` возвращает `{ "status": "ok", "version": "…" }`.
+`GET /api/health/` возвращает `{ "status": "ok", "version": "…" }`. Для staging: `GET /api/health/?extended=1` и `node scripts/staging-smoke-check.mjs` (см. [`STAGING.md`](STAGING.md)).
 
 ## Быстрый старт (локально)
 

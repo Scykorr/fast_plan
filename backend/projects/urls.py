@@ -6,6 +6,7 @@ from projects.comment_views import (
     WorkItemCommentDetailView,
 )
 from projects.p4_views import (
+    ProjectAIDraftApplyView,
     ProjectAIDraftView,
     ProjectImportView,
     ProjectMemberDetailView,
@@ -79,6 +80,11 @@ urlpatterns = [
         "projects/<int:project_id>/ai-draft/",
         ProjectAIDraftView.as_view(),
         name="project-ai-draft",
+    ),
+    path(
+        "projects/<int:project_id>/ai-draft/apply/",
+        ProjectAIDraftApplyView.as_view(),
+        name="project-ai-draft-apply",
     ),
     path(
         "projects/<int:project_id>/share-links/",

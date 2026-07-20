@@ -29,6 +29,8 @@
 | 2026-07-20 | Релиз **v0.10.0** |
 | 2026-07-20 | **v0.11.0** Jira CSV import, AI drafts UI, P3 hardening (PWA update, email resend, webhook test), per-project roles UI |
 | 2026-07-20 | Релиз **v0.11.0** |
+| 2026-07-20 | **Staging checklist** (`STAGING.md`), extended health, AI WBS/schedule drafts, per-project AI prompts |
+| 2026-07-20 | **AI WBS refine** в диалоге + `scripts/staging-smoke-check.mjs` |
 
 ---
 
@@ -91,10 +93,18 @@ _Выполнено (2026-07-20 / v0.9.0–v0.11.0)._
 
 ## Как выбирать следующий спринт
 
+_Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-project prompts, WBS refine в диалоге, smoke script._
+
 Рекомендуемый порядок после v0.11.0:
 
-1. **MS Project XML import** — при подтверждённой потребности и образце файла.
-2. **Staging checklist** — SMTP verification, webhook delivery, PWA install на реальном окружении.
-3. **Расширение AI** — черновики WBS/schedule, сохранение промптов per-project.
+1. ~~**MS Project XML import**~~ — отложено до появления образца `.mpp`/XML.
+2. ~~**Staging checklist**~~ — [`STAGING.md`](STAGING.md) + `GET /api/health/?extended=1` + `scripts/staging-smoke-check.mjs`.
+3. ~~**Расширение AI**~~ — WBS/schedule drafts, `Project.ai_prompts`, итеративное уточнение в диалоге.
+
+Следующие кандидаты:
+
+1. **MS Project XML import** — при появлении подтверждённого формата/образца.
+2. **Ollama / локальный LLM** — бесплатная альтернатива OpenAI для AI-черновиков.
+3. **Staging smoke в CI** — job с docker-compose и полным прогоном smoke-check.
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

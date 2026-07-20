@@ -12,7 +12,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import log_audit
-from projects.ai import draft_project_content
+from projects.ai import draft_project_content, refine_wbs_draft
+from projects.ai_apply import apply_wbs_draft
 from projects.imports import import_jira_csv, import_wbs_csv
 from projects.models import Project, ProjectMember, ProjectShareLink
 from projects.pert import compute_pert_network
@@ -67,15 +68,79 @@ class ProjectPertView(WorkspaceMixin, APIView):
 class ProjectAIDraftView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 
+    def get(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        return Response({"ai_prompts": project.ai_prompts or {}})
+
     def post(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         target = str(request.data.get("target", "")).strip()
         prompt = str(request.data.get("prompt", "")).strip()
+        refinement = str(request.data.get("refinement", "")).strip()
+        saved_prompt = (project.ai_prompts or {}).get(target, "")
+        if prompt:
+            prompts = dict(project.ai_prompts or {})
+            prompts[target] = prompt
+            project.ai_prompts = prompts
+            project.save(update_fields=["ai_prompts"])
+            saved_prompt = prompt
         try:
-            draft = draft_project_content(project, target=target, prompt=prompt)
+            if target == "wbs" and refinement:
+                current_draft = request.data.get("current_draft") or {}
+                nodes = current_draft.get("nodes") if isinstance(current_draft, dict) else None
+                dependencies = (
+                    current_draft.get("dependencies") if isinstance(current_draft, dict) else None
+                )
+                if not isinstance(nodes, list):
+                    raise ValidationError(
+                        {"current_draft": "Refinement requires current_draft.nodes list."}
+                    )
+                draft = refine_wbs_draft(
+                    project,
+                    nodes=nodes,
+                    dependencies=dependencies if isinstance(dependencies, list) else [],
+                    refinement=refinement,
+                    prompt=prompt or saved_prompt,
+                )
+            else:
+                draft = draft_project_content(project, target=target, prompt=prompt or saved_prompt)
         except ValueError as exc:
             raise ValidationError({"target": str(exc)}) from exc
+        draft["saved_prompt"] = saved_prompt
         return Response(draft)
+
+
+class ProjectAIDraftApplyView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        target = str(request.data.get("target", "")).strip()
+        if target != "wbs":
+            raise ValidationError({"target": "Only wbs apply is supported."})
+        nodes = request.data.get("nodes")
+        if not isinstance(nodes, list):
+            raise ValidationError({"nodes": "Expected a list of WBS nodes."})
+        dependencies = request.data.get("dependencies") or []
+        if not isinstance(dependencies, list):
+            raise ValidationError({"dependencies": "Expected a list."})
+        try:
+            result = apply_wbs_draft(project, nodes, dependencies)
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        log_audit(
+            project.workspace,
+            request.user,
+            "wbs.ai_apply",
+            "Project",
+            project.id,
+            summary=(
+                f"Applied AI WBS draft ({result['created']} created, "
+                f"{result['dependencies_created']} dependencies)"
+            ),
+            changes=result,
+        )
+        return Response(result)
 
 
 class ProjectShareLinkListCreateView(WorkspaceMixin, APIView):

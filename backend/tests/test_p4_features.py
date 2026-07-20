@@ -309,6 +309,94 @@ def test_ai_draft_invalid_target(authenticated_client, project):
 
 
 @pytest.mark.django_db
+def test_ai_draft_wbs_heuristic(authenticated_client, project, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    response = authenticated_client.post(
+        f"/api/projects/{project.id}/ai-draft/",
+        {"target": "wbs", "prompt": "Mobile app release"},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["target"] == "wbs"
+    assert response.data["source"] == "heuristic"
+    assert len(response.data["nodes"]) >= 3
+    assert response.data["saved_prompt"] == "Mobile app release"
+    project.refresh_from_db()
+    assert project.ai_prompts.get("wbs") == "Mobile app release"
+
+
+@pytest.mark.django_db
+def test_ai_draft_get_prompts(authenticated_client, project):
+    project.ai_prompts = {"risks": "Budget focus"}
+    project.save(update_fields=["ai_prompts"])
+    response = authenticated_client.get(f"/api/projects/{project.id}/ai-draft/")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["ai_prompts"]["risks"] == "Budget focus"
+
+
+@pytest.mark.django_db
+def test_ai_draft_apply_wbs(authenticated_client, project, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    draft = authenticated_client.post(
+        f"/api/projects/{project.id}/ai-draft/",
+        {"target": "wbs"},
+        format="json",
+    )
+    response = authenticated_client.post(
+        f"/api/projects/{project.id}/ai-draft/apply/",
+        {
+            "target": "wbs",
+            "nodes": draft.data["nodes"],
+            "dependencies": draft.data["dependencies"],
+        },
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["created"] >= 1
+    assert project.wbs_nodes.filter(code__contains=".").exists()
+
+
+@pytest.mark.django_db
+def test_ai_wbs_refine_heuristic(authenticated_client, project, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    draft = authenticated_client.post(
+        f"/api/projects/{project.id}/ai-draft/",
+        {"target": "wbs"},
+        format="json",
+    )
+    assert draft.status_code == status.HTTP_200_OK
+    initial_count = len(draft.data["nodes"])
+
+    refined = authenticated_client.post(
+        f"/api/projects/{project.id}/ai-draft/",
+        {
+            "target": "wbs",
+            "refinement": "добавь этап тестирования",
+            "current_draft": {
+                "nodes": draft.data["nodes"],
+                "dependencies": draft.data["dependencies"],
+            },
+        },
+        format="json",
+    )
+    assert refined.status_code == status.HTTP_200_OK
+    assert refined.data["target"] == "wbs"
+    assert refined.data["source"] == "heuristic"
+    assert len(refined.data["nodes"]) > initial_count
+    assert any("тест" in node["title"].lower() for node in refined.data["nodes"])
+
+
+@pytest.mark.django_db
+def test_ai_wbs_refine_requires_current_draft(authenticated_client, project):
+    response = authenticated_client.post(
+        f"/api/projects/{project.id}/ai-draft/",
+        {"target": "wbs", "refinement": "add QA phase"},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
 def test_project_members_crud(authenticated_client, project, workspace):
     member_user = UserFactory(email="contributor@example.com", username="contributor")
     WorkspaceMemberFactory(
