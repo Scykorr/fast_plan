@@ -34,6 +34,8 @@
 - **Chat extensions** — DM 1:1, ответы (reply_to), реакции, голосовые, гостевой чат через share-link (`allow_chat` / `chat_can_post`), edit/delete модератором, авто-архивация disabled-чатов (Celery beat)
 - **Ollama в docker-compose** — опциональный profile `ai` (`ollama` + `ollama-init` pull модели); см. `STAGING.md` / `.env.example`
 - **E2E Playwright** — пакет `e2e/` (login, PWA manifest/SW, SSE toast smoke) + CI job `e2e`
+- **Chat reaction picker** — emoji grid + GIF (curated Giphy + HTTPS URL allowlist)
+- **DM E2E encryption** — ECDH P-256 identity keys, AES-GCM ciphertext in DM bodies; server stores opaque wraps only
 
 ### Planned
 

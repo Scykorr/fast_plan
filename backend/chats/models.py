@@ -194,6 +194,7 @@ class ChatMessage(models.Model):
     )
     guest_name = models.CharField(max_length=120, blank=True, default="")
     body = models.TextField(blank=True, default="")
+    is_encrypted = models.BooleanField(default=False)
     reply_to = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -235,6 +236,10 @@ class ChatMessage(models.Model):
 
 
 class ChatReaction(models.Model):
+    class Kind(models.TextChoices):
+        EMOJI = "emoji", "Emoji"
+        GIF = "gif", "GIF"
+
     message = models.ForeignKey(
         ChatMessage,
         on_delete=models.CASCADE,
@@ -245,17 +250,82 @@ class ChatReaction(models.Model):
         on_delete=models.CASCADE,
         related_name="chat_reactions",
     )
-    emoji = models.CharField(max_length=32)
+    kind = models.CharField(
+        max_length=10,
+        choices=Kind.choices,
+        default=Kind.EMOJI,
+    )
+    emoji = models.CharField(max_length=32, blank=True, default="")
+    gif_url = models.URLField(max_length=500, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["id"]
         constraints = [
             models.UniqueConstraint(
-                fields=["message", "user", "emoji"],
-                name="uniq_chat_reaction_user_emoji",
+                fields=["message", "user", "kind", "emoji", "gif_url"],
+                name="uniq_chat_reaction_user_token",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(kind="emoji", emoji__gt="", gif_url="")
+                    | Q(kind="gif", gif_url__gt="", emoji="")
+                ),
+                name="chat_reaction_kind_payload",
             ),
         ]
 
     def __str__(self):
-        return f"{self.emoji} on message {self.message_id}"
+        token = self.emoji or self.gif_url
+        return f"{self.kind}:{token} on message {self.message_id}"
+
+    @property
+    def reaction_key(self) -> str:
+        if self.kind == self.Kind.GIF:
+            return f"gif:{self.gif_url}"
+        return f"emoji:{self.emoji}"
+
+
+class ChatUserCryptoKey(models.Model):
+    """Published ECDH P-256 public key for DM E2E (private key stays on client)."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="chat_crypto_key",
+    )
+    public_jwk = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Crypto key for user {self.user_id}"
+
+
+class ChatRoomKeyWrap(models.Model):
+    """AES room key wrapped for a DM participant (ciphertext opaque to server)."""
+
+    room = models.ForeignKey(
+        ChatRoom,
+        on_delete=models.CASCADE,
+        related_name="key_wraps",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="chat_key_wraps",
+    )
+    wrapped_key = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["room", "user"],
+                name="uniq_chat_room_key_wrap_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Key wrap room={self.room_id} user={self.user_id}"

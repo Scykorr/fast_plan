@@ -12,7 +12,9 @@ export type ChatMute = {
 };
 
 export type ChatReactionGroup = {
-  emoji: string;
+  kind: "emoji" | "gif";
+  emoji: string | null;
+  gif_url: string | null;
   count: number;
   user_ids: number[];
 };
@@ -25,10 +27,12 @@ export type ChatRoom = {
   project_id: number | null;
   workspace_id: number | null;
   dm_peer_email: string | null;
+  dm_peer_id: number | null;
   can_post: boolean;
   is_moderator: boolean;
   is_muted: boolean;
   is_archived: boolean;
+  e2e_enabled: boolean;
   mutes: ChatMute[];
   status_changed_at: string | null;
   archived_at: string | null;
@@ -53,8 +57,14 @@ export type ChatMessage = {
   author_email: string;
   guest_name: string;
   body: string;
+  is_encrypted: boolean;
   reply_to: number | null;
-  reply_to_preview: { id: number; body: string; author_email: string } | null;
+  reply_to_preview: {
+    id: number;
+    body: string;
+    author_email: string;
+    is_encrypted?: boolean;
+  } | null;
   forwarded_from: number | null;
   forward_source_label: string;
   attachment_url: string | null;
@@ -78,6 +88,10 @@ export type GuestChatPayload = {
   results: ChatMessage[];
 };
 
+export type ReactionPayload =
+  | { kind?: "emoji"; emoji: string }
+  | { kind: "gif"; gif_url: string };
+
 async function postMessageForm(
   path: string,
   options: {
@@ -87,6 +101,7 @@ async function postMessageForm(
     voice?: File | null;
     voiceDuration?: number | null;
     guestName?: string;
+    isEncrypted?: boolean;
   },
 ) {
   const form = new FormData();
@@ -101,6 +116,9 @@ async function postMessageForm(
   }
   if (options.voiceDuration) {
     form.append("voice_duration_seconds", String(options.voiceDuration));
+  }
+  if (options.isEncrypted) {
+    form.append("is_encrypted", "true");
   }
   if (options.file) {
     form.append("attachment", options.file);
@@ -165,6 +183,7 @@ export function createChatsApi() {
         file?: File | null;
         voice?: File | null;
         voiceDuration?: number | null;
+        isEncrypted?: boolean;
       },
     ) => {
       if (options.file || options.voice) {
@@ -175,14 +194,20 @@ export function createChatsApi() {
         body: JSON.stringify({
           body: options.body ?? "",
           reply_to: options.replyTo ?? null,
+          is_encrypted: Boolean(options.isEncrypted),
         }),
       });
     },
 
-    editMessage: (roomId: number, messageId: number, body: string) =>
+    editMessage: (
+      roomId: number,
+      messageId: number,
+      body: string,
+      isEncrypted = false,
+    ) =>
       request<ChatMessage>(`/chats/${roomId}/messages/${messageId}/`, {
         method: "PATCH",
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, is_encrypted: isEncrypted }),
       }),
 
     deleteMessage: (roomId: number, messageId: number) =>
@@ -196,14 +221,48 @@ export function createChatsApi() {
         body: JSON.stringify({ target_chat_id: targetChatId }),
       }),
 
-    toggleReaction: (roomId: number, messageId: number, emoji: string) =>
+    toggleReaction: (roomId: number, messageId: number, reaction: ReactionPayload) =>
       request<{ toggled: string; message: ChatMessage }>(
         `/chats/${roomId}/messages/${messageId}/reactions/`,
         {
           method: "POST",
-          body: JSON.stringify({ emoji }),
+          body: JSON.stringify(
+            reaction.kind === "gif"
+              ? { kind: "gif", gif_url: reaction.gif_url }
+              : { kind: "emoji", emoji: reaction.emoji },
+          ),
         },
       ),
+
+    putMyPublicKey: (publicJwk: JsonWebKey) =>
+      request<{ user_id: number; public_jwk: JsonWebKey }>("/chats/crypto/me/", {
+        method: "PUT",
+        body: JSON.stringify({ public_jwk: publicJwk }),
+      }),
+
+    getUserPublicKey: (userId: number) =>
+      request<{ user_id: number; public_jwk: JsonWebKey | null }>(
+        `/chats/crypto/users/${userId}/`,
+        {},
+      ),
+
+    getRoomWraps: (roomId: number) =>
+      request<{
+        room_id: number;
+        wraps: Array<{ user_id: number; wrapped_key: string; updated_at: string }>;
+      }>(`/chats/${roomId}/e2e/`, {}),
+
+    putRoomWraps: (
+      roomId: number,
+      wraps: Array<{ user_id: number; wrapped_key: string }>,
+    ) =>
+      request<{
+        room_id: number;
+        wraps: Array<{ user_id: number; wrapped_key: string }>;
+      }>(`/chats/${roomId}/e2e/`, {
+        method: "PUT",
+        body: JSON.stringify({ wraps }),
+      }),
 
     getGuestChat: (token: string) =>
       request<GuestChatPayload>(`/share/${token}/chat/`, {}),

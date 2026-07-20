@@ -10,8 +10,17 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from chats.models import ChatMessage, ChatReaction, ChatRoom, ChatRoomMute
+from chats.models import (
+    ChatMessage,
+    ChatReaction,
+    ChatRoom,
+    ChatRoomKeyWrap,
+    ChatRoomMute,
+    ChatUserCryptoKey,
+)
 from chats.serializers import (
+    ChatCryptoKeySerializer,
+    ChatCryptoKeyWriteSerializer,
     ChatDmCreateSerializer,
     ChatForwardSerializer,
     ChatMessageEditSerializer,
@@ -20,6 +29,8 @@ from chats.serializers import (
     ChatMuteSerializer,
     ChatMuteWriteSerializer,
     ChatReactionWriteSerializer,
+    ChatRoomKeyWrapSerializer,
+    ChatRoomKeyWrapWriteSerializer,
     ChatRoomListItemSerializer,
     ChatRoomSerializer,
     ChatRoomStatusSerializer,
@@ -88,9 +99,12 @@ def _notify_new_message(message: ChatMessage):
         return
 
     label = room.display_label()
-    preview = (message.body or "").strip()[:120] or (
-        "Голосовое" if message.voice else ("Вложение" if message.attachment else "Сообщение")
-    )
+    if message.is_encrypted:
+        preview = "🔒 Зашифрованное сообщение"
+    else:
+        preview = (message.body or "").strip()[:120] or (
+            "Голосовое" if message.voice else ("Вложение" if message.attachment else "Сообщение")
+        )
     if room.scope == ChatRoom.Scope.PROJECT:
         link = project_deep_link(room.project, tab="chat")
         workspace = room.project.workspace
@@ -348,10 +362,22 @@ class ChatMessageListCreateView(WorkspaceMixin, APIView):
         serializer = ChatMessageWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         body = (serializer.validated_data.get("body") or "").strip()
+        is_encrypted = bool(serializer.validated_data.get("is_encrypted"))
         upload = request.FILES.get("attachment")
         voice = request.FILES.get("voice")
         _validate_upload(upload, kind="attachment")
         _validate_upload(voice, kind="voice")
+        if is_encrypted:
+            if room.scope != ChatRoom.Scope.DM:
+                raise ValidationError(
+                    {"is_encrypted": "E2E encryption is only supported for DMs."}
+                )
+            if upload or voice:
+                raise ValidationError(
+                    {"is_encrypted": "Encrypted messages cannot include attachments yet."}
+                )
+            if not body:
+                raise ValidationError({"body": "Encrypted ciphertext is required."})
         reply_to_id = serializer.validated_data.get("reply_to")
         reply_to = None
         if reply_to_id:
@@ -365,6 +391,7 @@ class ChatMessageListCreateView(WorkspaceMixin, APIView):
             room=room,
             author=request.user,
             body=body,
+            is_encrypted=is_encrypted,
             reply_to=reply_to,
             attachment=upload if upload else "",
             voice=voice if voice else "",
@@ -396,9 +423,17 @@ class ChatMessageDetailView(WorkspaceMixin, APIView):
             raise PermissionDenied("Cannot edit this message.")
         serializer = ChatMessageEditSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        is_encrypted = bool(serializer.validated_data.get("is_encrypted", message.is_encrypted))
+        if is_encrypted and room.scope != ChatRoom.Scope.DM:
+            raise ValidationError(
+                {"is_encrypted": "E2E encryption is only supported for DMs."}
+            )
+        if message.is_encrypted and not is_encrypted:
+            raise ValidationError({"is_encrypted": "Cannot downgrade an encrypted message."})
         message.body = serializer.validated_data["body"].strip()
+        message.is_encrypted = is_encrypted
         message.edited_at = timezone.now()
-        message.save(update_fields=["body", "edited_at"])
+        message.save(update_fields=["body", "is_encrypted", "edited_at"])
         _publish_message(message, "chat.message")
         message._prefetched_reactions = list(message.reactions.all())
         return Response(ChatMessageSerializer(message, context={"request": request}).data)
@@ -425,6 +460,8 @@ class ChatMessageForwardView(WorkspaceMixin, APIView):
         message = get_object_or_404(source_room.messages, pk=message_id)
         if message.is_deleted:
             raise ValidationError({"message_id": "Cannot forward a deleted message."})
+        if message.is_encrypted:
+            raise ValidationError({"message_id": "Cannot forward encrypted messages."})
 
         serializer = ChatForwardSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -474,18 +511,26 @@ class ChatReactionToggleView(WorkspaceMixin, APIView):
             raise ValidationError({"message_id": "Cannot react to a deleted message."})
         serializer = ChatReactionWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        emoji = serializer.validated_data["emoji"].strip()
-        if not emoji:
-            raise ValidationError({"emoji": "Required."})
+        kind = serializer.validated_data["kind"]
+        emoji = serializer.validated_data.get("emoji") or ""
+        gif_url = serializer.validated_data.get("gif_url") or ""
         existing = ChatReaction.objects.filter(
-            message=message, user=request.user, emoji=emoji
+            message=message,
+            user=request.user,
+            kind=kind,
+            emoji=emoji,
+            gif_url=gif_url,
         ).first()
         if existing:
             existing.delete()
             toggled = "removed"
         else:
             ChatReaction.objects.create(
-                message=message, user=request.user, emoji=emoji
+                message=message,
+                user=request.user,
+                kind=kind,
+                emoji=emoji,
+                gif_url=gif_url,
             )
             toggled = "added"
         message = _message_queryset(room).get(pk=message.pk)
@@ -593,4 +638,81 @@ class GuestChatView(APIView):
         return Response(
             ChatMessageSerializer(message, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
+        )
+
+
+class ChatCryptoMeView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceMember]
+
+    def get(self, request):
+        key = ChatUserCryptoKey.objects.filter(user=request.user).first()
+        if key is None:
+            return Response({"user_id": request.user.id, "public_jwk": None})
+        return Response(ChatCryptoKeySerializer(key).data)
+
+    def put(self, request):
+        serializer = ChatCryptoKeyWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        key, _ = ChatUserCryptoKey.objects.update_or_create(
+            user=request.user,
+            defaults={"public_jwk": serializer.validated_data["public_jwk"]},
+        )
+        return Response(ChatCryptoKeySerializer(key).data)
+
+
+class ChatCryptoUserView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceMember]
+
+    def get(self, request, user_id):
+        workspace = self.get_workspace()
+        target = get_object_or_404(User, pk=user_id)
+        if get_membership(workspace, target) is None:
+            raise NotFound("User is not in this workspace.")
+        key = ChatUserCryptoKey.objects.filter(user_id=user_id).first()
+        if key is None:
+            return Response({"user_id": user_id, "public_jwk": None})
+        return Response(ChatCryptoKeySerializer(key).data)
+
+
+class ChatRoomE2EKeysView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceMember]
+
+    def get_dm_room(self, room_id):
+        room = _get_room_for_workspace(room_id, self.get_workspace(), self.request.user)
+        if room.scope != ChatRoom.Scope.DM:
+            raise ValidationError({"room_id": "E2E keys are only for DM rooms."})
+        return room
+
+    def get(self, request, room_id):
+        room = self.get_dm_room(room_id)
+        wraps = room.key_wraps.select_related("user").all()
+        return Response(
+            {
+                "room_id": room.id,
+                "wraps": ChatRoomKeyWrapSerializer(wraps, many=True).data,
+            }
+        )
+
+    def put(self, request, room_id):
+        room = self.get_dm_room(room_id)
+        serializer = ChatRoomKeyWrapWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        allowed = {room.dm_user_low_id, room.dm_user_high_id}
+        wraps = serializer.validated_data["wraps"]
+        for item in wraps:
+            if item["user_id"] not in allowed:
+                raise ValidationError({"wraps": "Wraps may only target DM participants."})
+        saved = []
+        for item in wraps:
+            wrap, _ = ChatRoomKeyWrap.objects.update_or_create(
+                room=room,
+                user_id=item["user_id"],
+                defaults={"wrapped_key": item["wrapped_key"]},
+            )
+            saved.append(wrap)
+        return Response(
+            {
+                "room_id": room.id,
+                "wraps": ChatRoomKeyWrapSerializer(saved, many=True).data,
+            }
         )

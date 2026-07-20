@@ -93,6 +93,102 @@ def test_reply_and_reaction(authenticated_client, project_pair):
     assert reacted.data["toggled"] == "added"
     assert ChatReaction.objects.filter(message_id=parent["id"]).count() == 1
 
+    gif = authenticated_client.post(
+        f"/api/chats/{room['id']}/messages/{parent['id']}/reactions/",
+        {
+            "kind": "gif",
+            "gif_url": "https://media.giphy.com/media/111ebonMs90YLu/giphy.gif",
+        },
+        format="json",
+    )
+    assert gif.status_code == status.HTTP_200_OK
+    assert gif.data["toggled"] == "added"
+    groups = gif.data["message"]["reactions"]
+    assert any(item["kind"] == "gif" for item in groups)
+
+
+@pytest.mark.django_db
+def test_dm_e2e_ciphertext_opaque(authenticated_client, project_pair, peer_client):
+    _project, peer = project_pair
+    created = authenticated_client.post(
+        "/api/chats/dm/", {"user_id": peer.id}, format="json"
+    )
+    room_id = created.data["id"]
+    assert created.data["e2e_enabled"] is True
+    assert created.data["dm_peer_id"] == peer.id
+
+    cipher = '{"v":1,"iv":"abc","ct":"secret-ciphertext"}'
+    posted = authenticated_client.post(
+        f"/api/chats/{room_id}/messages/",
+        {"body": cipher, "is_encrypted": True},
+        format="json",
+    )
+    assert posted.status_code == status.HTTP_201_CREATED
+    assert posted.data["is_encrypted"] is True
+    assert posted.data["body"] == cipher
+
+    listed = peer_client.get(f"/api/chats/{room_id}/messages/")
+    assert listed.data["results"][0]["body"] == cipher
+
+    # Forward of encrypted message is forbidden
+    other = authenticated_client.get("/api/chats/?scope=workspace").data
+    blocked = authenticated_client.post(
+        f"/api/chats/{room_id}/messages/{posted.data['id']}/forward/",
+        {"target_chat_id": other["id"]},
+        format="json",
+    )
+    assert blocked.status_code == status.HTTP_400_BAD_REQUEST
+
+    # Crypto key publish + room wraps
+    jwk = {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "y": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    }
+    me = authenticated_client.put(
+        "/api/chats/crypto/me/", {"public_jwk": jwk}, format="json"
+    )
+    assert me.status_code == status.HTTP_200_OK
+    assert me.data["public_jwk"]["crv"] == "P-256"
+
+    author_id = me.data["user_id"]
+    peer_view = peer_client.get(f"/api/chats/crypto/users/{author_id}/")
+    assert peer_view.status_code == status.HTTP_200_OK
+    assert peer_view.data["public_jwk"]["x"] == jwk["x"]
+
+    wraps = authenticated_client.put(
+        f"/api/chats/{room_id}/e2e/",
+        {
+            "wraps": [
+                {"user_id": author_id, "wrapped_key": "wrap-a"},
+                {"user_id": peer.id, "wrapped_key": "wrap-b"},
+            ]
+        },
+        format="json",
+    )
+    assert wraps.status_code == status.HTTP_200_OK
+    assert len(wraps.data["wraps"]) == 2
+
+
+@pytest.mark.django_db
+def test_gif_reaction_rejects_bad_host(authenticated_client, project_pair):
+    project, _peer = project_pair
+    room = authenticated_client.get(
+        f"/api/chats/?scope=project&project_id={project.id}"
+    ).data
+    parent = authenticated_client.post(
+        f"/api/chats/{room['id']}/messages/",
+        {"body": "Parent"},
+        format="json",
+    ).data
+    bad = authenticated_client.post(
+        f"/api/chats/{room['id']}/messages/{parent['id']}/reactions/",
+        {"kind": "gif", "gif_url": "https://evil.example/x.gif"},
+        format="json",
+    )
+    assert bad.status_code == status.HTTP_400_BAD_REQUEST
+
 
 @pytest.mark.django_db
 def test_moderator_edit_delete(authenticated_client, project_pair, peer_client):

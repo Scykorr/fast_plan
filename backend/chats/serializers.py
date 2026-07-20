@@ -1,6 +1,14 @@
 from rest_framework import serializers
 
-from chats.models import ChatMessage, ChatReaction, ChatRoom, ChatRoomMute
+from chats.gif_allowlist import validate_gif_url
+from chats.models import (
+    ChatMessage,
+    ChatReaction,
+    ChatRoom,
+    ChatRoomKeyWrap,
+    ChatRoomMute,
+    ChatUserCryptoKey,
+)
 
 
 class ChatMuteSerializer(serializers.ModelSerializer):
@@ -18,7 +26,7 @@ class ChatReactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ChatReaction
-        fields = ["id", "emoji", "user_id", "created_at"]
+        fields = ["id", "kind", "emoji", "gif_url", "user_id", "created_at"]
         read_only_fields = fields
 
 
@@ -40,6 +48,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             "author_email",
             "guest_name",
             "body",
+            "is_encrypted",
             "reply_to",
             "reply_to_preview",
             "forwarded_from",
@@ -88,9 +97,16 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             reactions = obj.reactions.select_related("user").all()
         counts: dict[str, dict] = {}
         for reaction in reactions:
+            key = reaction.reaction_key
             bucket = counts.setdefault(
-                reaction.emoji,
-                {"emoji": reaction.emoji, "count": 0, "user_ids": []},
+                key,
+                {
+                    "kind": reaction.kind,
+                    "emoji": reaction.emoji or None,
+                    "gif_url": reaction.gif_url or None,
+                    "count": 0,
+                    "user_ids": [],
+                },
             )
             bucket["count"] += 1
             bucket["user_ids"].append(reaction.user_id)
@@ -101,12 +117,19 @@ class ChatMessageSerializer(serializers.ModelSerializer):
         if parent is None:
             return None
         if parent.is_deleted:
-            return {"id": parent.id, "body": "[удалено]", "author_email": ""}
+            return {
+                "id": parent.id,
+                "body": "[удалено]",
+                "author_email": "",
+                "is_encrypted": False,
+            }
         email = parent.author.email if parent.author_id else (parent.guest_name or "Гость")
+        body = "🔒 Зашифровано" if parent.is_encrypted else (parent.body or "")[:120]
         return {
             "id": parent.id,
-            "body": (parent.body or "")[:120],
+            "body": body,
             "author_email": email,
+            "is_encrypted": parent.is_encrypted,
         }
 
 
@@ -115,10 +138,12 @@ class ChatRoomSerializer(serializers.ModelSerializer):
     project_id = serializers.IntegerField(source="project.id", read_only=True, allow_null=True)
     workspace_id = serializers.SerializerMethodField()
     dm_peer_email = serializers.SerializerMethodField()
+    dm_peer_id = serializers.SerializerMethodField()
     can_post = serializers.SerializerMethodField()
     is_moderator = serializers.SerializerMethodField()
     is_muted = serializers.SerializerMethodField()
     is_archived = serializers.SerializerMethodField()
+    e2e_enabled = serializers.SerializerMethodField()
     mutes = serializers.SerializerMethodField()
 
     class Meta:
@@ -131,10 +156,12 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             "project_id",
             "workspace_id",
             "dm_peer_email",
+            "dm_peer_id",
             "can_post",
             "is_moderator",
             "is_muted",
             "is_archived",
+            "e2e_enabled",
             "mutes",
             "status_changed_at",
             "archived_at",
@@ -148,13 +175,23 @@ class ChatRoomSerializer(serializers.ModelSerializer):
     def get_workspace_id(self, obj):
         return obj.host_workspace_id
 
-    def get_dm_peer_email(self, obj):
+    def _dm_peer(self, obj):
         request = self.context.get("request")
         if obj.scope != ChatRoom.Scope.DM or request is None:
             return None
         user = request.user
-        peer = obj.dm_user_high if user.id == obj.dm_user_low_id else obj.dm_user_low
+        return obj.dm_user_high if user.id == obj.dm_user_low_id else obj.dm_user_low
+
+    def get_dm_peer_email(self, obj):
+        peer = self._dm_peer(obj)
         return peer.email if peer else None
+
+    def get_dm_peer_id(self, obj):
+        peer = self._dm_peer(obj)
+        return peer.id if peer else None
+
+    def get_e2e_enabled(self, obj):
+        return obj.scope == ChatRoom.Scope.DM
 
     def _meta_flags(self):
         return self.context.get("meta") or {}
@@ -196,13 +233,15 @@ class ChatMuteWriteSerializer(serializers.Serializer):
 
 class ChatMessageWriteSerializer(serializers.Serializer):
     body = serializers.CharField(required=False, allow_blank=True, default="")
+    is_encrypted = serializers.BooleanField(required=False, default=False)
     reply_to = serializers.IntegerField(required=False, allow_null=True)
     guest_name = serializers.CharField(required=False, allow_blank=True, max_length=120, default="")
     voice_duration_seconds = serializers.IntegerField(required=False, allow_null=True, min_value=1)
 
 
 class ChatMessageEditSerializer(serializers.Serializer):
-    body = serializers.CharField(allow_blank=False, max_length=10000)
+    body = serializers.CharField(allow_blank=False, max_length=20000)
+    is_encrypted = serializers.BooleanField(required=False, default=False)
 
 
 class ChatForwardSerializer(serializers.Serializer):
@@ -210,11 +249,103 @@ class ChatForwardSerializer(serializers.Serializer):
 
 
 class ChatReactionWriteSerializer(serializers.Serializer):
-    emoji = serializers.CharField(max_length=32)
+    kind = serializers.ChoiceField(
+        choices=[ChatReaction.Kind.EMOJI, ChatReaction.Kind.GIF],
+        required=False,
+        default=ChatReaction.Kind.EMOJI,
+    )
+    emoji = serializers.CharField(required=False, allow_blank=True, max_length=32, default="")
+    gif_url = serializers.URLField(required=False, allow_blank=True, max_length=500, default="")
+
+    def validate(self, attrs):
+        kind = attrs.get("kind") or ChatReaction.Kind.EMOJI
+        emoji = (attrs.get("emoji") or "").strip()
+        gif_url = (attrs.get("gif_url") or "").strip()
+        if kind == ChatReaction.Kind.EMOJI:
+            if not emoji:
+                raise serializers.ValidationError({"emoji": "Required for emoji reactions."})
+            if gif_url:
+                raise serializers.ValidationError({"gif_url": "Must be empty for emoji."})
+            attrs["emoji"] = emoji
+            attrs["gif_url"] = ""
+        else:
+            if not gif_url:
+                raise serializers.ValidationError({"gif_url": "Required for GIF reactions."})
+            if emoji:
+                raise serializers.ValidationError({"emoji": "Must be empty for GIF."})
+            try:
+                attrs["gif_url"] = validate_gif_url(gif_url)
+            except ValueError as exc:
+                raise serializers.ValidationError({"gif_url": str(exc)}) from exc
+            attrs["emoji"] = ""
+        attrs["kind"] = kind
+        return attrs
 
 
 class ChatDmCreateSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
+
+
+class ChatCryptoKeySerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+
+    class Meta:
+        model = ChatUserCryptoKey
+        fields = ["user_id", "public_jwk", "updated_at"]
+        read_only_fields = ["user_id", "updated_at"]
+
+
+class ChatCryptoKeyWriteSerializer(serializers.Serializer):
+    public_jwk = serializers.JSONField()
+
+    def validate_public_jwk(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("public_jwk must be an object.")
+        if value.get("kty") != "EC" or value.get("crv") != "P-256":
+            raise serializers.ValidationError("Only ECDH P-256 public JWK is supported.")
+        if not value.get("x") or not value.get("y"):
+            raise serializers.ValidationError("public_jwk requires x and y.")
+        return {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": value["x"],
+            "y": value["y"],
+            "ext": True,
+            "key_ops": ["deriveBits", "deriveKey"],
+        }
+
+
+class ChatRoomKeyWrapSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+
+    class Meta:
+        model = ChatRoomKeyWrap
+        fields = ["user_id", "wrapped_key", "updated_at"]
+        read_only_fields = fields
+
+
+class ChatRoomKeyWrapWriteSerializer(serializers.Serializer):
+    wraps = serializers.ListField(
+        child=serializers.DictField(),
+        min_length=1,
+        max_length=2,
+    )
+
+    def validate_wraps(self, value):
+        cleaned = []
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each wrap must be an object.")
+            user_id = item.get("user_id")
+            wrapped_key = item.get("wrapped_key")
+            if not isinstance(user_id, int):
+                raise serializers.ValidationError("user_id must be an integer.")
+            if not isinstance(wrapped_key, str) or not wrapped_key.strip():
+                raise serializers.ValidationError("wrapped_key is required.")
+            if len(wrapped_key) > 8000:
+                raise serializers.ValidationError("wrapped_key is too large.")
+            cleaned.append({"user_id": user_id, "wrapped_key": wrapped_key.strip()})
+        return cleaned
 
 
 class ChatRoomListItemSerializer(serializers.ModelSerializer):

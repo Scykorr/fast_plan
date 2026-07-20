@@ -134,8 +134,12 @@ _Выполнено (2026-07-20)._
 
 ### Вне scope (остаётся)
 
-- Реакции с кастомными emoji-picker / GIF
-- End-to-end шифрование DM
 - Видеозвонки
+- Multi-device E2E key sync / recovery phrase
+- Шифрование вложений и голосовых в DM
+
+_Выполнено дополнительно:_
+- [x] Реакции с emoji-picker / GIF (allowlist giphy/tenor)
+- [x] End-to-end шифрование текста DM (ECDH P-256 + AES-GCM, ключи на клиенте)
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

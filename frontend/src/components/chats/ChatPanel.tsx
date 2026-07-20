@@ -14,6 +14,13 @@ import { useWorkspaceEvents } from "../../hooks/useWorkspaceEvents";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { useProjectsApi } from "../../hooks/useProjectsApi";
 import { useWorkspaceApi } from "../../hooks/useWorkspaceApi";
+import {
+  decryptText,
+  encryptText,
+  ensureDmRoomKey,
+  ensureIdentity,
+} from "../../lib/chatE2E";
+import { ReactionPicker, type ReactionPick } from "./ReactionPicker";
 
 type Props = {
   scope: "project" | "workspace" | "dm";
@@ -28,8 +35,6 @@ const STATUS_LABELS: Record<ChatStatus, string> = {
   archived: "Архив",
 };
 
-const QUICK_REACTIONS = ["👍", "❤️", "😄", "🎉", "👀"];
-
 export function ChatPanel({ scope, projectId, roomId }: Props) {
   const chatsApi = useChatsApi();
   const projectsApi = useProjectsApi();
@@ -39,6 +44,10 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [displayBodies, setDisplayBodies] = useState<Record<number, string>>({});
+  const [roomKey, setRoomKey] = useState<CryptoKey | null>(null);
+  const [e2eStatus, setE2eStatus] = useState("");
+  const [pickerFor, setPickerFor] = useState<number | null>(null);
   const [body, setBody] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [voice, setVoice] = useState<File | null>(null);
@@ -88,21 +97,74 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
       if (!nextRoom) {
         setRoom(null);
         setMessages([]);
+        setRoomKey(null);
         return;
       }
       setRoom(nextRoom);
       const listed = await chatsApi.listMessages(nextRoom.id);
       setMessages(listed.results);
+
+      if (nextRoom.e2e_enabled && nextRoom.dm_peer_id && user?.id) {
+        try {
+          const identity = await ensureIdentity(user.id);
+          await chatsApi.putMyPublicKey(identity.publicJwk);
+          const key = await ensureDmRoomKey({
+            userId: user.id,
+            peerId: nextRoom.dm_peer_id,
+            roomId: nextRoom.id,
+            api: chatsApi,
+          });
+          setRoomKey(key);
+          setE2eStatus("E2E включён — текст шифруется на устройстве");
+        } catch (err) {
+          setRoomKey(null);
+          setE2eStatus(
+            err instanceof Error ? err.message : "E2E ключ пока недоступен",
+          );
+        }
+      } else {
+        setRoomKey(null);
+        setE2eStatus("");
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить чат"));
     } finally {
       setLoading(false);
     }
-  }, [chatsApi, loadRoom]);
+  }, [chatsApi, loadRoom, user?.id]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const next: Record<number, string> = {};
+      for (const message of messages) {
+        if (!message.is_encrypted) {
+          next[message.id] = message.body;
+          continue;
+        }
+        if (!roomKey) {
+          next[message.id] = "🔒 Зашифрованное сообщение";
+          continue;
+        }
+        try {
+          next[message.id] = await decryptText(roomKey, message.body);
+        } catch {
+          next[message.id] = "🔒 Не удалось расшифровать";
+        }
+      }
+      if (!cancelled) {
+        setDisplayBodies(next);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, roomKey]);
 
   useWorkspaceEvents(isAuthenticated && Boolean(activeWorkspace), (type, payload) => {
     if (type !== "chat.message" || !room) {
@@ -145,15 +207,24 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
     setSending(true);
     setError("");
     try {
+      const useE2E = Boolean(room.e2e_enabled && body.trim() && !file && !voice);
+      if (useE2E && !roomKey) {
+        throw new Error(e2eStatus || "E2E ключ недоступен");
+      }
+      let payloadBody = body.trim();
+      if (useE2E && roomKey) {
+        payloadBody = await encryptText(roomKey, payloadBody);
+      }
       if (editingId) {
-        await chatsApi.editMessage(room.id, editingId, body.trim());
+        await chatsApi.editMessage(room.id, editingId, payloadBody, useE2E);
         setEditingId(null);
       } else {
         await chatsApi.postMessage(room.id, {
-          body: body.trim(),
+          body: payloadBody,
           replyTo: replyTo?.id ?? null,
           file,
           voice,
+          isEncrypted: useE2E,
         });
       }
       setBody("");
@@ -162,9 +233,26 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
       setReplyTo(null);
       await refresh();
     } catch (err) {
-      setError(parseApiError(err, "Не удалось отправить сообщение"));
+      setError(
+        err instanceof Error && !("response" in err)
+          ? err.message
+          : parseApiError(err, "Не удалось отправить сообщение"),
+      );
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleReaction = async (messageId: number, reaction: ReactionPick) => {
+    if (!chatsApi || !room) {
+      return;
+    }
+    try {
+      await chatsApi.toggleReaction(room.id, messageId, reaction);
+      setPickerFor(null);
+      await refresh();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось поставить реакцию"));
     }
   };
 
@@ -237,10 +325,30 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
     }
     try {
       const dmRoom = await chatsApi.openDm(Number(dmUserId));
+      setDmUserId("");
+      // Force scope via roomId path: set room then reload through same E2E path
       setRoom(dmRoom);
       const listed = await chatsApi.listMessages(dmRoom.id);
       setMessages(listed.results);
-      setDmUserId("");
+      if (dmRoom.dm_peer_id && user?.id) {
+        try {
+          const identity = await ensureIdentity(user.id);
+          await chatsApi.putMyPublicKey(identity.publicJwk);
+          const key = await ensureDmRoomKey({
+            userId: user.id,
+            peerId: dmRoom.dm_peer_id,
+            roomId: dmRoom.id,
+            api: chatsApi,
+          });
+          setRoomKey(key);
+          setE2eStatus("E2E включён — текст шифруется на устройстве");
+        } catch (err) {
+          setRoomKey(null);
+          setE2eStatus(
+            err instanceof Error ? err.message : "E2E ключ пока недоступен",
+          );
+        }
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось открыть DM"));
     }
@@ -336,7 +444,11 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
           </h2>
           <p className="text-xs text-text-muted">
             Режим: {STATUS_LABELS[room.status]}
+            {room.e2e_enabled ? " · E2E DM" : ""}
           </p>
+          {e2eStatus && (
+            <p className="mt-1 text-xs text-primary">{e2eStatus}</p>
+          )}
         </div>
         {room.is_moderator && room.scope !== "dm" && (
           <div className="flex flex-wrap gap-2">
@@ -484,7 +596,14 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
               ) : (
                 <>
                   {message.body && (
-                    <p className="mt-1 whitespace-pre-wrap text-text">{message.body}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-text">
+                      {displayBodies[message.id] ?? message.body}
+                      {message.is_encrypted && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-primary">
+                          e2e
+                        </span>
+                      )}
+                    </p>
                   )}
                   {message.attachment_url && (
                     <a
@@ -507,33 +626,50 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {message.reactions.map((reaction) => (
                     <button
-                      key={reaction.emoji}
+                      key={`${reaction.kind}:${reaction.emoji ?? reaction.gif_url}`}
                       type="button"
                       onClick={() =>
-                        void chatsApi
-                          ?.toggleReaction(room.id, message.id, reaction.emoji)
-                          .then(() => refresh())
+                        void handleReaction(
+                          message.id,
+                          reaction.kind === "gif" && reaction.gif_url
+                            ? { kind: "gif", gif_url: reaction.gif_url }
+                            : { kind: "emoji", emoji: reaction.emoji || "👍" },
+                        )
                       }
-                      className="rounded-full border border-border bg-cream px-2 py-0.5 text-xs"
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-cream px-2 py-0.5 text-xs"
                     >
-                      {reaction.emoji} {reaction.count}
+                      {reaction.kind === "gif" && reaction.gif_url ? (
+                        <img
+                          src={reaction.gif_url}
+                          alt=""
+                          className="h-5 w-5 rounded object-cover"
+                        />
+                      ) : (
+                        <span>{reaction.emoji}</span>
+                      )}
+                      <span>{reaction.count}</span>
                     </button>
                   ))}
-                  {QUICK_REACTIONS.map((emoji) => (
+                  <div className="relative">
                     <button
-                      key={emoji}
                       type="button"
                       onClick={() =>
-                        void chatsApi
-                          ?.toggleReaction(room.id, message.id, emoji)
-                          .then(() => refresh())
+                        setPickerFor((prev) =>
+                          prev === message.id ? null : message.id,
+                        )
                       }
-                      className="text-xs opacity-60 hover:opacity-100"
+                      className="text-xs opacity-70 hover:opacity-100"
                       title="Реакция"
                     >
-                      {emoji}
+                      +😊
                     </button>
-                  ))}
+                    {pickerFor === message.id && (
+                      <ReactionPicker
+                        onPick={(pick) => void handleReaction(message.id, pick)}
+                        onClose={() => setPickerFor(null)}
+                      />
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setReplyTo(message)}
@@ -541,20 +677,22 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                   >
                     Ответить
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void openForward(message.id)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Переслать
-                  </button>
+                  {!message.is_encrypted && (
+                    <button
+                      type="button"
+                      onClick={() => void openForward(message.id)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Переслать
+                    </button>
+                  )}
                   {(message.author_id === user?.id || room.is_moderator) && (
                     <>
                       <button
                         type="button"
                         onClick={() => {
                           setEditingId(message.id);
-                          setBody(message.body);
+                          setBody(displayBodies[message.id] ?? message.body);
                           setReplyTo(null);
                         }}
                         className="text-xs text-text-muted hover:text-primary"
@@ -610,16 +748,22 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
             value={body}
             onChange={(event) => setBody(event.target.value)}
             rows={3}
-            placeholder="Сообщение…"
+            placeholder={
+              room.e2e_enabled
+                ? "Сообщение (шифруется на устройстве)…"
+                : "Сообщение…"
+            }
             className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              className="text-xs text-text-muted"
-            />
-            {!editingId && (
+            {!room.e2e_enabled && (
+              <input
+                type="file"
+                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                className="text-xs text-text-muted"
+              />
+            )}
+            {!editingId && !room.e2e_enabled && (
               <button
                 type="button"
                 onClick={() => (recording ? stopRecording() : void startRecording())}
@@ -633,7 +777,11 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
             )}
             <button
               type="submit"
-              disabled={sending || (!body.trim() && !file && !voice && !editingId)}
+              disabled={
+                sending ||
+                (!body.trim() && !file && !voice && !editingId) ||
+                (Boolean(room.e2e_enabled && body.trim()) && !roomKey)
+              }
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
             >
               {sending ? "…" : editingId ? "Сохранить" : "Отправить"}
