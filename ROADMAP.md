@@ -23,6 +23,8 @@
 | 2026-07-19 | Релиз **v0.7.0** |
 | 2026-07-19 | **P3 (v0.8.0)** email verification/profile, webhooks, API tokens, i18n/currency, dark theme, PWA, burndown/velocity, project templates |
 | 2026-07-19 | Релиз **v0.8.0** |
+| 2026-07-20 | **P4 (v0.9.0)** CSV import, guest share links, PERT, AI drafts, per-project roles, frontend P4 UI |
+| 2026-07-20 | Релиз **v0.9.0** |
 
 ---
 
@@ -70,28 +72,24 @@ _Выполнено (2026-07-19 / v0.8.0)._
 
 ## P4 — идеи на потом
 
-_В работе (2026-07-20): backend API-скaffold; миграции, тесты и UI — следующий спринт._
+_Выполнено (2026-07-20 / v0.9.0), кроме мультивалюты и MS Project/Jira._
 
-- [x] **Импорт CSV** — WBS (`POST /api/projects/<id>/import/`) и транзакции (`POST /api/finance/transactions/import/`), те же колонки что у экспорта. **M** _(backend)_
+- [x] **Импорт CSV** — WBS и транзакции Finance (backend + UI). **M**
 - [ ] **Импорт MS Project / Jira** — отложено, пока нет подтверждённого формата. **L**
-- [x] **PERT / сетевой график** — `GET /api/projects/<id>/pert/` (узлы с O/M/P, рёбра FS, критический путь из CPM). **M** _(backend)_
-- [x] **Гостевой статус-отчёт** — `ProjectShareLink`, `GET /api/share/<token>/` без авторизации, CRUD ссылок для editor+. **M** _(backend)_
-- [x] **AI-черновики** — `POST /api/projects/<id>/ai-draft/` (risks/charter, OpenAI или эвристика). **M** _(backend)_
-- [x] **Per-project roles** — `ProjectMember` (manager/contributor/viewer) + `has_project_min_role`. **M** _(backend)_
-- [ ] **Мультивалютность и курсы** — модель `ExchangeRate`, поле `Workspace.currency`; API/UI конвертации — не готово. **M**
-- [x] **Миграции P4** — `0006_p4_share_roles_fx` (projects), `0005_p4_share_roles_fx` (workspaces). **S**
-- [x] **Тесты backend P4** — `tests/test_p4_features.py` (18 кейсов: import, share, pert, AI, roles). **M**
-- [x] **Frontend P4** — импорт CSV (WBS + Finance), `/share/:token`, PERT-вкладка, управление guest links. **L**
-- [ ] **Релиз v0.9.0** — bump версии, финальный CHANGELOG. **S**
+- [x] **PERT / сетевой график** — API + вкладка PERT на странице проекта. **M**
+- [x] **Гостевой статус-отчёт** — share links, `/share/:token`, панель управления. **M**
+- [x] **AI-черновики** — risks/charter (OpenAI или эвристика). **M**
+- [x] **Per-project roles** — `ProjectMember` + `has_project_min_role`. **M**
+- [ ] **Мультивалютность и курсы** — модели готовы; API/UI конвертации — v0.10.0. **M**
 
 ---
 
 ## Как выбирать следующий спринт
 
-Рекомендуемый порядок «максимум пользы / минимум риска» после v0.8.0:
+Рекомендуемый порядок «максимум пользы / минимум риска» после v0.9.0:
 
-1. **Релиз v0.9.0** — bump `VERSION`, frontend/package.json, `version.ts`.
-2. **Мультивалюта** — API курсов + конвертация в Finance/Portfolio (v0.10.0).
+1. **Мультивалюта** — API курсов + конвертация в Finance/Portfolio (v0.10.0).
+2. **Per-project roles UI** — управление `ProjectMember` на странице проекта.
 3. Параллельно на staging: SMTP verification, webhook delivery, PWA install/update (P3 hardening).
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

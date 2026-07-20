@@ -15,16 +15,24 @@
 
 ## [Unreleased]
 
-### Added
-
-- **P4 (backend scaffold)**: CSV import WBS и транзакций; PERT network API; guest share links на статус-отчёт; AI draft risks/charter; per-project roles (`ProjectMember`); модели `ExchangeRate` и `Workspace.currency`
-- **P4 migrations**: `projects/0006_p4_share_roles_fx`, `workspaces/0005_p4_share_roles_fx`
-- **P4 tests**: `tests/test_p4_features.py` — 18 кейсов (import, share, pert, AI, roles, FX model)
-- **P4 frontend**: CSV import на Project Overview и Finance; гостевая страница `/share/:token`; вкладка PERT; панель guest links
-
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) — миграции, тесты, frontend P4, релиз v0.9.0.
+См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+
+## [0.9.0] — 2026-07-20
+
+### Added
+
+- **CSV import**: WBS (`POST /api/projects/<id>/import/`) и транзакции Finance (`POST /api/finance/transactions/import/`) с теми же колонками, что у экспорта; кнопки импорта на Project Overview и Finance
+- **Guest share links**: `ProjectShareLink`, CRUD для editor+, публичный `GET /api/share/<token>/` и страница `/share/:token` с read-only статус-отчётом
+- **PERT / сетевой график**: `GET /api/projects/<id>/pert/` (узлы O/M/P, expected duration, критический путь); вкладка PERT на странице проекта (ReactFlow)
+- **AI-черновики**: `POST /api/projects/<id>/ai-draft/` для risks и charter (OpenAI или эвристика)
+- **Per-project roles**: `ProjectMember` (manager/contributor/viewer) и `has_project_min_role` поверх workspace RBAC
+- **Мультивалюта (foundation)**: `Workspace.currency`, модель `ExchangeRate` (API/UI конвертации — в следующем релизе)
+
+### Tests
+
+- `tests/test_p4_features.py` — 18 кейсов: import, share, pert, AI drafts, project roles
 
 ## [0.8.0] — 2026-07-19
 
