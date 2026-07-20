@@ -1,4 +1,4 @@
-import { request, requestBlob } from "./client";
+import { request, requestBlob, requestForm } from "./client";
 
 export type Project = {
   id: number;
@@ -220,6 +220,61 @@ export type ProjectStatusReport = {
   stakeholders: Stakeholder[];
   milestones: ScheduleActivity[];
   generated_at: string;
+  share?: {
+    label: string;
+    project_name: string;
+    workspace_name: string;
+  };
+};
+
+export type ImportResult = {
+  created: number;
+  updated?: number;
+  errors: string[];
+  headers?: string[];
+};
+
+export type PertNode = {
+  id: number;
+  wbs_id: number;
+  code: string;
+  name: string;
+  optimistic_days: number;
+  most_likely_days: number;
+  pessimistic_days: number;
+  expected_days: number;
+  early_start: number | null;
+  early_finish: number | null;
+  late_start: number | null;
+  late_finish: number | null;
+  slack: number | null;
+  is_critical: boolean;
+};
+
+export type PertEdge = {
+  id: number;
+  from: number;
+  to: number;
+  type: string;
+  lag_days: number;
+};
+
+export type PertNetwork = {
+  nodes: PertNode[];
+  edges: PertEdge[];
+  project_duration: number;
+  critical_path_ids: number[];
+};
+
+export type ShareLink = {
+  id: number;
+  token: string;
+  label: string;
+  created_at: string;
+  expires_at: string | null;
+  last_accessed_at: string | null;
+  is_active: boolean;
+  url_path?: string;
 };
 
 export type WorkItemComment = {
@@ -490,5 +545,48 @@ export function createProjectsApi() {
 
     deleteComment: (commentId: number) =>
       request<void>(`/comments/${commentId}/`, { method: "DELETE" }),
+
+    importWbs: (projectId: number, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return requestForm<ImportResult>(`/projects/${projectId}/import/`, form);
+    },
+
+    getPert: (projectId: number) =>
+      request<PertNetwork>(`/projects/${projectId}/pert/`, {}),
+
+    getShareLinks: (projectId: number) =>
+      request<ShareLink[]>(`/projects/${projectId}/share-links/`, {}),
+
+    createShareLink: (
+      projectId: number,
+      body: { label?: string; expires_at?: string },
+    ) =>
+      request<ShareLink>(`/projects/${projectId}/share-links/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    revokeShareLink: (projectId: number, linkId: number) =>
+      request<void>(`/projects/${projectId}/share-links/${linkId}/`, {
+        method: "DELETE",
+      }),
   };
+}
+
+const API_BASE = "/api";
+
+export async function fetchPublicStatusReport(
+  token: string,
+): Promise<ProjectStatusReport> {
+  const response = await fetch(`${API_BASE}/share/${token}/`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      typeof data.detail === "string"
+        ? data.detail
+        : "Ссылка не найдена или истекла",
+    );
+  }
+  return data as ProjectStatusReport;
 }

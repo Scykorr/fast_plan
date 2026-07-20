@@ -29,6 +29,8 @@ export function FinancePage() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
 
   const load = useCallback(async () => {
     if (!financeApi || !projectsApi) {
@@ -99,6 +101,28 @@ export function FinancePage() {
     }
   };
 
+  const handleImport = async (files: FileList | null) => {
+    if (!financeApi || !files?.[0]) {
+      return;
+    }
+    setImporting(true);
+    setImportMessage("");
+    try {
+      const result = await financeApi.importTransactions(files[0]);
+      setImportMessage(`Импортировано: ${result.created}`);
+      if (result.errors.length > 0) {
+        setImportMessage(
+          `Импортировано: ${result.created} · Ошибки: ${result.errors.slice(0, 3).join("; ")}`,
+        );
+      }
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось импортировать транзакции"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -109,6 +133,19 @@ export function FinancePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="cursor-pointer rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-cream">
+            {importing ? "Импорт..." : "Импорт CSV"}
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              disabled={importing}
+              onChange={(event) => {
+                void handleImport(event.target.files);
+                event.target.value = "";
+              }}
+            />
+          </label>
           <button
             type="button"
             onClick={() => void handleExport("csv")}
@@ -136,6 +173,9 @@ export function FinancePage() {
         </div>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      {importMessage && (
+        <p className="text-sm text-text-muted">{importMessage}</p>
+      )}
 
       <div className="max-w-xs">
         <label htmlFor="finance-project-filter" className="mb-1 block text-sm font-medium">

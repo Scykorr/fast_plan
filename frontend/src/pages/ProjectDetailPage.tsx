@@ -6,6 +6,7 @@ import type { ProjectFinance } from "../api/finance";
 import type { KanbanBoard } from "../api/kanban";
 import type {
   CriticalPath,
+  PertNetwork,
   Project,
   ProjectBaseline,
   ProjectDashboard,
@@ -32,6 +33,8 @@ import {
 } from "../components/projects/BaselineView";
 import { CharterEditor } from "../components/projects/CharterEditor";
 import { GanttChart } from "../components/projects/GanttChart";
+import { PertDiagram } from "../components/projects/PertDiagram";
+import { ProjectShareLinksPanel } from "../components/projects/ProjectShareLinksPanel";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
@@ -63,6 +66,7 @@ type Tab =
   | "overview"
   | "wbs"
   | "gantt"
+  | "pert"
   | "kanban"
   | "calendar"
   | "risks"
@@ -74,6 +78,7 @@ const TABS: Tab[] = [
   "overview",
   "wbs",
   "gantt",
+  "pert",
   "kanban",
   "calendar",
   "risks",
@@ -121,6 +126,9 @@ export function ProjectDetailPage() {
   const [raci, setRaci] = useState<RACIEntry[]>([]);
   const [baselines, setBaselines] = useState<ProjectBaseline[]>([]);
   const [criticalPath, setCriticalPath] = useState<CriticalPath | null>(null);
+  const [pertNetwork, setPertNetwork] = useState<PertNetwork | null>(null);
+  const [importMessage, setImportMessage] = useState("");
+  const [importingWbs, setImportingWbs] = useState(false);
   const [selectedNode, setSelectedNode] = useState<WBSNode | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailMode, setDetailMode] = useState<"project" | "issue">("issue");
@@ -233,6 +241,18 @@ export function ProjectDetailPage() {
     }
     void workspaceApi.getMembers().then(setMembers).catch(() => undefined);
   }, [workspaceApi]);
+
+  useEffect(() => {
+    if (!projectsApi || !id || tab !== "pert") {
+      return;
+    }
+    void projectsApi
+      .getPert(id)
+      .then(setPertNetwork)
+      .catch((err) =>
+        setError(parseApiError(err, "Не удалось загрузить PERT-диаграмму")),
+      );
+  }, [projectsApi, id, tab]);
 
   useEffect(() => {
     if (!deepLink.node || wbs.length === 0) {
@@ -649,6 +669,32 @@ export function ProjectDetailPage() {
     }
   };
 
+  const handleImportWbs = async (files: FileList | null) => {
+    if (!projectsApi || !files?.[0]) {
+      return;
+    }
+    setImportingWbs(true);
+    setImportMessage("");
+    try {
+      const result = await projectsApi.importWbs(id, files[0]);
+      const parts = [
+        `Создано: ${result.created}`,
+        result.updated != null ? `Обновлено: ${result.updated}` : null,
+      ].filter(Boolean);
+      setImportMessage(parts.join(" · "));
+      if (result.errors.length > 0) {
+        setImportMessage(
+          `${parts.join(" · ")} · Ошибки: ${result.errors.slice(0, 3).join("; ")}`,
+        );
+      }
+      await loadAll();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось импортировать WBS"));
+    } finally {
+      setImportingWbs(false);
+    }
+  };
+
   const handleAddComment = async (
     body: string,
     kind: "comment" | "decision",
@@ -690,6 +736,7 @@ export function ProjectDetailPage() {
     { id: "overview", label: "Обзор" },
     { id: "wbs", label: "WBS" },
     { id: "gantt", label: "Gantt" },
+    { id: "pert", label: "PERT" },
     { id: "kanban", label: "Kanban" },
     { id: "calendar", label: "Календарь" },
     { id: "risks", label: "Риски" },
@@ -740,14 +787,29 @@ export function ProjectDetailPage() {
             />
           )}
 
+          <ProjectShareLinksPanel projectId={id} />
+
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-4">
-            <span className="text-sm font-medium text-text-muted">Экспорт WBS:</span>
+            <span className="text-sm font-medium text-text-muted">WBS:</span>
+            <label className="cursor-pointer rounded-lg border border-border bg-cream px-3 py-1.5 text-sm font-medium text-text hover:bg-border/30">
+              {importingWbs ? "Импорт..." : "Импорт CSV"}
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                disabled={importingWbs}
+                onChange={(event) => {
+                  void handleImportWbs(event.target.files);
+                  event.target.value = "";
+                }}
+              />
+            </label>
             <button
               type="button"
               onClick={() => void handleExportWbs("csv")}
               className="rounded-lg border border-border bg-cream px-3 py-1.5 text-sm font-medium text-text hover:bg-border/30"
             >
-              CSV
+              Экспорт CSV
             </button>
             <button
               type="button"
@@ -763,6 +825,9 @@ export function ProjectDetailPage() {
             >
               Вехи в календарь (.ics)
             </button>
+            {importMessage && (
+              <span className="text-xs text-text-muted">{importMessage}</span>
+            )}
           </div>
 
           {dashboard && (
@@ -940,6 +1005,12 @@ export function ProjectDetailPage() {
           activities={schedule.activities}
           dependencies={schedule.dependencies}
         />
+      )}
+
+      {tab === "pert" && pertNetwork && <PertDiagram network={pertNetwork} />}
+
+      {tab === "pert" && !pertNetwork && (
+        <p className="text-sm text-text-muted">Загрузка PERT-диаграммы...</p>
       )}
 
       {tab === "kanban" && board && isAuthenticated && (

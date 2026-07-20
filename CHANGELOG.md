@@ -20,6 +20,7 @@
 - **P4 (backend scaffold)**: CSV import WBS и транзакций; PERT network API; guest share links на статус-отчёт; AI draft risks/charter; per-project roles (`ProjectMember`); модели `ExchangeRate` и `Workspace.currency`
 - **P4 migrations**: `projects/0006_p4_share_roles_fx`, `workspaces/0005_p4_share_roles_fx`
 - **P4 tests**: `tests/test_p4_features.py` — 18 кейсов (import, share, pert, AI, roles, FX model)
+- **P4 frontend**: CSV import на Project Overview и Finance; гостевая страница `/share/:token`; вкладка PERT; панель guest links
 
 ### Planned
 

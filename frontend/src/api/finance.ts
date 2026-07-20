@@ -1,4 +1,4 @@
-import { request, requestBlob } from "./client";
+import { request, requestBlob, requestForm } from "./client";
 
 export type Transaction = {
   id: number;
@@ -80,6 +80,15 @@ export function createFinanceApi() {
         query.set("project_id", String(projectId));
       }
       return requestBlob(`/finance/transactions/export/?${query.toString()}`);
+    },
+
+    importTransactions: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return requestForm<{ created: number; errors: string[] }>(
+        "/finance/transactions/import/",
+        form,
+      );
     },
   };
 }

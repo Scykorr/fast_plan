@@ -79,4 +79,10 @@ describe("StatusReportDigest", () => {
     expect(screen.getByText("Экспорт PDF")).toBeInTheDocument();
     expect(screen.getByText("Delay")).toBeInTheDocument();
   });
+
+  it("hides export actions in read-only mode", () => {
+    render(<StatusReportDigest report={report} readOnly />);
+    expect(screen.queryByText("Экспорт JSON")).not.toBeInTheDocument();
+    expect(screen.getByText("42%")).toBeInTheDocument();
+  });
 });

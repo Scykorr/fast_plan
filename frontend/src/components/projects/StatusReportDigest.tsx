@@ -2,8 +2,9 @@ import type { ProjectStatusReport } from "../../api/projects";
 
 type Props = {
   report: ProjectStatusReport;
-  onExportJson: () => void;
-  onExportPdf: () => void;
+  onExportJson?: () => void;
+  onExportPdf?: () => void;
+  readOnly?: boolean;
 };
 
 function formatMetric(value: number | null | undefined) {
@@ -17,6 +18,7 @@ export function StatusReportDigest({
   report,
   onExportJson,
   onExportPdf,
+  readOnly = false,
 }: Props) {
   return (
     <div className="space-y-4">
@@ -27,22 +29,24 @@ export function StatusReportDigest({
             Сформирован: {new Date(report.generated_at).toLocaleString("ru-RU")}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onExportJson}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text hover:bg-cream"
-          >
-            Экспорт JSON
-          </button>
-          <button
-            type="button"
-            onClick={onExportPdf}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-          >
-            Экспорт PDF
-          </button>
-        </div>
+        {!readOnly && onExportJson && onExportPdf && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onExportJson}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text hover:bg-cream"
+            >
+              Экспорт JSON
+            </button>
+            <button
+              type="button"
+              onClick={onExportPdf}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+            >
+              Экспорт PDF
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
