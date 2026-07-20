@@ -19,7 +19,7 @@ import {
   encryptText,
   ensureDmRoomKey,
   ensureIdentity,
-} from "../../lib/chatE2E";
+} from "../../utils/chatE2E";
 import { ReactionPicker, type ReactionPick } from "./ReactionPicker";
 
 type Props = {
