@@ -402,3 +402,62 @@ class WorkItemComment(models.Model):
     def __str__(self):
         return f"{self.kind}: {self.body[:40]}"
 
+
+class ProjectShareLink(models.Model):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="share_links",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    label = models.CharField(max_length=100, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_share_links",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_accessed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+
+        if self.revoked_at is not None:
+            return False
+        if self.expires_at is not None and self.expires_at <= timezone.now():
+            return False
+        return True
+
+
+class ProjectMember(models.Model):
+    class Role(models.TextChoices):
+        MANAGER = "manager", "Manager"
+        CONTRIBUTOR = "contributor", "Contributor"
+        VIEWER = "viewer", "Viewer"
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="project_memberships",
+    )
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.CONTRIBUTOR)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("project", "user")]
+        ordering = ["role", "id"]
+
+    def __str__(self):
+        return f"{self.user} @ {self.project} ({self.role})"
+

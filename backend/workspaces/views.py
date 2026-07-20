@@ -18,6 +18,7 @@ from workspaces.invitation_services import (
 )
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, IsWorkspaceOwner, WorkspaceMixin
 from workspaces.models import (
+    ExchangeRate,
     MemberCapacity,
     WebhookDelivery,
     WebhookEndpoint,

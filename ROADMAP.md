@@ -68,14 +68,19 @@ _Выполнено (2026-07-19 / v0.8.0)._
 
 ---
 
-## P4 — идеи на потом (не коммитить без запроса)
+## P4 — идеи на потом
 
-- Импорт из MS Project / Jira / CSV.
-- Диаграмма сетевого графика (PERT) рядом с CPM.
-- Мультивалютность и курсы.
-- Гостевой доступ по публичной read-only ссылке на статус-отчёт.
-- AI-ассистент: черновик рисков/устава из описания проекта.
-- Fine-grained permissions (per-project roles сверх workspace RBAC).
+_В работе (2026-07-20): backend API-скaffold; миграции, тесты и UI — следующий спринт._
+
+- [x] **Импорт CSV** — WBS (`POST /api/projects/<id>/import/`) и транзакции (`POST /api/finance/transactions/import/`), те же колонки что у экспорта. **M** _(backend)_
+- [ ] **Импорт MS Project / Jira** — отложено, пока нет подтверждённого формата. **L**
+- [x] **PERT / сетевой график** — `GET /api/projects/<id>/pert/` (узлы с O/M/P, рёбра FS, критический путь из CPM). **M** _(backend)_
+- [x] **Гостевой статус-отчёт** — `ProjectShareLink`, `GET /api/share/<token>/` без авторизации, CRUD ссылок для editor+. **M** _(backend)_
+- [x] **AI-черновики** — `POST /api/projects/<id>/ai-draft/` (risks/charter, OpenAI или эвристика). **M** _(backend)_
+- [x] **Per-project roles** — `ProjectMember` (manager/contributor/viewer) + `has_project_min_role`. **M** _(backend)_
+- [ ] **Мультивалютность и курсы** — модель `ExchangeRate`, поле `Workspace.currency`; API/UI конвертации — не готово. **M**
+- [ ] **Frontend P4** — импорт CSV, публичная страница `/share/:token`, PERT-диаграмма, управление share links и project members. **L**
+- [ ] **Тесты и релиз v0.9.0** — миграции, pytest, UI smoke, CHANGELOG. **M**
 
 ---
 
@@ -83,7 +88,9 @@ _Выполнено (2026-07-19 / v0.8.0)._
 
 Рекомендуемый порядок «максимум пользы / минимум риска» после v0.8.0:
 
-1. Проверить P3 на staging: SMTP verification, webhook delivery, PWA install/update.
-2. Дальше — выбирать P4 только по подтверждённой продуктовой потребности.
+1. **Завершить P4 backend** — миграции для `ProjectShareLink`, `ProjectMember`, `ExchangeRate`; pytest на import/share/pert/ai-draft.
+2. **Frontend по приоритету продукта** — CSV import → guest `/share/:token` → PERT рядом с Gantt/CPM.
+3. **Мультивалюта** — API курсов + конвертация в Finance/Portfolio (если нужна до v0.9.0).
+4. Параллельно на staging: SMTP verification, webhook delivery, PWA install/update (P3 hardening).
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

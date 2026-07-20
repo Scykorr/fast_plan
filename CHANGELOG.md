@@ -15,9 +15,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- **P4 (backend scaffold)**: CSV import WBS и транзакций; PERT network API; guest share links на статус-отчёт; AI draft risks/charter; per-project roles (`ProjectMember`); модели `ExchangeRate` и `Workspace.currency`
+
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+См. [ROADMAP.md](ROADMAP.md) — миграции, тесты, frontend P4, релиз v0.9.0.
 
 ## [0.8.0] — 2026-07-19
 

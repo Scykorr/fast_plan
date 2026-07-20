@@ -5,6 +5,16 @@ from projects.comment_views import (
     WBSCommentListCreateView,
     WorkItemCommentDetailView,
 )
+from projects.p4_views import (
+    ProjectAIDraftView,
+    ProjectImportView,
+    ProjectMemberDetailView,
+    ProjectMemberListCreateView,
+    ProjectPertView,
+    ProjectShareLinkDetailView,
+    ProjectShareLinkListCreateView,
+    PublicStatusReportView,
+)
 from projects.pmbok_views import (
     BaselineDetailView,
     BaselineListCreateView,
@@ -25,9 +35,9 @@ from projects.views import (
     ProjectDashboardView,
     ProjectDetailView,
     ProjectListCreateView,
+    ProjectScheduleView,
     ProjectTemplateDetailView,
     ProjectTemplateListCreateView,
-    ProjectScheduleView,
     ScheduleActivityDetailView,
     WBSNodeDetailView,
     WBSTreeView,
@@ -47,6 +57,7 @@ urlpatterns = [
         ProjectTemplateDetailView.as_view(),
         name="project-template-detail",
     ),
+    path("share/<str:token>/", PublicStatusReportView.as_view(), name="public-status-report"),
     path("projects/<int:project_id>/", ProjectDetailView.as_view(), name="project-detail"),
     path(
         "projects/<int:project_id>/dashboard/",
@@ -54,6 +65,41 @@ urlpatterns = [
         name="project-dashboard",
     ),
     path("projects/<int:project_id>/wbs/", WBSTreeView.as_view(), name="project-wbs"),
+    path(
+        "projects/<int:project_id>/import/",
+        ProjectImportView.as_view(),
+        name="project-import",
+    ),
+    path(
+        "projects/<int:project_id>/pert/",
+        ProjectPertView.as_view(),
+        name="project-pert",
+    ),
+    path(
+        "projects/<int:project_id>/ai-draft/",
+        ProjectAIDraftView.as_view(),
+        name="project-ai-draft",
+    ),
+    path(
+        "projects/<int:project_id>/share-links/",
+        ProjectShareLinkListCreateView.as_view(),
+        name="project-share-links",
+    ),
+    path(
+        "projects/<int:project_id>/share-links/<int:link_id>/",
+        ProjectShareLinkDetailView.as_view(),
+        name="project-share-link-detail",
+    ),
+    path(
+        "projects/<int:project_id>/members/",
+        ProjectMemberListCreateView.as_view(),
+        name="project-members",
+    ),
+    path(
+        "projects/<int:project_id>/members/<int:member_id>/",
+        ProjectMemberDetailView.as_view(),
+        name="project-member-detail",
+    ),
     path(
         "projects/<int:project_id>/schedule/",
         ProjectScheduleView.as_view(),

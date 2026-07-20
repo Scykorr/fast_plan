@@ -5,11 +5,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import log_audit
+from finance.imports import import_transactions_csv
 from finance.exports import render_transactions_csv, render_transactions_xlsx
 from finance.models import Transaction
 from finance.serializers import TransactionSerializer, TransactionWriteSerializer
 from projects.models import Project
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.exceptions import ValidationError
 
 
 class TransactionListCreateView(WorkspaceMixin, APIView):
@@ -132,6 +135,21 @@ class TransactionExportView(WorkspaceMixin, APIView):
         if fmt == "xlsx":
             return render_transactions_xlsx(transactions)
         return render_transactions_csv(transactions)
+
+
+class TransactionImportView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "CSV file is required."})
+        try:
+            result = import_transactions_csv(self.get_workspace(), upload.read())
+        except ValueError as exc:
+            raise ValidationError({"file": str(exc)}) from exc
+        return Response(result)
 
 
 class ProjectFinanceSummaryView(WorkspaceMixin, APIView):

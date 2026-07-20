@@ -7,11 +7,21 @@ from django.utils import timezone
 
 
 class Workspace(models.Model):
+    class Currency(models.TextChoices):
+        RUB = "RUB", "Russian Ruble"
+        USD = "USD", "US Dollar"
+        EUR = "EUR", "Euro"
+
     name = models.CharField(max_length=255)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="owned_workspaces",
+    )
+    currency = models.CharField(
+        max_length=3,
+        choices=Currency.choices,
+        default=Currency.RUB,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -199,3 +209,26 @@ class WebhookDelivery(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class ExchangeRate(models.Model):
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="exchange_rates",
+    )
+    currency = models.CharField(max_length=3, choices=Workspace.Currency.choices)
+    rate_to_base = models.DecimalField(
+        max_digits=18,
+        decimal_places=8,
+        help_text="How many base-currency units equal 1 unit of this currency.",
+    )
+    as_of = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-as_of", "-id"]
+        unique_together = [("workspace", "currency", "as_of")]
+
+    def __str__(self):
+        return f"{self.currency}@{self.as_of}={self.rate_to_base}"

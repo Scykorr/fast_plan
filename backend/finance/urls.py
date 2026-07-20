@@ -4,6 +4,7 @@ from finance.views import (
     ProjectFinanceSummaryView,
     TransactionDetailView,
     TransactionExportView,
+    TransactionImportView,
     TransactionListCreateView,
 )
 
@@ -13,6 +14,11 @@ urlpatterns = [
         "finance/transactions/export/",
         TransactionExportView.as_view(),
         name="transaction-export",
+    ),
+    path(
+        "finance/transactions/import/",
+        TransactionImportView.as_view(),
+        name="transaction-import",
     ),
     path(
         "finance/transactions/<int:transaction_id>/",
