@@ -8,8 +8,15 @@ import {
   type ReactNode,
 } from "react";
 
+import { convertFromBase } from "../utils/fx";
+
 export type Locale = "ru" | "en";
 export type Currency = "RUB" | "USD" | "EUR";
+
+export type FxConfig = {
+  baseCurrency: Currency;
+  rates: Partial<Record<Currency, number>>;
+};
 
 const messages = {
   ru: {
@@ -47,8 +54,10 @@ type MessageKey = keyof (typeof messages)["ru"];
 type LocaleContextValue = {
   locale: Locale;
   currency: Currency;
+  baseCurrency: Currency;
   setLocale: (locale: Locale) => void;
   setCurrency: (currency: Currency) => void;
+  setFxConfig: (config: FxConfig) => void;
   t: (key: MessageKey) => string;
   formatMoney: (value: number | string) => string;
 };
@@ -56,8 +65,10 @@ type LocaleContextValue = {
 const defaultContext: LocaleContextValue = {
   locale: "ru",
   currency: "RUB",
+  baseCurrency: "RUB",
   setLocale: () => undefined,
   setCurrency: () => undefined,
+  setFxConfig: () => undefined,
   t: (key) => messages.ru[key],
   formatMoney: (amount) =>
     new Intl.NumberFormat("ru-RU", {
@@ -82,6 +93,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem(CURRENCY_KEY);
     return saved === "USD" || saved === "EUR" ? saved : "RUB";
   });
+  const [fxConfig, setFxConfigState] = useState<FxConfig>({
+    baseCurrency: "RUB",
+    rates: { RUB: 1 },
+  });
 
   const setLocale = useCallback((value: Locale) => {
     setLocaleState(value);
@@ -94,6 +109,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(CURRENCY_KEY, value);
   }, []);
 
+  const setFxConfig = useCallback((config: FxConfig) => {
+    setFxConfigState(config);
+  }, []);
+
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
@@ -102,20 +121,29 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     () => ({
       locale,
       currency,
+      baseCurrency: fxConfig.baseCurrency,
       setLocale,
       setCurrency,
+      setFxConfig,
       t: (key) => messages[locale][key],
-      formatMoney: (amount) =>
-        new Intl.NumberFormat(locale === "ru" ? "ru-RU" : "en-US", {
+      formatMoney: (amount) => {
+        const converted = convertFromBase(
+          Number(amount),
+          fxConfig.baseCurrency,
+          currency,
+          fxConfig.rates,
+        );
+        return new Intl.NumberFormat(locale === "ru" ? "ru-RU" : "en-US", {
           style: "currency",
           currency,
           minimumFractionDigits: 0,
           maximumFractionDigits: 2,
         })
-          .format(Number(amount))
-          .replace(/[\u00A0\u202F]/g, " "),
+          .format(converted)
+          .replace(/[\u00A0\u202F]/g, " ");
+      },
     }),
-    [locale, currency, setLocale, setCurrency],
+    [locale, currency, fxConfig, setLocale, setCurrency, setFxConfig],
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

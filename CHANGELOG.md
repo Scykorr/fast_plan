@@ -15,9 +15,9 @@
 
 ## [Unreleased]
 
-### Planned
+### Added
 
-См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+- **Мультивалюта**: `GET/PATCH /api/workspace/settings/`, CRUD `/api/workspace/exchange-rates/`, `GET /api/workspace/fx/convert/`; конвертация сумм в Finance/Portfolio через базовую валюту workspace и курсы; UI управления курсами в Settings (owner)
 
 ## [0.9.0] — 2026-07-20
 

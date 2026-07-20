@@ -1,5 +1,11 @@
 from django.urls import path
 
+from workspaces.fx_views import (
+    ExchangeRateDetailView,
+    ExchangeRateListCreateView,
+    WorkspaceFxConvertView,
+    WorkspaceSettingsView,
+)
 from workspaces.views import (
     WorkspaceActivateView,
     WorkspaceAPITokenDetailView,
@@ -76,6 +82,26 @@ urlpatterns = [
         "workspace/webhooks/<int:endpoint_id>/deliveries/",
         WorkspaceWebhookDeliveryListView.as_view(),
         name="workspace-webhook-deliveries",
+    ),
+    path(
+        "workspace/settings/",
+        WorkspaceSettingsView.as_view(),
+        name="workspace-settings",
+    ),
+    path(
+        "workspace/exchange-rates/",
+        ExchangeRateListCreateView.as_view(),
+        name="workspace-exchange-rates",
+    ),
+    path(
+        "workspace/exchange-rates/<int:rate_id>/",
+        ExchangeRateDetailView.as_view(),
+        name="workspace-exchange-rate-detail",
+    ),
+    path(
+        "workspace/fx/convert/",
+        WorkspaceFxConvertView.as_view(),
+        name="workspace-fx-convert",
     ),
     path("workspace/members/", WorkspaceMemberListView.as_view(), name="workspace-members"),
     path(

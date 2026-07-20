@@ -21,7 +21,7 @@ export function FinancePage() {
   const projectsApi = useProjectsApi();
   const { workspaceEpoch } = useWorkspace();
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const { formatMoney } = useLocale();
+  const { formatMoney, currency, baseCurrency } = useLocale();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filterProjectId, setFilterProjectId] = useState<number | "">("");
@@ -130,6 +130,9 @@ export function FinancePage() {
           <h1 className="text-3xl font-bold text-text">Финансы</h1>
           <p className="mt-1 text-sm text-text-muted">
             Учёт расходов и доходов workspace
+            {currency !== baseCurrency && (
+              <> · суммы в {currency}, база {baseCurrency}</>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">

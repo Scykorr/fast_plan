@@ -144,6 +144,7 @@ def build_workspace_dashboard(workspace, user, *, limit_overdue=10, limit_risks=
 
     return {
         "workspace_id": workspace.id,
+        "currency": workspace.currency,
         "generated_at": timezone.now().isoformat(),
         "summary": {
             "project_count": len(projects),

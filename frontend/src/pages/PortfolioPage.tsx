@@ -11,7 +11,7 @@ import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 export function PortfolioPage() {
   const workspaceApi = useWorkspaceApi();
   const { workspaceEpoch, activeWorkspace } = useWorkspace();
-  const { formatMoney } = useLocale();
+  const { formatMoney, currency, baseCurrency } = useLocale();
   const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -42,6 +42,9 @@ export function PortfolioPage() {
         <p className="mt-1 text-sm text-text-muted">
           Сводка по проектам workspace
           {activeWorkspace ? ` «${activeWorkspace.name}»` : ""}
+          {currency !== baseCurrency && (
+            <> · суммы в {currency}, база {baseCurrency}</>
+          )}
         </p>
       </div>
 

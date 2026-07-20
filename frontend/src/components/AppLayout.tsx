@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 
 import { NotificationBell } from "./NotificationBell";
+import { FxSettingsLoader } from "./FxSettingsLoader";
 import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { useAuth } from "../context/AuthContext";
 import { useLocale } from "../context/LocaleContext";
@@ -130,6 +131,7 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-screen">
+      <FxSettingsLoader />
       {toast && (
         <div
           role="status"

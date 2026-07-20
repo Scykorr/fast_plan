@@ -50,6 +50,7 @@ export type WebhookEndpoint = {
 
 export type WorkspaceDashboard = {
   workspace_id: number;
+  currency?: string;
   generated_at: string;
   summary: {
     project_count: number;
@@ -98,6 +99,20 @@ export type WorkspaceDashboard = {
     link: string;
     created_at: string;
   }>;
+};
+
+export type ExchangeRateRow = {
+  id: number | null;
+  currency: string;
+  rate_to_base: string;
+  as_of: string | null;
+  created_at: string | null;
+};
+
+export type WorkspaceSettings = {
+  workspace_id: number;
+  currency: string;
+  exchange_rates: ExchangeRateRow[];
 };
 
 export type SearchResult = {
@@ -162,6 +177,33 @@ export function createWorkspaceApi() {
 
     getDashboard: () =>
       request<WorkspaceDashboard>("/workspace/dashboard/", {}),
+
+    getSettings: () =>
+      request<WorkspaceSettings>("/workspace/settings/", {}),
+
+    patchSettings: (body: { currency?: string }) =>
+      request<WorkspaceSettings>("/workspace/settings/", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+
+    getExchangeRates: () =>
+      request<ExchangeRateRow[]>("/workspace/exchange-rates/", {}),
+
+    createExchangeRate: (body: {
+      currency: string;
+      rate_to_base: string;
+      as_of?: string;
+    }) =>
+      request<ExchangeRateRow>("/workspace/exchange-rates/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    deleteExchangeRate: (rateId: number) =>
+      request<void>(`/workspace/exchange-rates/${rateId}/`, {
+        method: "DELETE",
+      }),
 
     getMembers: () =>
       request<WorkspaceMember[]>("/workspace/members/", {}),

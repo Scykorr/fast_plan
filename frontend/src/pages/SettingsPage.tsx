@@ -3,10 +3,12 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { parseApiError } from "../api/errors";
 import type {
+  ExchangeRateRow,
   WebhookEndpoint,
   WorkspaceAPIToken,
   WorkspaceInvitation,
   WorkspaceMember,
+  WorkspaceSettings,
 } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { InviteMemberForm } from "../components/workspace/InviteMemberForm";
@@ -19,7 +21,7 @@ import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 export function SettingsPage() {
   const { user, updateProfile, logout } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { locale, currency, setLocale, setCurrency } = useLocale();
+  const { locale, currency, baseCurrency, setLocale, setCurrency, setFxConfig } = useLocale();
   const { activeWorkspace, workspaces, switchWorkspace, workspaceEpoch } =
     useWorkspace();
   const workspaceApi = useWorkspaceApi();
@@ -46,6 +48,11 @@ export function SettingsPage() {
   const [webhookName, setWebhookName] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [revealedSecret, setRevealedSecret] = useState("");
+  const [wsSettings, setWsSettings] = useState<WorkspaceSettings | null>(null);
+  const [baseCurrencyDraft, setBaseCurrencyDraft] = useState("RUB");
+  const [fxCurrency, setFxCurrency] = useState("USD");
+  const [fxRate, setFxRate] = useState("");
+  const [fxAsOf, setFxAsOf] = useState(() => new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     setProfileUsername(user?.username ?? "");
@@ -65,20 +72,36 @@ export function SettingsPage() {
       setMembers(membersData);
       setInvitations(invitationsData);
       if (activeWorkspace?.role === "owner") {
-        const [tokenData, webhookData] = await Promise.all([
+        const [tokenData, webhookData, settingsData] = await Promise.all([
           workspaceApi.getApiTokens(),
           workspaceApi.getWebhooks(),
+          workspaceApi.getSettings(),
         ]);
         setApiTokens(tokenData);
         setWebhooks(webhookData);
+        setWsSettings(settingsData);
+        setBaseCurrencyDraft(settingsData.currency);
+        const rates: Partial<Record<Currency, number>> = {
+          [settingsData.currency as Currency]: 1,
+        };
+        for (const row of settingsData.exchange_rates) {
+          if (row.currency && row.rate_to_base) {
+            rates[row.currency as Currency] = Number(row.rate_to_base);
+          }
+        }
+        setFxConfig({
+          baseCurrency: settingsData.currency as Currency,
+          rates,
+        });
       } else {
         setApiTokens([]);
         setWebhooks([]);
+        setWsSettings(null);
       }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить workspace"));
     }
-  }, [workspaceApi, activeWorkspace?.role]);
+  }, [workspaceApi, activeWorkspace?.role, setFxConfig]);
 
   useEffect(() => {
     void load();
@@ -186,7 +209,7 @@ export function SettingsPage() {
             </select>
           </label>
           <label className="text-xs text-text-muted">
-            Валюта
+            Валюта отображения
             <select
               value={currency}
               onChange={(event) => setCurrency(event.target.value as Currency)}
@@ -198,6 +221,12 @@ export function SettingsPage() {
             </select>
           </label>
         </div>
+        {currency !== baseCurrency && (
+          <p className="mt-3 text-xs text-text-muted">
+            Суммы хранятся в базовой валюте workspace ({baseCurrency}) и
+            конвертируются по последним курсам.
+          </p>
+        )}
       </div>
 
       <div className="max-w-lg rounded-xl border border-border bg-surface p-6">
@@ -489,6 +518,136 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+
+      {activeWorkspace?.role === "owner" && (
+        <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
+          <h2 className="text-lg font-semibold text-text">Мультивалюта workspace</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Бюджеты и транзакции хранятся в базовой валюте. Курсы нужны для
+            конвертации в валюту отображения.
+          </p>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="text-xs text-text-muted">
+              Базовая валюта
+              <select
+                value={baseCurrencyDraft}
+                onChange={(event) => setBaseCurrencyDraft(event.target.value)}
+                className="mt-1 block rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text"
+              >
+                <option value="RUB">RUB</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-text hover:bg-cream"
+              onClick={() => {
+                if (!workspaceApi) return;
+                void workspaceApi
+                  .patchSettings({ currency: baseCurrencyDraft })
+                  .then(async (data) => {
+                    setWsSettings(data);
+                    await load();
+                  })
+                  .catch((err) =>
+                    setError(parseApiError(err, "Не удалось обновить валюту")),
+                  );
+              }}
+            >
+              Сохранить базовую
+            </button>
+          </div>
+          <form
+            className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!workspaceApi || !fxRate.trim()) return;
+              void workspaceApi
+                .createExchangeRate({
+                  currency: fxCurrency,
+                  rate_to_base: fxRate.trim(),
+                  as_of: fxAsOf,
+                })
+                .then(async () => {
+                  setFxRate("");
+                  await load();
+                })
+                .catch((err) =>
+                  setError(parseApiError(err, "Не удалось добавить курс")),
+                );
+            }}
+          >
+            <label className="text-xs text-text-muted">
+              Валюта
+              <select
+                value={fxCurrency}
+                onChange={(event) => setFxCurrency(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+              >
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="RUB">RUB</option>
+              </select>
+            </label>
+            <label className="text-xs text-text-muted">
+              Курс к базе (1 ед.)
+              <input
+                required
+                value={fxRate}
+                onChange={(event) => setFxRate(event.target.value)}
+                placeholder="90.5"
+                className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-text-muted">
+              На дату
+              <input
+                type="date"
+                value={fxAsOf}
+                onChange={(event) => setFxAsOf(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+            >
+              Добавить
+            </button>
+          </form>
+          <ul className="mt-4 space-y-2 text-sm">
+            {(wsSettings?.exchange_rates ?? []).map((row: ExchangeRateRow) => (
+              <li
+                key={`${row.currency}-${row.as_of ?? "base"}`}
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+              >
+                <span>
+                  {row.currency} = {row.rate_to_base} {wsSettings?.currency}
+                  {row.as_of ? ` · ${row.as_of}` : " · база"}
+                </span>
+                {row.id != null && (
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => {
+                      if (!workspaceApi) return;
+                      void workspaceApi
+                        .deleteExchangeRate(row.id!)
+                        .then(() => load())
+                        .catch((err) =>
+                          setError(parseApiError(err, "Не удалось удалить курс")),
+                        );
+                    }}
+                  >
+                    Удалить
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {activeWorkspace?.role === "owner" && (
         <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
