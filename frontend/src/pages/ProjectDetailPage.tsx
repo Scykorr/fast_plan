@@ -34,6 +34,7 @@ import {
 import { CharterEditor } from "../components/projects/CharterEditor";
 import { GanttChart } from "../components/projects/GanttChart";
 import { PertDiagram } from "../components/projects/PertDiagram";
+import { ProjectMembersPanel } from "../components/projects/ProjectMembersPanel";
 import { ProjectShareLinksPanel } from "../components/projects/ProjectShareLinksPanel";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { RiskRegister } from "../components/projects/RiskRegister";
@@ -788,6 +789,8 @@ export function ProjectDetailPage() {
           )}
 
           <ProjectShareLinksPanel projectId={id} />
+
+          <ProjectMembersPanel projectId={id} />
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-4">
             <span className="text-sm font-medium text-text-muted">WBS:</span>

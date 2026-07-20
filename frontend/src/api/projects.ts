@@ -277,6 +277,15 @@ export type ShareLink = {
   url_path?: string;
 };
 
+export type ProjectMember = {
+  id: number;
+  user_id: number;
+  email: string;
+  username: string;
+  role: "manager" | "contributor" | "viewer";
+  created_at: string;
+};
+
 export type WorkItemComment = {
   id: number;
   kind: "comment" | "decision";
@@ -569,6 +578,23 @@ export function createProjectsApi() {
 
     revokeShareLink: (projectId: number, linkId: number) =>
       request<void>(`/projects/${projectId}/share-links/${linkId}/`, {
+        method: "DELETE",
+      }),
+
+    getProjectMembers: (projectId: number) =>
+      request<ProjectMember[]>(`/projects/${projectId}/members/`, {}),
+
+    addProjectMember: (
+      projectId: number,
+      body: { user_id: number; role: ProjectMember["role"] },
+    ) =>
+      request<ProjectMember>(`/projects/${projectId}/members/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    removeProjectMember: (projectId: number, memberId: number) =>
+      request<void>(`/projects/${projectId}/members/${memberId}/`, {
         method: "DELETE",
       }),
   };

@@ -15,6 +15,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Per-project roles UI** — панель «Участники проекта» на Project Overview (добавление, смена роли, удаление)
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
