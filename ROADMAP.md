@@ -31,6 +31,7 @@
 | 2026-07-20 | Релиз **v0.11.0** |
 | 2026-07-20 | **Staging checklist** (`STAGING.md`), extended health, AI WBS/schedule drafts, per-project AI prompts |
 | 2026-07-20 | **AI WBS refine** в диалоге + `scripts/staging-smoke-check.mjs` |
+| 2026-07-20 | **Ollama LLM** для AI-черновиков + CI job `staging-smoke` (docker-compose) |
 
 ---
 
@@ -93,18 +94,18 @@ _Выполнено (2026-07-20 / v0.9.0–v0.11.0)._
 
 ## Как выбирать следующий спринт
 
-_Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-project prompts, WBS refine в диалоге, smoke script._
+_Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-project prompts, WBS refine, smoke script, Ollama LLM, CI staging-smoke._
 
 Рекомендуемый порядок после v0.11.0:
 
 1. ~~**MS Project XML import**~~ — отложено до появления образца `.mpp`/XML.
-2. ~~**Staging checklist**~~ — [`STAGING.md`](STAGING.md) + `GET /api/health/?extended=1` + `scripts/staging-smoke-check.mjs`.
-3. ~~**Расширение AI**~~ — WBS/schedule drafts, `Project.ai_prompts`, итеративное уточнение в диалоге.
+2. ~~**Ollama / локальный LLM**~~ — `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, приоритет после OpenAI.
+3. ~~**Staging smoke в CI**~~ — job `staging-smoke` + `ensure_smoke_fixtures`.
 
 Следующие кандидаты:
 
 1. **MS Project XML import** — при появлении подтверждённого формата/образца.
-2. **Ollama / локальный LLM** — бесплатная альтернатива OpenAI для AI-черновиков.
-3. **Staging smoke в CI** — job с docker-compose и полным прогоном smoke-check.
+2. **Ollama в docker-compose** — опциональный сервис `ollama` для dev/staging.
+3. **E2E Playwright** — браузерный smoke (login, PWA install, SSE toast).
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

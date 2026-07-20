@@ -70,3 +70,63 @@ jobs:
 
       - name: Staging smoke-check (offline)
         run: node scripts/staging-smoke-check.mjs --offline
+
+  staging-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Create CI .env
+        run: |
+          cat > .env <<'EOF'
+          DJANGO_SECRET_KEY=ci-smoke-secret-key-at-least-32-characters-long
+          POSTGRES_PASSWORD=ci-postgres-password-strong
+          POSTGRES_DB=fast_plan
+          POSTGRES_USER=fast_plan
+          DJANGO_DEBUG=false
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+          CORS_ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+          CSRF_TRUSTED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+          DJANGO_SECURE_SSL_REDIRECT=false
+          FRONTEND_BASE_URL=http://localhost:8080
+          EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+          REDIS_URL=redis://redis:6379/1
+          CELERY_BROKER_URL=redis://redis:6379/0
+          CELERY_RESULT_BACKEND=redis://redis:6379/0
+          CELERY_TASK_ALWAYS_EAGER=false
+          EOF
+
+      - name: Start docker compose stack
+        run: docker compose up -d --build db redis backend frontend
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/api/health/; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose logs backend
+          exit 1
+
+      - name: Seed fixtures and run smoke-check
+        run: |
+          FIXTURES=$(docker compose exec -T backend python manage.py ensure_smoke_fixtures --json)
+          echo "$FIXTURES"
+          export STAGING_BASE_URL=http://127.0.0.1:8000
+          export STAGING_FRONTEND_URL=http://127.0.0.1:8080
+          export STAGING_EMAIL=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['email'])")
+          export STAGING_PASSWORD=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")
+          export STAGING_WORKSPACE_ID=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['workspace_id'])")
+          export STAGING_PROJECT_ID=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['project_id'])")
+          export STAGING_SHARE_TOKEN=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['share_token'])")
+          node scripts/staging-smoke-check.mjs
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v

@@ -213,8 +213,8 @@ export function ProjectAIDraftButton({
               <div>
                 <h3 className="text-lg font-semibold text-text">{label}</h3>
                 <p className="mt-1 text-sm text-text-muted">
-                  OpenAI при наличии ключа, иначе эвристический черновик.
-                  Промпт сохраняется для проекта.
+                  OpenAI или Ollama (локально, бесплатно) при наличии настроек,
+                  иначе эвристический черновик. Промпт сохраняется для проекта.
                 </p>
               </div>
               <button
@@ -254,7 +254,12 @@ export function ProjectAIDraftButton({
               <div className="mt-4 space-y-3">
                 {source && (
                   <p className="text-xs text-text-muted">
-                    Источник: {source === "openai" ? "OpenAI" : "эвристика"}
+                    Источник:{" "}
+                    {source === "openai"
+                      ? "OpenAI"
+                      : source === "ollama"
+                        ? "Ollama"
+                        : "эвристика"}
                   </p>
                 )}
 

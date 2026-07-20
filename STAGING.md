@@ -19,18 +19,23 @@
 node scripts/staging-smoke-check.mjs --offline          # только sync VERSION
 STAGING_BASE_URL=https://staging.example.com node scripts/staging-smoke-check.mjs
 
-# С auth / PWA / guest share (опционально):
-STAGING_BASE_URL=https://staging.example.com \
-STAGING_FRONTEND_URL=https://staging.example.com \
-STAGING_EMAIL=owner@example.com \
-STAGING_PASSWORD=secret \
-STAGING_PROJECT_ID=1 \
-STAGING_SHARE_TOKEN=abc123 \
-node scripts/staging-smoke-check.mjs
-
-curl -s https://staging.example.com/api/health/ | jq
-curl -s "https://staging.example.com/api/health/?extended=1" | jq
+# CI: job staging-smoke поднимает docker-compose и прогоняет полный набор
+# Локально после docker compose up:
+docker compose exec backend python manage.py ensure_smoke_fixtures --json
 ```
+
+### Ollama (локальный LLM для AI-черновиков)
+
+```bash
+# В .env backend (приоритет ниже OpenAI):
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=llama3.2
+
+# Убедитесь, что модель загружена:
+ollama pull llama3.2
+```
+
+В UI «AI-черновик» источник отображается как **Ollama**; без OpenAI/Ollama используется встроенная эвристика.
 
 - [ ] `node scripts/staging-smoke-check.mjs` проходит без ошибок (warnings допустимы)
 

@@ -105,6 +105,52 @@ def _call_openai(system: str, user: str) -> dict | None:
         return None
 
 
+def _ollama_enabled() -> bool:
+    return bool(os.environ.get("OLLAMA_BASE_URL", "").strip())
+
+
+def _call_ollama(system: str, user: str) -> dict | None:
+    if not _ollama_enabled():
+        return None
+    base = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    model = os.environ.get("OLLAMA_MODEL", "llama3.2")
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "format": "json",
+        "stream": False,
+    }
+    request = urllib.request.Request(
+        f"{base}/api/chat",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            body = json.loads(response.read().decode())
+        content = body["message"]["content"]
+        return json.loads(content)
+    except (urllib.error.URLError, TimeoutError, KeyError, json.JSONDecodeError, TypeError):
+        logger.exception("Ollama draft request failed")
+        return None
+
+
+def _call_ai_json(system: str, user: str) -> tuple[dict | None, str | None]:
+    if os.environ.get("OPENAI_API_KEY", "").strip():
+        result = _call_openai(system, user)
+        if result is not None:
+            return result, "openai"
+    if _ollama_enabled():
+        result = _call_ollama(system, user)
+        if result is not None:
+            return result, "ollama"
+    return None, None
+
+
 def _heuristic_wbs(project) -> dict:
     root = project.wbs_nodes.filter(parent__isnull=True).order_by("id").first()
     root_code = root.code if root else "1"
@@ -309,7 +355,7 @@ def refine_wbs_draft(
         {"nodes": nodes, "dependencies": dependencies},
         ensure_ascii=False,
     )
-    ai = _call_openai(
+    ai, ai_source = _call_ai_json(
         "You refine an existing project WBS draft. Return JSON with keys "
         '"nodes" (array of {code,title,node_type,parent_code,duration_days,start_date,end_date}) '
         'and "dependencies" (array of {predecessor_code,successor_code,dependency_type,lag_days}). '
@@ -319,7 +365,7 @@ def refine_wbs_draft(
     if isinstance(ai, dict) and isinstance(ai.get("nodes"), list) and ai["nodes"]:
         return {
             "target": "wbs",
-            "source": "openai",
+            "source": ai_source or "heuristic",
             "nodes": ai.get("nodes") or [],
             "dependencies": ai.get("dependencies") or [],
             "refinement": refinement,
@@ -343,7 +389,7 @@ def draft_project_content(project, *, target: str, prompt: str = "") -> dict:
         f"Extra prompt: {prompt}"
     )
     if target == "risks":
-        ai = _call_openai(
+        ai, ai_source = _call_ai_json(
             "You are a project risk analyst. Return JSON {\"risks\":[{"
             "\"title\",\"description\",\"probability\",\"impact\",\"mitigation\",\"status\"}]}. "
             "probability/impact are 1-5 integers. status is open.",
@@ -352,12 +398,12 @@ def draft_project_content(project, *, target: str, prompt: str = "") -> dict:
         risks = (ai or {}).get("risks") if isinstance(ai, dict) else None
         return {
             "target": "risks",
-            "source": "openai" if risks else "heuristic",
+            "source": ai_source or "heuristic",
             "risks": risks or _heuristic_risks(project),
         }
 
     if target == "charter":
-        ai = _call_openai(
+        ai, ai_source = _call_ai_json(
             "You are a PMO assistant. Return JSON with keys "
             "goals, success_criteria, constraints, assumptions as Russian strings.",
             context,
@@ -365,7 +411,7 @@ def draft_project_content(project, *, target: str, prompt: str = "") -> dict:
         if isinstance(ai, dict) and {"goals", "success_criteria", "constraints", "assumptions"} <= set(
             ai
         ):
-            return {"target": "charter", "source": "openai", "charter": ai}
+            return {"target": "charter", "source": ai_source or "heuristic", "charter": ai}
         return {
             "target": "charter",
             "source": "heuristic",
@@ -373,7 +419,7 @@ def draft_project_content(project, *, target: str, prompt: str = "") -> dict:
         }
 
     if target == "wbs":
-        ai = _call_openai(
+        ai, ai_source = _call_ai_json(
             "You are a project planner. Return JSON with keys "
             '"nodes" (array of {code,title,node_type,parent_code,duration_days,start_date,end_date}) '
             'and "dependencies" (array of {predecessor_code,successor_code,dependency_type,lag_days}). '
@@ -384,7 +430,7 @@ def draft_project_content(project, *, target: str, prompt: str = "") -> dict:
         if isinstance(ai, dict) and isinstance(ai.get("nodes"), list):
             return {
                 "target": "wbs",
-                "source": "openai",
+                "source": ai_source or "heuristic",
                 "nodes": ai.get("nodes") or [],
                 "dependencies": ai.get("dependencies") or [],
             }

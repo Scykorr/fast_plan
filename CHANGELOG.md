@@ -23,6 +23,9 @@
 - **Per-project AI prompts** — поле `Project.ai_prompts`, автосохранение промпта при генерации, префилл в UI
 - **Итеративное уточнение WBS** — `refinement` + `current_draft` в ai-draft API, кнопка «Уточнить черновик» в диалоге
 - **Staging smoke script** — `node scripts/staging-smoke-check.mjs` (health, extended checks, optional auth/PWA/share)
+- **Ollama LLM** — локальные AI-черновики через `OLLAMA_BASE_URL` / `OLLAMA_MODEL` (приоритет ниже OpenAI)
+- **CI staging smoke** — job `staging-smoke` поднимает docker-compose и прогоняет полный smoke-check
+- **Smoke fixtures** — `python manage.py ensure_smoke_fixtures --json` для CI/staging
 
 ### Planned
 
