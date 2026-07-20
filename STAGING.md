@@ -27,12 +27,16 @@ docker compose exec backend python manage.py ensure_smoke_fixtures --json
 ### Ollama (локальный LLM для AI-черновиков)
 
 ```bash
-# В .env backend (приоритет ниже OpenAI):
+# Вариант A — Ollama на хосте
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=llama3.2
-
-# Убедитесь, что модель загружена:
 ollama pull llama3.2
+
+# Вариант B — Docker Compose profile `ai`
+# В .env:
+# OLLAMA_BASE_URL=http://ollama:11434
+# OLLAMA_MODEL=llama3.2
+docker compose --profile ai up -d ollama ollama-init backend
 ```
 
 В UI «AI-черновик» источник отображается как **Ollama**; без OpenAI/Ollama используется встроенная эвристика.
@@ -70,6 +74,27 @@ ollama pull llama3.2
 - [ ] На мобильном/Chrome: «Установить приложение» доступно (standalone)
 - [ ] Offline: shell открывается без сети (навигация SPA)
 - [ ] После деплоя новой версии появляется toast «Доступна новая версия» → **Обновить** перезагружает SW
+
+## E2E Playwright (login / PWA / SSE)
+
+```bash
+# Поднять стек и фикстуры
+docker compose up -d --build db redis backend frontend
+FIXTURES=$(docker compose exec -T backend python manage.py ensure_smoke_fixtures --json)
+
+cd e2e && npm ci
+npx playwright install chromium
+E2E_BASE_URL=http://127.0.0.1:8080 \
+E2E_EMAIL=$(echo "$FIXTURES" | python -c "import sys,json; print(json.load(sys.stdin)['email'])") \
+E2E_PASSWORD=$(echo "$FIXTURES" | python -c "import sys,json; print(json.load(sys.stdin)['password'])") \
+E2E_WORKSPACE_ID=$(echo "$FIXTURES" | python -c "import sys,json; print(json.load(sys.stdin)['workspace_id'])") \
+E2E_PROJECT_ID=$(echo "$FIXTURES" | python -c "import sys,json; print(json.load(sys.stdin)['project_id'])") \
+npm test
+```
+
+CI: job `e2e` в `.github/workflows/ci.yml` (login, manifest/SW, SSE toast smoke).
+
+- [ ] `npm test` в `e2e/` проходит против staging или локального compose
 
 ## Smoke после деплоя
 

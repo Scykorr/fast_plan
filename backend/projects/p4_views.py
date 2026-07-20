@@ -159,6 +159,8 @@ class ProjectShareLinkListCreateView(WorkspaceMixin, APIView):
                     "expires_at": link.expires_at,
                     "last_accessed_at": link.last_accessed_at,
                     "is_active": link.is_active,
+                    "allow_chat": link.allow_chat,
+                    "chat_can_post": link.chat_can_post,
                 }
                 for link in links
             ]
@@ -178,6 +180,8 @@ class ProjectShareLinkListCreateView(WorkspaceMixin, APIView):
             label=str(request.data.get("label", "")).strip()[:100],
             created_by=request.user,
             expires_at=expires_at,
+            allow_chat=bool(request.data.get("allow_chat", False)),
+            chat_can_post=bool(request.data.get("chat_can_post", False)),
         )
         log_audit(
             project.workspace,
@@ -195,6 +199,8 @@ class ProjectShareLinkListCreateView(WorkspaceMixin, APIView):
                 "created_at": link.created_at,
                 "expires_at": link.expires_at,
                 "is_active": True,
+                "allow_chat": link.allow_chat,
+                "chat_can_post": link.chat_can_post,
                 "url_path": f"/share/{link.token}",
             },
             status=status.HTTP_201_CREATED,
@@ -231,6 +237,8 @@ class PublicStatusReportView(APIView):
             "label": link.label,
             "project_name": link.project.name,
             "workspace_name": link.project.workspace.name,
+            "allow_chat": link.allow_chat,
+            "chat_can_post": link.chat_can_post,
         }
         return Response(report)
 

@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { fetchPublicStatusReport } from "../api/projects";
 import type { ProjectStatusReport } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { GuestChatPanel } from "../components/chats/GuestChatPanel";
 import { StatusReportDigest } from "../components/projects/StatusReportDigest";
 
 export function ShareStatusPage() {
@@ -67,12 +68,16 @@ export function ShareStatusPage() {
             <p className="mt-1 text-sm text-text-muted">{report.share.label}</p>
           )}
           <p className="mt-2 text-xs text-text-muted">
-            Гостевой просмотр · только чтение
+            Гостевой просмотр
+            {report.share?.allow_chat ? " · чат доступен" : " · только чтение"}
           </p>
         </header>
         <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
           <StatusReportDigest report={report} readOnly />
         </div>
+        {token && report.share?.allow_chat && (
+          <GuestChatPanel token={token} canPost={Boolean(report.share.chat_can_post)} />
+        )}
       </div>
     </div>
   );

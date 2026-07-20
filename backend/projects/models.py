@@ -421,6 +421,8 @@ class ProjectShareLink(models.Model):
     expires_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
     last_accessed_at = models.DateTimeField(null=True, blank=True)
+    allow_chat = models.BooleanField(default=False)
+    chat_can_post = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "audit",
     "attachments",
     "timelog",
+    "chats",
 ]
 
 MIDDLEWARE = [
@@ -281,6 +282,13 @@ CELERY_BEAT_SCHEDULE = {
     "run-reminders-hourly": {
         "task": "notifications.run_reminders",
         "schedule": float(os.environ.get("REMINDER_INTERVAL_SECONDS", "3600")),
+    },
+    "archive-disabled-chats-daily": {
+        "task": "chats.archive_disabled_rooms",
+        "schedule": float(os.environ.get("CHAT_ARCHIVE_INTERVAL_SECONDS", str(24 * 3600))),
+        "kwargs": {
+            "older_than_days": int(os.environ.get("CHAT_ARCHIVE_AFTER_DAYS", "30")),
+        },
     },
 }
 

@@ -37,6 +37,7 @@ import { PertDiagram } from "../components/projects/PertDiagram";
 import { ProjectAIDraftButton } from "../components/projects/ProjectAIDraftButton";
 import { ProjectMembersPanel } from "../components/projects/ProjectMembersPanel";
 import { ProjectShareLinksPanel } from "../components/projects/ProjectShareLinksPanel";
+import { ChatPanel } from "../components/chats/ChatPanel";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
@@ -71,6 +72,7 @@ type Tab =
   | "pert"
   | "kanban"
   | "calendar"
+  | "chat"
   | "risks"
   | "stakeholders"
   | "baseline"
@@ -83,6 +85,7 @@ const TABS: Tab[] = [
   "pert",
   "kanban",
   "calendar",
+  "chat",
   "risks",
   "stakeholders",
   "baseline",
@@ -759,6 +762,7 @@ export function ProjectDetailPage() {
     { id: "pert", label: "PERT" },
     { id: "kanban", label: "Kanban" },
     { id: "calendar", label: "Календарь" },
+    { id: "chat", label: "Чат" },
     { id: "risks", label: "Риски" },
     { id: "stakeholders", label: "Стейкхолдеры" },
     { id: "baseline", label: "Baseline" },
@@ -1136,6 +1140,10 @@ export function ProjectDetailPage() {
 
       {tab === "calendar" && isAuthenticated && (
         <ProjectCalendar projectId={project.id} />
+      )}
+
+      {tab === "chat" && isAuthenticated && (
+        <ChatPanel scope="project" projectId={id} />
       )}
 
       {tab === "risks" && (

@@ -13,6 +13,7 @@ class Notification(models.Model):
         INVITE = "invite", "Invite"
         COMMENT = "comment", "Comment"
         MENTION = "mention", "Mention"
+        CHAT = "chat", "Chat"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -26,6 +26,14 @@
 - **Ollama LLM** — локальные AI-черновики через `OLLAMA_BASE_URL` / `OLLAMA_MODEL` (приоритет ниже OpenAI)
 - **CI staging smoke** — job `staging-smoke` поднимает docker-compose и прогоняет полный smoke-check
 - **Smoke fixtures** — `python manage.py ensure_smoke_fixtures --json` для CI/staging
+- **Blue/gray theme** — светлая палитра blue→white и тёмная soft-gray вместо terracotta; быстрый переключатель темы в шапке
+- **System theme** — режим «Как в системе» с live-слушателем `prefers-color-scheme`
+- **Auth hero gradient** — мягкий градиент синий→белый (и dark-вариант) на login/register и смежных auth-страницах
+- **Light calendar contrast** — дни недели и даты читаемые; фон страницы чуть сильнее tinted blue, заголовок сетки на `cream`
+- **P5 Чаты** — project/workspace chat rooms, модерация (open/disabled/announcements/mute), сообщения с вложениями, пересылка, вкладка «Чат» на проекте и чат портфеля, SSE `chat.message` + уведомления
+- **Chat extensions** — DM 1:1, ответы (reply_to), реакции, голосовые, гостевой чат через share-link (`allow_chat` / `chat_can_post`), edit/delete модератором, авто-архивация disabled-чатов (Celery beat)
+- **Ollama в docker-compose** — опциональный profile `ai` (`ollama` + `ollama-init` pull модели); см. `STAGING.md` / `.env.example`
+- **E2E Playwright** — пакет `e2e/` (login, PWA manifest/SW, SSE toast smoke) + CI job `e2e`
 
 ### Planned
 

@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { parseApiError } from "../api/errors";
 import type { WorkspaceDashboard } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { ChatPanel } from "../components/chats/ChatPanel";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useLocale } from "../context/LocaleContext";
+import { useAuth } from "../context/AuthContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function PortfolioPage() {
   const workspaceApi = useWorkspaceApi();
   const { workspaceEpoch, activeWorkspace } = useWorkspace();
+  const { isAuthenticated } = useAuth();
   const { formatMoney, currency, baseCurrency } = useLocale();
   const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
   const [error, setError] = useState("");
@@ -128,6 +131,17 @@ export function PortfolioPage() {
               </tbody>
             </table>
           </div>
+
+          {isAuthenticated && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-text">Чат портфеля</h2>
+              <p className="text-sm text-text-muted">
+                Общение участников workspace. Руководитель может выключить чат,
+                включить режим оповещений или запретить писать отдельным людям.
+              </p>
+              <ChatPanel scope="workspace" />
+            </div>
+          )}
         </>
       )}
     </div>

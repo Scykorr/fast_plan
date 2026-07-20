@@ -1,0 +1,1 @@
+# Chats app package

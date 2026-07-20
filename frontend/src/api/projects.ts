@@ -225,6 +225,8 @@ export type ProjectStatusReport = {
     label: string;
     project_name: string;
     workspace_name: string;
+    allow_chat?: boolean;
+    chat_can_post?: boolean;
   };
 };
 
@@ -275,6 +277,8 @@ export type ShareLink = {
   expires_at: string | null;
   last_accessed_at: string | null;
   is_active: boolean;
+  allow_chat?: boolean;
+  chat_can_post?: boolean;
   url_path?: string;
 };
 
@@ -660,7 +664,12 @@ export function createProjectsApi() {
 
     createShareLink: (
       projectId: number,
-      body: { label?: string; expires_at?: string },
+      body: {
+        label?: string;
+        expires_at?: string;
+        allow_chat?: boolean;
+        chat_can_post?: boolean;
+      },
     ) =>
       request<ShareLink>(`/projects/${projectId}/share-links/`, {
         method: "POST",

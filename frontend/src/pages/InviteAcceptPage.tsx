@@ -35,7 +35,7 @@ export function InviteAcceptPage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-cream">
+      <div className="flex min-h-screen items-center justify-center auth-hero">
         <p className="text-text-muted">Загрузка...</p>
       </div>
     );
@@ -44,7 +44,7 @@ export function InviteAcceptPage() {
   if (!user) {
     const next = `/invite/${token ?? ""}`;
     return (
-      <div className="flex min-h-screen items-center justify-center bg-cream px-4">
+      <div className="flex min-h-screen items-center justify-center auth-hero px-4">
         <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-sm">
           <h1 className="text-2xl font-bold text-text">Приглашение в workspace</h1>
           <p className="mt-3 text-sm text-text-muted">
@@ -71,7 +71,7 @@ export function InviteAcceptPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream px-4">
+    <div className="flex min-h-screen items-center justify-center auth-hero px-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-text">Принятие приглашения</h1>
         {error && (

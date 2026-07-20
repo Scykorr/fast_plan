@@ -25,7 +25,7 @@ jobs:
         run: pip install -r ../requirements.txt
 
       - name: Run tests
-        run: pytest --cov=accounts --cov=workspaces --cov=kanban --cov=birthdays --cov=projects --cov=finance --cov=tracking --cov=notifications --cov-report=term-missing --cov-fail-under=80
+        run: pytest --cov=accounts --cov=workspaces --cov=kanban --cov=birthdays --cov=projects --cov=finance --cov=tracking --cov=notifications --cov=chats --cov-report=term-missing --cov-fail-under=80
 
   frontend:
     runs-on: ubuntu-latest
@@ -126,6 +126,85 @@ jobs:
           export STAGING_PROJECT_ID=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['project_id'])")
           export STAGING_SHARE_TOKEN=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['share_token'])")
           node scripts/staging-smoke-check.mjs
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: []
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Create CI .env
+        run: |
+          cat > .env <<'EOF'
+          DJANGO_SECRET_KEY=ci-e2e-secret-key-at-least-32-characters-long
+          POSTGRES_PASSWORD=ci-postgres-password-strong
+          POSTGRES_DB=fast_plan
+          POSTGRES_USER=fast_plan
+          DJANGO_DEBUG=false
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+          CORS_ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+          CSRF_TRUSTED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+          DJANGO_SECURE_SSL_REDIRECT=false
+          FRONTEND_BASE_URL=http://localhost:8080
+          EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+          REDIS_URL=redis://redis:6379/1
+          CELERY_BROKER_URL=redis://redis:6379/0
+          CELERY_RESULT_BACKEND=redis://redis:6379/0
+          CELERY_TASK_ALWAYS_EAGER=false
+          EOF
+
+      - name: Start docker compose stack
+        run: docker compose up -d --build db redis backend frontend
+
+      - name: Wait for frontend and API
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/api/health/ && curl -sf http://127.0.0.1:8080/; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose logs backend frontend
+          exit 1
+
+      - name: Seed smoke fixtures
+        id: fixtures
+        run: |
+          FIXTURES=$(docker compose exec -T backend python manage.py ensure_smoke_fixtures --json)
+          echo "$FIXTURES"
+          {
+            echo "email=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['email'])")"
+            echo "password=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")"
+            echo "workspace_id=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['workspace_id'])")"
+            echo "project_id=$(echo "$FIXTURES" | python3 -c "import sys,json; print(json.load(sys.stdin)['project_id'])")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Run E2E tests
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+          E2E_EMAIL: ${{ steps.fixtures.outputs.email }}
+          E2E_PASSWORD: ${{ steps.fixtures.outputs.password }}
+          E2E_WORKSPACE_ID: ${{ steps.fixtures.outputs.workspace_id }}
+          E2E_PROJECT_ID: ${{ steps.fixtures.outputs.project_id }}
+          CI: "true"
+        run: npm test
 
       - name: Tear down stack
         if: always()

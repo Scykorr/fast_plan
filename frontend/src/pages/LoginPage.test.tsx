@@ -23,7 +23,7 @@ describe("LoginPage", () => {
 });
 
 describe("theme", () => {
-  it("defines warm cream background on body", () => {
+  it("defines cream page background on body", () => {
     const styles = getComputedStyle(document.body);
     expect(styles.backgroundColor).toBeTruthy();
   });

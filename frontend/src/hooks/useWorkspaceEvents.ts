@@ -4,7 +4,11 @@ import { useEffect, useRef } from "react";
  * Realtime workspace event types published by the backend (see
  * `workspaces/events.py` and callers of `publish_event`).
  */
-export type WorkspaceEventType = "wbs.updated" | "card.moved" | "comment.created";
+export type WorkspaceEventType =
+  | "wbs.updated"
+  | "card.moved"
+  | "comment.created"
+  | "chat.message";
 
 export type WorkspaceEventHandler = (
   type: WorkspaceEventType,
@@ -15,6 +19,7 @@ const EVENT_TYPES: WorkspaceEventType[] = [
   "wbs.updated",
   "card.moved",
   "comment.created",
+  "chat.message",
 ];
 
 /**

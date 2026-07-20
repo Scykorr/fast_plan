@@ -16,8 +16,8 @@ export default defineConfig({
         short_name: "Fast Plan",
         description: "Управление проектами, задачами и командой",
         lang: "ru",
-        theme_color: "#c45c3e",
-        background_color: "#faf7f2",
+        theme_color: "#3b82f6",
+        background_color: "#e8f0f8",
         display: "standalone",
         start_url: "/",
         icons: [

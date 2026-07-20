@@ -5,27 +5,28 @@
 @theme {
   --font-sans: "DM Sans", system-ui, sans-serif;
 
-  --color-cream: #faf7f2;
+  /* Light: cooler page tint so white cards read against the canvas */
+  --color-cream: #e8f0f8;
   --color-surface: #ffffff;
-  --color-primary: #c45c3e;
-  --color-primary-hover: #a84b32;
-  --color-secondary: #6b8f71;
-  --color-accent: #e8a838;
-  --color-text: #2d2926;
-  --color-text-muted: #6b6560;
-  --color-border: #e8e2d9;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-secondary: #64748b;
+  --color-accent: #0ea5e9;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-border: #c5d4e8;
 }
 
 :root[data-theme="dark"] {
-  --color-cream: #1f1a17;
-  --color-surface: #2b2420;
-  --color-primary: #e47d5d;
-  --color-primary-hover: #f09273;
-  --color-secondary: #8fb596;
-  --color-accent: #e9b85f;
-  --color-text: #f4ece5;
-  --color-text-muted: #b9aaa0;
-  --color-border: #4a3e37;
+  --color-cream: #0f1419;
+  --color-surface: #1a222d;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93c5fd;
+  --color-secondary: #94a3b8;
+  --color-accent: #38bdf8;
+  --color-text: #e8eef5;
+  --color-text-muted: #94a3b8;
+  --color-border: #2d3a4a;
 }
 
 body {
@@ -35,6 +36,24 @@ body {
   background-color: var(--color-cream);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
+}
+
+.auth-hero {
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--color-primary) 22%, var(--color-cream)) 0%,
+    var(--color-cream) 48%,
+    var(--color-surface) 100%
+  );
+}
+
+:root[data-theme="dark"] .auth-hero {
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--color-primary) 16%, var(--color-cream)) 0%,
+    var(--color-cream) 55%,
+    var(--color-surface) 100%
+  );
 }
 
 #root {
@@ -49,8 +68,11 @@ body {
   --fc-button-hover-border-color: var(--color-primary-hover);
   --fc-button-active-bg-color: var(--color-primary-hover);
   --fc-button-active-border-color: var(--color-primary-hover);
-  --fc-today-bg-color: var(--color-cream);
+  --fc-today-bg-color: color-mix(in srgb, var(--color-primary) 12%, var(--color-cream));
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--color-cream);
   font-family: var(--font-sans);
+  color: var(--color-text);
 }
 
 .birthday-calendar .fc .fc-toolbar-title {
@@ -59,9 +81,47 @@ body {
   color: var(--color-text);
 }
 
+.birthday-calendar .fc .fc-col-header-cell {
+  background-color: var(--color-cream);
+  border-color: var(--color-border);
+}
+
+.birthday-calendar .fc .fc-col-header-cell-cushion {
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-transform: lowercase;
+  padding: 0.5rem 0.25rem;
+}
+
+.birthday-calendar .fc .fc-daygrid-day {
+  background-color: var(--color-surface);
+}
+
+.birthday-calendar .fc .fc-daygrid-day.fc-day-other {
+  background-color: color-mix(in srgb, var(--color-cream) 70%, var(--color-surface));
+}
+
 .birthday-calendar .fc .fc-daygrid-day-number {
-  color: var(--color-text-muted);
+  color: var(--color-text);
+  font-weight: 500;
   padding: 6px;
+}
+
+.birthday-calendar .fc .fc-day-other .fc-daygrid-day-number {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.birthday-calendar .fc .fc-day-today .fc-daygrid-day-number {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.birthday-calendar .fc .fc-scrollgrid,
+.birthday-calendar .fc .fc-scrollgrid td,
+.birthday-calendar .fc .fc-scrollgrid th {
+  border-color: var(--color-border);
 }
 
 .birthday-calendar .fc .fc-event {

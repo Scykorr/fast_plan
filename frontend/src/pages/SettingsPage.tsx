@@ -20,7 +20,7 @@ import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function SettingsPage() {
   const { user, updateProfile, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { preference, setTheme } = useTheme();
   const { locale, currency, baseCurrency, setLocale, setCurrency, setFxConfig } = useLocale();
   const { activeWorkspace, workspaces, switchWorkspace, workspaceEpoch } =
     useWorkspace();
@@ -180,22 +180,27 @@ export function SettingsPage() {
       <div className="max-w-lg rounded-xl border border-border bg-surface p-6">
         <h2 className="text-lg font-semibold text-text">Оформление</h2>
         <p className="mt-1 text-sm text-text-muted">
-          Выберите светлую или тёмную тёплую палитру.
+          Светлая — мягкий синий к белому; тёмная — спокойный серый; «Как в
+          системе» следует OS и обновляется при смене предпочтения.
         </p>
-        <div className="mt-4 flex gap-2">
-          {(["light", "dark"] as const).map((value) => (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(["light", "dark", "system"] as const).map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setTheme(value)}
               className={[
                 "rounded-lg border px-4 py-2 text-sm font-medium",
-                theme === value
+                preference === value
                   ? "border-primary bg-primary text-white"
                   : "border-border bg-cream text-text hover:border-primary",
               ].join(" ")}
             >
-              {value === "light" ? "Светлая" : "Тёмная"}
+              {value === "light"
+                ? "Светлая"
+                : value === "dark"
+                  ? "Тёмная"
+                  : "Как в системе"}
             </button>
           ))}
         </div>

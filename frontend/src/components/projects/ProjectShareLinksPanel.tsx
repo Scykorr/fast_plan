@@ -13,6 +13,8 @@ export function ProjectShareLinksPanel({ projectId }: Props) {
   const projectsApi = useProjectsApi();
   const [links, setLinks] = useState<ShareLink[]>([]);
   const [label, setLabel] = useState("");
+  const [allowChat, setAllowChat] = useState(false);
+  const [chatCanPost, setChatCanPost] = useState(false);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -39,8 +41,14 @@ export function ProjectShareLinksPanel({ projectId }: Props) {
     setCreating(true);
     setError("");
     try {
-      await projectsApi.createShareLink(projectId, { label: label.trim() });
+      await projectsApi.createShareLink(projectId, {
+        label: label.trim(),
+        allow_chat: allowChat,
+        chat_can_post: allowChat && chatCanPost,
+      });
       setLabel("");
+      setAllowChat(false);
+      setChatCanPost(false);
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось создать ссылку"));
@@ -76,7 +84,7 @@ export function ProjectShareLinksPanel({ projectId }: Props) {
     <div className="rounded-xl border border-border bg-surface p-5">
       <h2 className="text-lg font-semibold text-text">Гостевые ссылки</h2>
       <p className="mt-1 text-sm text-text-muted">
-        Read-only статус-отчёт для стейкхолдеров без аккаунта
+        Статус-отчёт для стейкхолдеров; опционально — доступ к чату проекта
       </p>
       {error && (
         <div className="mt-3">
@@ -91,6 +99,28 @@ export function ProjectShareLinksPanel({ projectId }: Props) {
           placeholder="Метка (необязательно)"
           className="min-w-[200px] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
         />
+        <label className="flex items-center gap-2 text-sm text-text">
+          <input
+            type="checkbox"
+            checked={allowChat}
+            onChange={(event) => {
+              setAllowChat(event.target.checked);
+              if (!event.target.checked) {
+                setChatCanPost(false);
+              }
+            }}
+          />
+          Чат
+        </label>
+        <label className="flex items-center gap-2 text-sm text-text">
+          <input
+            type="checkbox"
+            checked={chatCanPost}
+            disabled={!allowChat}
+            onChange={(event) => setChatCanPost(event.target.checked)}
+          />
+          Гость может писать
+        </label>
         <button
           type="button"
           disabled={creating}
@@ -112,6 +142,8 @@ export function ProjectShareLinksPanel({ projectId }: Props) {
               <div>
                 <p className="font-medium text-text">
                   {link.label || "Без метки"}
+                  {link.allow_chat ? " · чат" : ""}
+                  {link.chat_can_post ? " · гость пишет" : ""}
                 </p>
                 <p className="text-xs text-text-muted">
                   Создана {new Date(link.created_at).toLocaleString("ru-RU")}

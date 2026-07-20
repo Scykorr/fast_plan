@@ -23,7 +23,7 @@ export function VerifyEmailPage() {
   }, [searchParams]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream px-4">
+    <div className="flex min-h-screen items-center justify-center auth-hero px-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-sm">
         {state === "loading" && (
           <>

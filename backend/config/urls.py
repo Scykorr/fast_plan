@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/", include("audit.urls")),
     path("api/", include("attachments.urls")),
     path("api/", include("timelog.urls")),
+    path("api/", include("chats.urls")),
 ]
 
 if settings.DEBUG:

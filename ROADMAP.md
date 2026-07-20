@@ -32,6 +32,8 @@
 | 2026-07-20 | **Staging checklist** (`STAGING.md`), extended health, AI WBS/schedule drafts, per-project AI prompts |
 | 2026-07-20 | **AI WBS refine** в диалоге + `scripts/staging-smoke-check.mjs` |
 | 2026-07-20 | **Ollama LLM** для AI-черновиков + CI job `staging-smoke` (docker-compose) |
+| 2026-07-20 | **Blue/gray theme** + system preference + auth hero gradient |
+| 2026-07-20 | **P5 Чаты** — project/workspace chat, ACL, модерация, forward, UI |
 
 ---
 
@@ -70,7 +72,7 @@ _Выполнено (2026-07-19 / v0.8.0)._
 - [x] **Интеграции** — исходящие HTTPS webhooks на дедлайны и риски, HMAC-подпись и журнал доставок. **L**
 - [x] **API tokens** для внешних клиентов (machine-to-machine) с scope по workspace. **M**
 - [x] **i18n** — `ru` по умолчанию, каркас `en` для shell-навигации; выбор валюты RUB/USD/EUR. **L**
-- [x] **Тёмная тёплая тема** — рядом с текущей light warm palette. **M**
+- [x] **Тёмная тема** — soft-gray dark + blue→white light (переключатель в шапке и Settings). **M**
 - [x] **PWA / offline-friendly** shell для мобильного просмотра задач и уведомлений. **L**
 - [x] **Burndown / velocity** по переходам между Kanban-колонками. **M**
 - [x] **Шаблоны проектов** — создать проект из типового WBS/трекеров/Kanban-колонок. **M**
@@ -94,18 +96,46 @@ _Выполнено (2026-07-20 / v0.9.0–v0.11.0)._
 
 ## Как выбирать следующий спринт
 
-_Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-project prompts, WBS refine, smoke script, Ollama LLM, CI staging-smoke._
+_Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-project prompts, WBS refine, smoke script, Ollama LLM, CI staging-smoke, Ollama compose profile `ai`, E2E Playwright + CI job `e2e`, P5 чаты._
 
 Рекомендуемый порядок после v0.11.0:
 
 1. ~~**MS Project XML import**~~ — отложено до появления образца `.mpp`/XML.
 2. ~~**Ollama / локальный LLM**~~ — `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, приоритет после OpenAI.
 3. ~~**Staging smoke в CI**~~ — job `staging-smoke` + `ensure_smoke_fixtures`.
+4. ~~**Ollama в docker-compose**~~ — profile `ai`: `ollama` + `ollama-init`.
+5. ~~**E2E Playwright**~~ — `e2e/` + CI job `e2e` (login, PWA, SSE toast).
 
 Следующие кандидаты:
 
 1. **MS Project XML import** — при появлении подтверждённого формата/образца.
-2. **Ollama в docker-compose** — опциональный сервис `ollama` для dev/staging.
-3. **E2E Playwright** — браузерный smoke (login, PWA install, SSE toast).
+2. ~~**Чаты проектов и портфеля**~~ — см. P5 (выполнено).
+3. **Redis pub/sub для SSE** — надёжные realtime-события при multi-worker gunicorn (сейчас E2E soft-fallback).
+
+---
+
+## P5 — Чаты (проекты и портфель)
+
+_Выполнено (2026-07-20)._
+
+- [x] Project chat (`ProjectMember` / workspace fallback) и portfolio = workspace chat
+- [x] Модерация: `open` / `disabled` / `announcements` + персональный mute
+- [x] Сообщения, вложения, пересылка между доступными rooms
+- [x] UI: вкладка «Чат», чат портфеля, SSE `chat.message`, уведомления `chat`
+- [x] API app `chats` — см. [`backend/chats/`](backend/chats/)
+- [x] DM 1:1, треды/ответы, реакции, голосовые
+- [x] Гостевой чат через share-link (`allow_chat`, `chat_can_post`)
+- [x] Редактирование/удаление сообщений (автор + модератор)
+- [x] Авто-архивация отключённых чатов (Celery `chats.archive_disabled_rooms`)
+
+### Цель (архив)
+
+Командная переписка в контексте проекта и на уровне портфеля (workspace).
+
+### Вне scope (остаётся)
+
+- Реакции с кастомными emoji-picker / GIF
+- End-to-end шифрование DM
+- Видеозвонки
 
 При реализации заметной фичи — поднимать версию (PATCH/MINOR) по правилу в `VERSION` / `CHANGELOG.md`.

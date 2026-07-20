@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { NotificationBell } from "./NotificationBell";
 import { FxSettingsLoader } from "./FxSettingsLoader";
 import { PwaUpdatePrompt } from "./PwaUpdatePrompt";
+import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { useAuth } from "../context/AuthContext";
 import { useLocale } from "../context/LocaleContext";
@@ -175,6 +176,7 @@ export function AppLayout() {
           </button>
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
             <GlobalSearchBar />
+            <ThemeToggle />
             <NotificationBell />
             <span className="shrink-0 text-sm font-semibold text-primary">Fast Plan</span>
           </div>
@@ -182,6 +184,7 @@ export function AppLayout() {
 
         <header className="hidden items-center justify-end gap-3 border-b border-border bg-surface px-8 py-3 md:flex">
           <GlobalSearchBar />
+          <ThemeToggle />
           <NotificationBell />
         </header>
 
