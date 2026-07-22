@@ -38,6 +38,8 @@ import { ProjectAIDraftButton } from "../components/projects/ProjectAIDraftButto
 import { ProjectMembersPanel } from "../components/projects/ProjectMembersPanel";
 import { ProjectShareLinksPanel } from "../components/projects/ProjectShareLinksPanel";
 import { ChatPanel } from "../components/chats/ChatPanel";
+import { useCrmApi } from "../hooks/useCrmApi";
+import type { CrmOrganization } from "../api/crm";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
@@ -113,6 +115,7 @@ export function ProjectDetailPage() {
   const kanbanApi = useKanbanApi();
   const trackingApi = useTrackingApi();
   const workspaceApi = useWorkspaceApi();
+  const crmApi = useCrmApi();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const { formatMoney } = useLocale();
 
@@ -141,6 +144,7 @@ export function ProjectDetailPage() {
   const [nodeComments, setNodeComments] = useState<WorkItemComment[]>([]);
   const [trackingMetadata, setTrackingMetadata] = useState<TrackingMetadata | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [clientOrgs, setClientOrgs] = useState<CrmOrganization[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [workspaceReady, setWorkspaceReady] = useState(false);
@@ -902,6 +906,66 @@ export function ProjectDetailPage() {
                     {dashboard.evm.spi ?? "—"} / {dashboard.evm.cpi ?? "—"}
                   </p>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <label className="block text-sm font-medium text-text">
+                  Клиент (компания)
+                  <select
+                    className="mt-1 w-full max-w-md rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                    value={project?.client_organization_id ?? ""}
+                    onChange={(event) => {
+                      const value = event.target.value
+                        ? Number(event.target.value)
+                        : null;
+                      void (async () => {
+                        if (!projectsApi || !project) {
+                          return;
+                        }
+                        try {
+                          if (clientOrgs.length === 0 && crmApi) {
+                            setClientOrgs(await crmApi.listOrganizations());
+                          }
+                          const updated = await projectsApi.patchProject(id, {
+                            client_organization_id: value,
+                          });
+                          setProject(updated);
+                        } catch (err) {
+                          setError(
+                            parseApiError(err, "Не удалось сохранить клиента"),
+                          );
+                        }
+                      })();
+                    }}
+                    onFocus={() => {
+                      if (crmApi && clientOrgs.length === 0) {
+                        void crmApi.listOrganizations().then(setClientOrgs);
+                      }
+                    }}
+                  >
+                    <option value="">Не выбран</option>
+                    {clientOrgs.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                    {project?.client_organization_id &&
+                      !clientOrgs.some(
+                        (org) => org.id === project.client_organization_id,
+                      ) && (
+                        <option value={project.client_organization_id}>
+                          {project.client_organization_name ??
+                            `ORG #${project.client_organization_id}`}
+                        </option>
+                      )}
+                  </select>
+                </label>
+                <p className="mt-1 text-xs text-text-muted">
+                  Справочник компаний — в разделе{" "}
+                  <Link to="/clients" className="text-primary hover:underline">
+                    Клиенты
+                  </Link>
+                </p>
               </div>
 
               {projectFinance && (

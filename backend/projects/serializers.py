@@ -17,6 +17,12 @@ class ProjectListSerializer(serializers.ModelSerializer):
     board_id = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
     custom_values = serializers.SerializerMethodField()
+    client_organization_id = serializers.IntegerField(
+        source="client_organization.id", read_only=True, allow_null=True
+    )
+    client_organization_name = serializers.CharField(
+        source="client_organization.name", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = Project
@@ -38,6 +44,8 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "board_id",
             "custom_values",
             "ai_prompts",
+            "client_organization_id",
+            "client_organization_name",
         )
         read_only_fields = (
             "id",
@@ -47,6 +55,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "progress",
             "board_id",
             "custom_values",
+            "client_organization_name",
         )
 
     def get_wbs_count(self, obj):
@@ -70,6 +79,7 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
     template_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
     tracker_id = serializers.IntegerField(required=False, allow_null=True)
     workflow_status_id = serializers.IntegerField(required=False, allow_null=True)
+    client_organization_id = serializers.IntegerField(required=False, allow_null=True)
     custom_values = serializers.DictField(
         child=serializers.CharField(allow_blank=True),
         required=False,
@@ -90,6 +100,7 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             "custom_values",
             "template_id",
             "ai_prompts",
+            "client_organization_id",
         )
 
     def update(self, instance, validated_data):
@@ -98,6 +109,8 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
         ai_prompts = validated_data.pop("ai_prompts", None)
         tracker_id = validated_data.pop("tracker_id", None)
         workflow_status_id = validated_data.pop("workflow_status_id", None)
+        client_organization_id = validated_data.pop("client_organization_id", None)
+        client_org_provided = "client_organization_id" in self.initial_data
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if tracker_id is not None:
@@ -106,6 +119,20 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             instance.workflow_status_id = workflow_status_id
         if ai_prompts is not None:
             instance.ai_prompts = ai_prompts
+        if client_org_provided:
+            if client_organization_id is None:
+                instance.client_organization = None
+            else:
+                from crm.models import Organization
+
+                org = Organization.objects.filter(
+                    workspace_id=instance.workspace_id, pk=client_organization_id
+                ).first()
+                if org is None:
+                    raise serializers.ValidationError(
+                        {"client_organization_id": "Organization not found."}
+                    )
+                instance.client_organization = org
         instance.save()
         if custom_values is not None:
             save_custom_values(instance, custom_values)

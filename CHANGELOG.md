@@ -38,6 +38,7 @@
 - **DM E2E encryption** — ECDH P-256 identity keys, AES-GCM ciphertext in DM bodies; server stores opaque wraps only
 - **E2E recovery phrase** — 12-word phrase encrypts identity backup (`recovery_blob`) for multi-device sync; UI in Settings
 - **E2E DM media** — attachments and voice encrypted client-side before upload; metadata in ciphertext envelope
+- **P6 Project CRM (start)** — эпик в ROADMAP; P6a: app `crm` (Organization/Person/Activity), страница «Клиенты», `Project.client_organization`
 
 ### Planned
 

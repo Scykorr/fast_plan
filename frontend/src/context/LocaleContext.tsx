@@ -22,6 +22,7 @@ const messages = {
   ru: {
     dashboard: "Дашборд",
     portfolio: "Портфель",
+    clients: "Клиенты",
     projects: "Проекты",
     myTasks: "Мои задачи",
     calendar: "Календарь",
@@ -36,6 +37,7 @@ const messages = {
   en: {
     dashboard: "Dashboard",
     portfolio: "Portfolio",
+    clients: "Clients",
     projects: "Projects",
     myTasks: "My tasks",
     calendar: "Calendar",

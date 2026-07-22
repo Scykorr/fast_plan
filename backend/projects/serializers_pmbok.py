@@ -44,6 +44,8 @@ class RiskWriteSerializer(serializers.ModelSerializer):
 
 
 class StakeholderSerializer(serializers.ModelSerializer):
+    person_id = serializers.IntegerField(source="person.id", read_only=True, allow_null=True)
+
     class Meta:
         model = Stakeholder
         fields = (
@@ -54,15 +56,56 @@ class StakeholderSerializer(serializers.ModelSerializer):
             "influence",
             "contact_email",
             "notes",
+            "person_id",
             "created_at",
         )
-        read_only_fields = ("id", "created_at")
+        read_only_fields = ("id", "created_at", "person_id")
 
 
 class StakeholderWriteSerializer(serializers.ModelSerializer):
+    person_id = serializers.IntegerField(required=False, allow_null=True)
+
     class Meta:
         model = Stakeholder
-        fields = ("name", "role", "interest", "influence", "contact_email", "notes")
+        fields = (
+            "name",
+            "role",
+            "interest",
+            "influence",
+            "contact_email",
+            "notes",
+            "person_id",
+        )
+
+    def create(self, validated_data):
+        person_id = validated_data.pop("person_id", None)
+        stakeholder = super().create(validated_data)
+        if person_id:
+            self._attach_person(stakeholder, person_id)
+        return stakeholder
+
+    def update(self, instance, validated_data):
+        person_id = validated_data.pop("person_id", None)
+        person_provided = "person_id" in self.initial_data
+        stakeholder = super().update(instance, validated_data)
+        if person_provided:
+            if person_id is None:
+                stakeholder.person = None
+                stakeholder.save(update_fields=["person"])
+            else:
+                self._attach_person(stakeholder, person_id)
+        return stakeholder
+
+    def _attach_person(self, stakeholder, person_id):
+        from crm.models import Person
+
+        person = Person.objects.filter(
+            workspace_id=stakeholder.project.workspace_id, pk=person_id
+        ).first()
+        if person is None:
+            raise serializers.ValidationError({"person_id": "Person not found."})
+        stakeholder.person = person
+        stakeholder.save(update_fields=["person"])
 
 
 class ProjectCharterSerializer(serializers.ModelSerializer):

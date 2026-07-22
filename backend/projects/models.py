@@ -50,6 +50,13 @@ class Project(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     ai_prompts = models.JSONField(default=dict, blank=True)
+    client_organization = models.ForeignKey(
+        "crm.Organization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="client_projects",
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -251,6 +258,13 @@ class Stakeholder(models.Model):
     )
     contact_email = models.EmailField(blank=True)
     notes = models.TextField(blank=True)
+    person = models.ForeignKey(
+        "crm.Person",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stakeholder_records",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

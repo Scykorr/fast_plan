@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "attachments",
     "timelog",
     "chats",
+    "crm",
 ]
 
 MIDDLEWARE = [

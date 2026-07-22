@@ -111,6 +111,37 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 1. **MS Project XML import** — при появлении подтверждённого формата/образца.
 2. ~~**Чаты проектов и портфеля**~~ — см. P5 (выполнено).
 3. **Redis pub/sub для SSE** — надёжные realtime-события при multi-worker gunicorn (сейчас E2E soft-fallback).
+4. **P6 Project CRM** — P6a выполнен; далее P6b UX.
+
+---
+
+## P6 — Project CRM
+
+_Цель:_ отношения с клиентами и стейкхолдерами вокруг проектов (не клон Salesforce).  
+_Старт:_ 2026-07-22.
+
+### Позиционирование
+
+- Единый directory людей и компаний (party model)
+- Карточка контакта = timeline + проекты + роли
+- Pipeline сделок — опциональный модуль (позже)
+- Вне scope: marketing automation, dialer, territories
+
+### Фазы
+
+- [x] **P6a Foundation** — `Organization` + `Person` + `Activity`, API, страница «Клиенты», `Project.client_organization`, связь Stakeholder→Person, импорт из birthday Contact. **L**
+- [ ] **P6b Project CRM UX** — матрица power/interest, activity log на проекте, RACI из directory, «давно не контактировали». **M**
+- [ ] **P6c Commercial** — опциональный Deal pipeline, counterparty в Finance. **L**
+- [ ] **P6d Growth** — lead inbox, email sync, AI next-best-action, client portal. **L**
+
+### P6a — критерии готовности
+
+- [x] CRUD организаций и людей в workspace
+- [x] Activity timeline (call / meeting / email / note) на Person/Organization
+- [x] Навигация «Клиенты» + поиск по directory
+- [x] Проект может иметь `client_organization`
+- [x] Stakeholder опционально ссылается на `Person`
+- [x] Команда/миграция переносит birthday `Contact` → `Person` (`sync_crm_legacy` + `POST /api/crm/import-legacy/`)
 
 ---
 

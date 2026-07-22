@@ -15,6 +15,7 @@ import { APP_VERSION } from "../version";
 const navItems = [
   { to: "/", labelKey: "dashboard", end: true },
   { to: "/portfolio", labelKey: "portfolio" },
+  { to: "/clients", labelKey: "clients" },
   { to: "/projects", labelKey: "projects" },
   { to: "/tasks", labelKey: "myTasks" },
   { to: "/capacity", label: "Capacity" },

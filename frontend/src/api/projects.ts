@@ -18,6 +18,8 @@ export type Project = {
   progress: number;
   board_id: number | null;
   ai_prompts?: Record<string, string>;
+  client_organization_id?: number | null;
+  client_organization_name?: string | null;
 };
 
 export type ProjectTemplate = {
@@ -315,6 +317,7 @@ export type ProjectPatchBody = {
   workflow_status_id?: number | null;
   custom_values?: Record<string, string>;
   ai_prompts?: Record<string, string>;
+  client_organization_id?: number | null;
 };
 
 export type AiDraftWbsNode = {
