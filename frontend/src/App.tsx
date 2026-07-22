@@ -13,6 +13,7 @@ import { ClientsPage } from "./pages/ClientsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DealsPage } from "./pages/DealsPage";
 import { FinancePage } from "./pages/FinancePage";
+import { LeadsPage } from "./pages/LeadsPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { KanbanPage } from "./pages/KanbanPage";
@@ -82,6 +83,7 @@ export default function App() {
               <Route path="portfolio" element={<PortfolioPage />} />
               <Route path="clients" element={<ClientsPage />} />
               <Route path="deals" element={<DealsPage />} />
+              <Route path="leads" element={<LeadsPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
               <Route path="tasks" element={<MyTasksPage />} />

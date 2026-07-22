@@ -1,6 +1,6 @@
 from django.urls import path
 
-from crm import deals_views, views
+from crm import deals_views, leads_views, views
 
 urlpatterns = [
     path("crm/organizations/", views.OrganizationListCreateView.as_view(), name="crm-orgs"),
@@ -106,5 +106,26 @@ urlpatterns = [
         "crm/deals/<int:deal_id>/tasks/<int:task_id>/",
         deals_views.DealTaskDetailView.as_view(),
         name="crm-deal-task-detail",
+    ),
+    path("crm/leads/", leads_views.LeadListCreateView.as_view(), name="crm-leads"),
+    path(
+        "crm/leads/import/",
+        leads_views.LeadImportView.as_view(),
+        name="crm-leads-import",
+    ),
+    path(
+        "crm/leads/<int:lead_id>/",
+        leads_views.LeadDetailView.as_view(),
+        name="crm-lead-detail",
+    ),
+    path(
+        "crm/leads/<int:lead_id>/assign/",
+        leads_views.LeadAssignView.as_view(),
+        name="crm-lead-assign",
+    ),
+    path(
+        "crm/leads/<int:lead_id>/convert/",
+        leads_views.LeadConvertView.as_view(),
+        name="crm-lead-convert",
     ),
 ]

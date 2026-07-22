@@ -1,3 +1,21 @@
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCorners,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { parseApiError } from "../api/errors";
@@ -9,8 +27,10 @@ import type {
   CrmPipeline,
   CrmPipelineStage,
 } from "../api/crm";
+import type { Project } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useCrmApi } from "../hooks/useCrmApi";
+import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 
 function money(value: string | number | undefined) {
@@ -18,15 +38,118 @@ function money(value: string | number | undefined) {
   return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
 }
 
+function DealCard({
+  deal,
+  selected,
+  onSelect,
+}: {
+  deal: CrmDeal;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({
+      id: `deal-${deal.id}`,
+      data: { type: "deal", deal },
+    });
+
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      {...attributes}
+      {...listeners}
+      onClick={onSelect}
+      className={`w-full cursor-grab rounded-lg border px-3 py-2 text-left text-sm active:cursor-grabbing ${
+        selected
+          ? "border-primary bg-cream"
+          : "border-border bg-cream/40 hover:border-primary/50"
+      }`}
+    >
+      <p className="font-medium text-text">{deal.title}</p>
+      <p className="text-xs text-text-muted">
+        {money(deal.amount)} · {deal.probability}%
+        {deal.organization_name ? ` · ${deal.organization_name}` : ""}
+        {deal.project_name ? ` · ${deal.project_name}` : ""}
+      </p>
+      {(deal.open_tasks_count ?? 0) > 0 && (
+        <p className="mt-1 text-[10px] text-amber-700 dark:text-amber-300">
+          Задач: {deal.open_tasks_count}
+        </p>
+      )}
+    </button>
+  );
+}
+
+function StageColumn({
+  stage,
+  deals,
+  selectedId,
+  onSelect,
+}: {
+  stage: CrmPipelineStage;
+  deals: CrmDeal[];
+  selectedId: number | null;
+  onSelect: (deal: CrmDeal) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `stage-${stage.id}`,
+    data: { type: "stage", stage },
+  });
+  const ids = deals.map((deal) => `deal-${deal.id}`);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`w-64 shrink-0 rounded-xl border bg-surface ${
+        isOver ? "border-primary" : "border-border"
+      }`}
+    >
+      <div className="border-b border-border px-3 py-2">
+        <p className="text-sm font-semibold text-text">{stage.name}</p>
+        <p className="text-xs text-text-muted">
+          {stage.default_probability}% · {deals.length}
+        </p>
+      </div>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <ul className="max-h-[28rem] space-y-2 overflow-y-auto p-2">
+          {deals.length === 0 && (
+            <li className="px-2 py-6 text-center text-xs text-text-muted">
+              Перетащите сюда
+            </li>
+          )}
+          {deals.map((deal) => (
+            <li key={deal.id}>
+              <DealCard
+                deal={deal}
+                selected={selectedId === deal.id}
+                onSelect={() => onSelect(deal)}
+              />
+            </li>
+          ))}
+        </ul>
+      </SortableContext>
+    </div>
+  );
+}
+
 export function DealsPage() {
   const crmApi = useCrmApi();
+  const projectsApi = useProjectsApi();
   const { workspaceEpoch } = useWorkspace();
   const [pipeline, setPipeline] = useState<CrmPipeline | null>(null);
   const [deals, setDeals] = useState<CrmDeal[]>([]);
   const [orgs, setOrgs] = useState<CrmOrganization[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [forecast, setForecast] = useState<CrmDealForecast | null>(null);
   const [selected, setSelected] = useState<CrmDeal | null>(null);
   const [tasks, setTasks] = useState<CrmDealTask[]>([]);
+  const [activeDeal, setActiveDeal] = useState<CrmDeal | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
@@ -38,6 +161,10 @@ export function DealsPage() {
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDue, setTaskDue] = useState("");
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
   const load = useCallback(async () => {
     if (!crmApi) {
       return;
@@ -45,26 +172,32 @@ export function DealsPage() {
     setLoading(true);
     setError("");
     try {
-      const [pipe, dealRows, orgRows, forecastRow] = await Promise.all([
+      const [pipe, dealRows, orgRows, forecastRow, projectRows] = await Promise.all([
         crmApi.getPipeline(),
         crmApi.listDeals(),
         crmApi.listOrganizations(),
         crmApi.getDealForecast(),
+        projectsApi ? projectsApi.getProjects() : Promise.resolve([]),
       ]);
       setPipeline(pipe);
       setDeals(dealRows);
       setOrgs(orgRows);
       setForecast(forecastRow);
+      setProjects(projectRows);
+      if (selected) {
+        const refreshed = dealRows.find((d) => d.id === selected.id) ?? null;
+        setSelected(refreshed);
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить сделки"));
     } finally {
       setLoading(false);
     }
-  }, [crmApi]);
+  }, [crmApi, projectsApi, selected?.id]);
 
   useEffect(() => {
     void load();
-  }, [load, workspaceEpoch]);
+  }, [crmApi, projectsApi, workspaceEpoch]);
 
   const loadTasks = useCallback(async () => {
     if (!crmApi || !selected) {
@@ -89,6 +222,12 @@ export function DealsPage() {
       list.push(deal);
       map.set(deal.stage, list);
     }
+    for (const [stageId, list] of map) {
+      map.set(
+        stageId,
+        [...list].sort((a, b) => a.position - b.position || a.id - b.id),
+      );
+    }
     return map;
   }, [deals]);
 
@@ -112,18 +251,136 @@ export function DealsPage() {
     }
   };
 
-  const moveDeal = async (deal: CrmDeal, stage: CrmPipelineStage) => {
-    if (!crmApi || deal.stage === stage.id) {
+  const moveDealToStage = async (
+    deal: CrmDeal,
+    stageId: number,
+    position?: number,
+  ) => {
+    if (!crmApi) {
       return;
     }
     try {
-      const updated = await crmApi.moveDeal(deal.id, { stage_id: stage.id });
+      const updated = await crmApi.moveDeal(deal.id, {
+        stage_id: stageId,
+        position,
+      });
       if (selected?.id === deal.id) {
         setSelected(updated);
       }
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось переместить сделку"));
+      await load();
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const deal = event.active.data.current?.deal as CrmDeal | undefined;
+    setActiveDeal(deal ?? null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDeal(null);
+    const { active, over } = event;
+    if (!over || !pipeline) {
+      return;
+    }
+    const deal = active.data.current?.deal as CrmDeal | undefined;
+    if (!deal) {
+      return;
+    }
+
+    let targetStageId: number | null = null;
+    let targetIndex = 0;
+    const overData = over.data.current;
+    if (overData?.type === "stage") {
+      targetStageId = (overData.stage as CrmPipelineStage).id;
+      targetIndex = (dealsByStage.get(targetStageId) ?? []).length;
+    } else if (overData?.type === "deal") {
+      const overDeal = overData.deal as CrmDeal;
+      targetStageId = overDeal.stage;
+      const column = [...(dealsByStage.get(targetStageId) ?? [])];
+      targetIndex = column.findIndex((d) => d.id === overDeal.id);
+      if (targetIndex < 0) targetIndex = column.length;
+    } else if (String(over.id).startsWith("stage-")) {
+      targetStageId = Number(String(over.id).replace("stage-", ""));
+      targetIndex = (dealsByStage.get(targetStageId) ?? []).length;
+    }
+
+    if (!targetStageId) {
+      return;
+    }
+
+    // Optimistic reorder within / across columns
+    const next = deals.map((d) => ({ ...d }));
+    const moving = next.find((d) => d.id === deal.id);
+    if (!moving) {
+      return;
+    }
+    const fromStage = moving.stage;
+    const fromList = next
+      .filter((d) => d.stage === fromStage && d.id !== deal.id)
+      .sort((a, b) => a.position - b.position || a.id - b.id);
+    const toList = next
+      .filter((d) => d.stage === targetStageId && d.id !== deal.id)
+      .sort((a, b) => a.position - b.position || a.id - b.id);
+
+    if (fromStage === targetStageId) {
+      const withMoving = [...fromList];
+      const oldIndex = (dealsByStage.get(fromStage) ?? []).findIndex(
+        (d) => d.id === deal.id,
+      );
+      withMoving.splice(
+        oldIndex < targetIndex ? targetIndex : targetIndex,
+        0,
+        moving,
+      );
+      // simpler: arrayMove on current stage list
+      const stageList = [...(dealsByStage.get(fromStage) ?? [])];
+      const oldIdx = stageList.findIndex((d) => d.id === deal.id);
+      const newIdx = stageList.findIndex((d) => d.id === (overData?.deal as CrmDeal)?.id);
+      const reordered =
+        overData?.type === "deal" && newIdx >= 0
+          ? arrayMove(stageList, oldIdx, newIdx)
+          : stageList;
+      const optimistic = deals.map((d) => {
+        if (d.stage !== fromStage) return d;
+        const idx = reordered.findIndex((x) => x.id === d.id);
+        return idx >= 0 ? { ...d, position: idx } : d;
+      });
+      setDeals(optimistic);
+      await moveDealToStage(deal, targetStageId, newIdx >= 0 ? newIdx : oldIdx);
+      return;
+    }
+
+    moving.stage = targetStageId;
+    const stage = pipeline.stages.find((s) => s.id === targetStageId);
+    if (stage) {
+      moving.probability = stage.default_probability;
+      moving.stage_name = stage.name;
+    }
+    toList.splice(targetIndex, 0, moving);
+    const optimistic = [
+      ...next.filter((d) => d.stage !== fromStage && d.stage !== targetStageId),
+      ...fromList.map((d, idx) => ({ ...d, position: idx })),
+      ...toList.map((d, idx) => ({ ...d, position: idx, stage: targetStageId! })),
+    ];
+    setDeals(optimistic);
+    await moveDealToStage(deal, targetStageId, targetIndex);
+  };
+
+  const linkProject = async (projectId: number | null) => {
+    if (!crmApi || !selected) {
+      return;
+    }
+    try {
+      const updated = await crmApi.patchDeal(selected.id, {
+        project_id: projectId,
+      });
+      setSelected(updated);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось привязать проект"));
     }
   };
 
@@ -167,7 +424,7 @@ export function DealsPage() {
         <div>
           <h1 className="text-2xl font-bold text-text">Сделки</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Воронка продаж · сумма · вероятность · прогноз (P6c)
+            Воронка с DnD · проект · прогноз
           </p>
         </div>
         {forecast && (
@@ -256,73 +513,34 @@ export function DealsPage() {
       {loading || !pipeline ? (
         <p className="text-sm text-text-muted">Загрузка воронки…</p>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {pipeline.stages.map((stage) => {
-            const stageDeals = dealsByStage.get(stage.id) ?? [];
-            return (
-              <div
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={(event) => void handleDragEnd(event)}
+        >
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {pipeline.stages.map((stage) => (
+              <StageColumn
                 key={stage.id}
-                className="w-64 shrink-0 rounded-xl border border-border bg-surface"
-              >
-                <div className="border-b border-border px-3 py-2">
-                  <p className="text-sm font-semibold text-text">{stage.name}</p>
-                  <p className="text-xs text-text-muted">
-                    {stage.default_probability}% · {stageDeals.length}
-                  </p>
-                </div>
-                <ul className="max-h-[28rem] space-y-2 overflow-y-auto p-2">
-                  {stageDeals.length === 0 && (
-                    <li className="px-2 py-4 text-center text-xs text-text-muted">
-                      Пусто
-                    </li>
-                  )}
-                  {stageDeals.map((deal) => (
-                    <li key={deal.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelected(deal)}
-                        className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
-                          selected?.id === deal.id
-                            ? "border-primary bg-cream"
-                            : "border-border bg-cream/40 hover:border-primary/50"
-                        }`}
-                      >
-                        <p className="font-medium text-text">{deal.title}</p>
-                        <p className="text-xs text-text-muted">
-                          {money(deal.amount)} · {deal.probability}%
-                          {deal.organization_name
-                            ? ` · ${deal.organization_name}`
-                            : ""}
-                        </p>
-                        {(deal.open_tasks_count ?? 0) > 0 && (
-                          <p className="mt-1 text-[10px] text-amber-700 dark:text-amber-300">
-                            Задач: {deal.open_tasks_count}
-                          </p>
-                        )}
-                      </button>
-                      <div className="mt-1 flex flex-wrap gap-1 px-1">
-                        {pipeline.stages
-                          .filter((s) => s.id !== stage.id)
-                          .slice(0, 3)
-                          .map((target) => (
-                            <button
-                              key={target.id}
-                              type="button"
-                              onClick={() => void moveDeal(deal, target)}
-                              className="rounded border border-border px-1.5 py-0.5 text-[10px] text-text-muted hover:border-primary"
-                              title={`Переместить в ${target.name}`}
-                            >
-                              → {target.name}
-                            </button>
-                          ))}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                stage={stage}
+                deals={dealsByStage.get(stage.id) ?? []}
+                selectedId={selected?.id ?? null}
+                onSelect={setSelected}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeDeal ? (
+              <div className="w-60 rounded-lg border border-primary bg-cream px-3 py-2 text-sm shadow-lg">
+                <p className="font-medium text-text">{activeDeal.title}</p>
+                <p className="text-xs text-text-muted">
+                  {money(activeDeal.amount)} · {activeDeal.probability}%
+                </p>
               </div>
-            );
-          })}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {selected && (
@@ -339,18 +557,32 @@ export function DealsPage() {
             <select
               value={selected.stage}
               onChange={(event) => {
-                const stage = pipeline?.stages.find(
-                  (s) => s.id === Number(event.target.value),
-                );
-                if (stage) {
-                  void moveDeal(selected, stage);
-                }
+                void moveDealToStage(selected, Number(event.target.value));
               }}
               className="rounded-lg border border-border bg-cream px-2 py-1.5 text-sm"
             >
               {pipeline?.stages.map((stage) => (
                 <option key={stage.id} value={stage.id}>
                   {stage.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-3">
+            <label className="text-xs text-text-muted">Проект</label>
+            <select
+              value={selected.project ?? ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                void linkProject(value ? Number(value) : null);
+              }}
+              className="mt-0.5 block w-full max-w-md rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
+            >
+              <option value="">Без проекта</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
                 </option>
               ))}
             </select>

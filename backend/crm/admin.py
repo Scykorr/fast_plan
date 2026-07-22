@@ -6,6 +6,8 @@ from crm.models import (
     CrmComment,
     Deal,
     DealTask,
+    Lead,
+    LeadAssignmentState,
     Organization,
     OrganizationMembership,
     OrganizationTag,
@@ -33,3 +35,5 @@ admin.site.register(Pipeline)
 admin.site.register(PipelineStage)
 admin.site.register(Deal)
 admin.site.register(DealTask)
+admin.site.register(Lead)
+admin.site.register(LeadAssignmentState)

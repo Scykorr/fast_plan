@@ -209,3 +209,142 @@ def get_or_create_tag(workspace, name: str, color: str = "#3b82f6") -> Tag:
         defaults={"color": color or "#3b82f6"},
     )
     return tag
+
+
+SOURCE_SCORE = {
+    "referral": 25,
+    "partner": 20,
+    "website": 15,
+    "form": 15,
+    "ads": 10,
+    "cold": 5,
+    "other": 5,
+}
+
+
+def compute_lead_score(*, email="", phone="", company_name="", source="") -> int:
+    score = 0
+    if (email or "").strip():
+        score += 20
+    if (phone or "").strip():
+        score += 15
+    if (company_name or "").strip():
+        score += 15
+    src = (source or "").strip().lower()
+    score += SOURCE_SCORE.get(src, 8 if src else 0)
+    return min(100, score)
+
+
+def find_duplicate_leads(workspace, *, email="", phone="", exclude_id=None):
+    from django.db.models import Q
+
+    from crm.models import Lead
+
+    q = Q()
+    email = (email or "").strip()
+    phone = (phone or "").strip()
+    if email:
+        q |= Q(email__iexact=email)
+    if phone:
+        q |= Q(phone=phone)
+    if not q:
+        return Lead.objects.none()
+    qs = Lead.objects.filter(workspace=workspace).filter(q)
+    if exclude_id:
+        qs = qs.exclude(pk=exclude_id)
+    return qs.order_by("id")
+
+
+def sales_assignee_candidates(workspace):
+    from workspaces.models import WorkspaceMember
+
+    members = list(
+        WorkspaceMember.objects.filter(workspace=workspace)
+        .exclude(role=WorkspaceMember.Role.VIEWER)
+        .select_related("user")
+        .order_by("user_id")
+    )
+    preferred = [m for m in members if m.crm_role in ("sales", "sales_lead")]
+    pool = preferred or members
+    return [m.user for m in pool]
+
+
+def assign_lead_round_robin(workspace):
+    from crm.models import LeadAssignmentState
+
+    candidates = sales_assignee_candidates(workspace)
+    if not candidates:
+        return None
+    state, _ = LeadAssignmentState.objects.get_or_create(workspace=workspace)
+    user_ids = [u.id for u in candidates]
+    if state.last_user_id in user_ids:
+        idx = user_ids.index(state.last_user_id)
+        next_user = candidates[(idx + 1) % len(candidates)]
+    else:
+        next_user = candidates[0]
+    state.last_user_id = next_user.id
+    state.save(update_fields=["last_user_id", "updated_at"])
+    return next_user
+
+
+def convert_lead_to_deal(lead, *, title=None, amount=None, owner=None):
+    from decimal import Decimal
+
+    from crm.models import Deal, Organization, Person
+
+    workspace = lead.workspace
+    pipeline = ensure_default_pipeline(workspace)
+    stage = pipeline.stages.order_by("position", "id").first()
+    if stage is None:
+        raise ValueError("Pipeline has no stages.")
+
+    organization = lead.organization
+    if organization is None and lead.company_name.strip():
+        organization, _ = Organization.objects.get_or_create(
+            workspace=workspace,
+            name=lead.company_name.strip(),
+            defaults={},
+        )
+        lead.organization = organization
+
+    person = lead.person
+    if person is None and (lead.full_name or lead.email):
+        person = None
+        if lead.email:
+            person = Person.objects.filter(
+                workspace=workspace, email__iexact=lead.email
+            ).first()
+        if person is None:
+            person = Person.objects.create(
+                workspace=workspace,
+                full_name=lead.full_name or lead.email or "Lead",
+                email=lead.email or "",
+                phone=lead.phone or "",
+                owner=lead.assigned_to,
+            )
+        lead.person = person
+
+    deal = Deal.objects.create(
+        workspace=workspace,
+        pipeline=pipeline,
+        stage=stage,
+        title=title or f"Сделка: {lead.full_name or lead.company_name or 'Lead'}",
+        amount=amount if amount is not None else Decimal("0"),
+        probability=stage.default_probability,
+        organization=organization,
+        person=person,
+        owner=owner or lead.assigned_to,
+        notes=lead.notes or "",
+    )
+    lead.deal = deal
+    lead.status = lead.Status.CONVERTED
+    lead.save(
+        update_fields=[
+            "deal",
+            "status",
+            "organization",
+            "person",
+            "updated_at",
+        ]
+    )
+    return deal

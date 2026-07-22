@@ -7,6 +7,7 @@ from crm.models import (
     CrmComment,
     Deal,
     DealTask,
+    Lead,
     Organization,
     OrganizationMembership,
     OrganizationTag,
@@ -764,4 +765,62 @@ class DealTaskWriteSerializer(serializers.Serializer):
     is_done = serializers.BooleanField(required=False)
     assignee_id = serializers.IntegerField(required=False, allow_null=True)
     remind_before_days = serializers.IntegerField(required=False, min_value=0)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class LeadSerializer(serializers.ModelSerializer):
+    assigned_to_email = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
+    deal_title = serializers.SerializerMethodField()
+    duplicate_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, read_only=True
+    )
+
+    class Meta:
+        model = Lead
+        fields = [
+            "id",
+            "full_name",
+            "email",
+            "phone",
+            "company_name",
+            "source",
+            "status",
+            "score",
+            "assigned_to",
+            "assigned_to_email",
+            "organization",
+            "organization_name",
+            "person",
+            "deal",
+            "deal_title",
+            "notes",
+            "duplicate_ids",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_assigned_to_email(self, obj):
+        return obj.assigned_to.email if obj.assigned_to_id else None
+
+    def get_organization_name(self, obj):
+        return obj.organization.name if obj.organization_id else None
+
+    def get_deal_title(self, obj):
+        return obj.deal.title if obj.deal_id else None
+
+
+class LeadWriteSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=255, required=False)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=64)
+    company_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=255
+    )
+    source = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    status = serializers.ChoiceField(choices=Lead.Status.choices, required=False)
+    score = serializers.IntegerField(required=False, min_value=0, max_value=100)
+    assigned_to_id = serializers.IntegerField(required=False, allow_null=True)
+    organization_id = serializers.IntegerField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default="")

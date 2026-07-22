@@ -184,6 +184,35 @@ export type CrmDealTask = {
   updated_at: string;
 };
 
+export type CrmLeadStatus =
+  | "new"
+  | "contacted"
+  | "qualified"
+  | "disqualified"
+  | "converted";
+
+export type CrmLead = {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string;
+  company_name: string;
+  source: string;
+  status: CrmLeadStatus;
+  score: number;
+  assigned_to: number | null;
+  assigned_to_email: string | null;
+  organization: number | null;
+  organization_name: string | null;
+  person: number | null;
+  deal: number | null;
+  deal_title: string | null;
+  notes: string;
+  duplicate_ids?: number[];
+  created_at: string;
+  updated_at: string;
+};
+
 export type CrmListParams = {
   q?: string;
   tag_id?: number;
@@ -405,6 +434,51 @@ export function createCrmApi() {
       request<void>(`/crm/deals/${dealId}/tasks/${taskId}/`, {
         method: "DELETE",
       }),
+
+    listLeads: (params: { q?: string; status?: string; assigned_to?: number } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.q) qs.set("q", params.q);
+      if (params.status) qs.set("status", params.status);
+      if (params.assigned_to) qs.set("assigned_to", String(params.assigned_to));
+      const suffix = qs.toString() ? `?${qs}` : "";
+      return request<CrmLead[]>(`/crm/leads/${suffix}`, {});
+    },
+    createLead: (body: Record<string, unknown>) =>
+      request<CrmLead>("/crm/leads/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchLead: (id: number, body: Record<string, unknown>) =>
+      request<CrmLead>(`/crm/leads/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteLead: (id: number) =>
+      request<void>(`/crm/leads/${id}/`, { method: "DELETE" }),
+    assignLead: (
+      id: number,
+      body: { mode?: "manual" | "round_robin"; user_id?: number },
+    ) =>
+      request<CrmLead>(`/crm/leads/${id}/assign/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    convertLead: (id: number, body: Record<string, unknown> = {}) =>
+      request<{ lead: CrmLead; deal: CrmDeal }>(`/crm/leads/${id}/convert/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    importLeads: (file: File, assign = "") => {
+      const form = new FormData();
+      form.append("file", file);
+      if (assign) form.append("assign", assign);
+      return requestForm<{
+        created: number;
+        skipped: number;
+        duplicates: number;
+        errors: string[];
+      }>("/crm/leads/import/", form);
+    },
   };
 }
 

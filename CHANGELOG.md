@@ -17,6 +17,8 @@
 
 ### Added
 
+- **P6d Leads** — Lead entity, CSV/API import, round-robin/manual assign, email/phone dedupe, rules-based score, convert→Deal; страница «Лиды»
+- **Deals UX** — DnD по стадиям воронки (`@dnd-kit`); привязка сделки к проекту из карточки
 - **P6c Deals** — pipeline stages, Deal (amount/probability/close_date), forecast, deal tasks + reminders, Deal↔Org/Project, Finance `organization`/`deal` counterparty; страница «Сделки»
 - **Clients owner UI** — назначение менеджера (`owner`) из карточки клиента
 - **P6b Client card MVP** — telegram/whatsapp/social_urls, tags & segments, comments & file attachments, owner manager, activity kinds `invoice`/`order`, workspace `crm_role`, Clients UI card tabs + «нет касаний N дней»

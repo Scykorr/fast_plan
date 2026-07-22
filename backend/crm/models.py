@@ -563,3 +563,86 @@ class DealTask(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Lead(models.Model):
+    """Inbound / sales lead before qualification into a Deal."""
+
+    class Status(models.TextChoices):
+        NEW = "new", "New"
+        CONTACTED = "contacted", "Contacted"
+        QUALIFIED = "qualified", "Qualified"
+        DISQUALIFIED = "disqualified", "Disqualified"
+        CONVERTED = "converted", "Converted"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_leads",
+    )
+    full_name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, default="")
+    phone = models.CharField(max_length=64, blank=True, default="")
+    company_name = models.CharField(max_length=255, blank=True, default="")
+    source = models.CharField(max_length=120, blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.NEW
+    )
+    score = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_crm_leads",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leads",
+    )
+    person = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leads",
+    )
+    deal = models.ForeignKey(
+        "Deal",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_leads",
+    )
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-score", "-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["workspace", "status"]),
+            models.Index(fields=["workspace", "email"]),
+            models.Index(fields=["workspace", "phone"]),
+        ]
+
+    def __str__(self):
+        return self.full_name
+
+
+class LeadAssignmentState(models.Model):
+    """Round-robin cursor for lead assignment per workspace."""
+
+    workspace = models.OneToOneField(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_lead_assignment",
+    )
+    last_user_id = models.PositiveIntegerField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
