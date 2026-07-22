@@ -53,6 +53,12 @@ def create_notification(
             link=link,
             dedupe_key=dedupe_key,
         )
+        try:
+            from notifications.push import send_push_for_notification
+
+            send_push_for_notification(notification)
+        except Exception:  # noqa: BLE001
+            pass
         return notification, True
     except IntegrityError:
         existing = Notification.objects.filter(user=user, dedupe_key=dedupe_key).first()

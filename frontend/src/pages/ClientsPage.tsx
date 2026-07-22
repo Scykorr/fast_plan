@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { parseApiError } from "../api/errors";
+import { mutateOrQueue } from "../api/offlineQueue";
 import type {
   CrmActivity,
   CrmActivityKind,
@@ -263,14 +264,32 @@ export function ClientsPage() {
       return;
     }
     try {
-      await crmApi.createActivity({
-        kind: activityForm.kind,
-        subject: activityForm.subject.trim(),
-        body: activityForm.body.trim(),
-        person_id: selectedPerson?.id ?? null,
-        organization_id: selectedOrg?.id ?? null,
+      const result = await mutateOrQueue({
+        kind: "crm.activity.create",
+        path: "/crm/activities/",
+        method: "POST",
+        body: {
+          kind: activityForm.kind,
+          subject: activityForm.subject.trim(),
+          body: activityForm.body.trim(),
+          person_id: selectedPerson?.id ?? null,
+          organization_id: selectedOrg?.id ?? null,
+        },
+        label: `Активность: ${activityForm.subject.trim()}`,
+        execute: () =>
+          crmApi.createActivity({
+            kind: activityForm.kind,
+            subject: activityForm.subject.trim(),
+            body: activityForm.body.trim(),
+            person_id: selectedPerson?.id ?? null,
+            organization_id: selectedOrg?.id ?? null,
+          }),
       });
       setActivityForm({ kind: "note", subject: "", body: "" });
+      if (result.queued) {
+        setMessage("Нет сети — активность в офлайн-очереди.");
+        return;
+      }
       await loadCardSide();
       await loadDirectory();
     } catch (err) {

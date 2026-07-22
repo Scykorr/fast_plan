@@ -32,6 +32,7 @@ export default defineConfig({
       workbox: {
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/media\//],
+        importScripts: ["push-sw.js"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,

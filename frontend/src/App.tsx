@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "./components/AppLayout";
+import { OfflineQueueBanner } from "./components/OfflineQueueBanner";
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import { GuestRoute, ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
@@ -42,6 +43,7 @@ export default function App() {
           <WorkspaceProvider>
             <BrowserRouter>
               <PwaUpdatePrompt />
+              <OfflineQueueBanner />
               <Routes>
             <Route
               path="/login"

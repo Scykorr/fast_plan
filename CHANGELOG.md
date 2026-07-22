@@ -21,6 +21,7 @@
 
 ### Added
 
+- **P7 Mobile** — Web Push (VAPID + `PushSubscription`, SW `push-sw.js`), offline queue for CRM activities/deal tasks, Settings «Мобильное / PWA»; `manage.py generate_vapid_keys`
 - **Redis SSE pub/sub** — `workspaces.events` публикует в Redis при `REDIS_URL` (multi-worker gunicorn); fallback in-process без Redis
 - **P7 Security MVP** — TOTP 2FA (setup/enable/disable/verify + backup codes), `AuthSession` list/revoke, workspace IP allowlist middleware + API; UI в Settings и шаг 2FA на login; [`SECURITY.md`](SECURITY.md) runbook
 - **P6g Omnichannel** — IMAP + Telegram → Activity (`channel`/`direction`/`external_id`), ChannelConnection CRUD/sync, Telegram webhook, Celery `crm.sync_channels`

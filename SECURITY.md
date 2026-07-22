@@ -22,9 +22,15 @@ Without Redis, SSE stays in-process (fine for single worker / tests).
 
 1. **Database** — nightly `pg_dump` of Postgres (`POSTGRES_DB`). Store off-host; retain ≥ 7 days.
 2. **Media** — back up `MEDIA_ROOT` (avatars, attachments) with the same cadence.
-3. **Secrets** — `DJANGO_SECRET_KEY`, SMTP, Redis, Sentry DSN live in env / secret manager — never in git.
+3. **Secrets** — `DJANGO_SECRET_KEY`, SMTP, Redis, Sentry DSN, VAPID keys live in env / secret manager — never in git.
 4. **Restore drill** — at least once per quarter: restore dump to a staging DB, run `migrate`, hit `/api/health/?extended=1`.
 5. **Before destructive ops** — snapshot DB + confirm `REDIS_URL` and cookie/CSRF settings for the target environment (see [`STAGING.md`](STAGING.md)).
+
+## Web Push (P7 Mobile)
+
+1. Generate keys: `python manage.py generate_vapid_keys` → set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` in `.env`.
+2. Users enable push in **Settings → Мобильное / PWA** (requires HTTPS or localhost + granted notification permission).
+3. New in-app notifications also fan out via Web Push when subscriptions exist.
 
 ## Related docs
 

@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
+import { mutateOrQueue } from "../api/offlineQueue";
 import type {
   CrmDeal,
   CrmDealForecast,
@@ -415,12 +416,27 @@ export function DealsPage() {
       return;
     }
     try {
-      await crmApi.createDealTask(selected.id, {
-        title: taskTitle.trim(),
-        due_date: taskDue || null,
+      const result = await mutateOrQueue({
+        kind: "crm.deal_task.create",
+        path: `/crm/deals/${selected.id}/tasks/`,
+        method: "POST",
+        body: {
+          title: taskTitle.trim(),
+          due_date: taskDue || null,
+        },
+        label: `Задача сделки: ${taskTitle.trim()}`,
+        execute: () =>
+          crmApi.createDealTask(selected.id, {
+            title: taskTitle.trim(),
+            due_date: taskDue || null,
+          }),
       });
       setTaskTitle("");
       setTaskDue("");
+      if (result.queued) {
+        setError("Нет сети — задача сохранена в офлайн-очереди.");
+        return;
+      }
       await loadTasks();
       await load();
     } catch (err) {
@@ -433,9 +449,21 @@ export function DealsPage() {
       return;
     }
     try {
-      await crmApi.patchDealTask(selected.id, task.id, {
-        is_done: !task.is_done,
+      const result = await mutateOrQueue({
+        kind: "crm.deal_task.patch",
+        path: `/crm/deals/${selected.id}/tasks/${task.id}/`,
+        method: "PATCH",
+        body: { is_done: !task.is_done },
+        label: `Задача: ${task.title}`,
+        execute: () =>
+          crmApi.patchDealTask(selected.id, task.id, {
+            is_done: !task.is_done,
+          }),
       });
+      if (result.queued) {
+        setError("Нет сети — изменение задачи в офлайн-очереди.");
+        return;
+      }
       await loadTasks();
       await load();
     } catch (err) {

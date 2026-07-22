@@ -51,3 +51,25 @@ class Notification(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class PushSubscription(models.Model):
+    """Web Push subscription for PWA (P7 Mobile)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+    )
+    endpoint = models.URLField(max_length=500, unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    user_agent = models.CharField(max_length=400, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_seen_at", "-id"]
+
+    def __str__(self):
+        return f"push {self.user_id} {self.endpoint[:48]}"

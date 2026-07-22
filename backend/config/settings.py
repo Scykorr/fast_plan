@@ -268,6 +268,12 @@ if SENTRY_DSN:
     except ImportError:
         pass
 
+# Web Push (P7 Mobile). Empty = push disabled; generate via:
+#   python manage.py generate_vapid_keys
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:noreply@localhost").strip()
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",

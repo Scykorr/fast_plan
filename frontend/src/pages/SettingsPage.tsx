@@ -14,6 +14,7 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { InviteMemberForm } from "../components/workspace/InviteMemberForm";
 import { ChatE2ERecoveryPanel } from "../components/chats/ChatE2ERecoveryPanel";
 import { SecuritySettingsPanel } from "../components/settings/SecuritySettingsPanel";
+import { MobileSettingsPanel } from "../components/settings/MobileSettingsPanel";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLocale, type Currency, type Locale } from "../context/LocaleContext";
@@ -422,6 +423,8 @@ export function SettingsPage() {
           onUserUpdate={(next) => setUser(next)}
         />
       )}
+
+      {user && <MobileSettingsPanel />}
 
       <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
         <h2 className="mb-4 text-lg font-semibold text-text">Workspace</h2>

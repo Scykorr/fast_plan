@@ -35,6 +35,7 @@
 | 2026-07-20 | **Blue/gray theme** + system preference + auth hero gradient |
 | 2026-07-20 | **P5 Чаты** — project/workspace chat, ACL, модерация, forward, UI |
 | 2026-07-22 | **Redis SSE pub/sub** + **P7 Security MVP** (2FA, sessions, IP allowlist) |
+| 2026-07-22 | **P7 Mobile** — Web Push + offline CRM queue |
 
 ---
 
@@ -114,7 +115,7 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 3. ~~**Redis pub/sub для SSE**~~ — Redis channel fan-out + in-process fallback (2026-07-22).
 4. ~~**P6 Project CRM**~~ — P6a–P6i ✓.
 5. **P7 Security** — MVP ✓ (2FA/sessions/IP); SSO Google/Microsoft — остаётся.
-6. **P7 Mobile** — PWA push + offline queue.
+6. ~~**P7 Mobile**~~ — Web Push + offline CRM queue (2026-07-22).
 
 ---
 
@@ -154,8 +155,8 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **Частично** — REST + JWT + webhooks + API tokens | REST/OAuth **P6e**; GraphQL/SDK — позже / вне MVP |
 | 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **Сильно** — themes, PWA, search, DnD Kanban/WBS, custom fields tracking | доработка CRM UI в **P6b+** |
 | 13 | Collab: comments @, notify, chat, audit, co-edit | **Сильно** — comments, mentions, SSE, chats, audit; CRM comments/files в **P6b ✓** | **P6b** |
-| 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP allowlist | **Частично** — audit, chat E2E, JWT/CSRF; нет 2FA/SSO/IP | **P7 Security** (см. ниже) |
-| 15 | Mobile: PWA + offline + push | **Частично** — PWA shell/offline; нет push | **P7 Mobile** |
+| 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP allowlist | **Частично** — audit, chat E2E, JWT/CSRF, 2FA/sessions/IP; нет SSO | **P7 Security SSO** |
+| 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
 ### Уже переиспользуем (не строить заново)
 
@@ -251,7 +252,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 - [x] **P7 Security MVP** — TOTP 2FA, session management, optional IP allowlist, [`SECURITY.md`](SECURITY.md) backup runbook (2026-07-22).
 - [ ] **P7 Security SSO** — Google/Microsoft OAuth. **M**
-- [ ] **P7 Mobile** — PWA push notifications, offline queue для CRM activities/tasks. **M**
+- [x] **P7 Mobile** — PWA Web Push (VAPID) + offline queue для CRM activities/deal tasks (2026-07-22). **M**
 - [x] **Redis pub/sub для SSE** — multi-worker realtime (2026-07-22). **M**
 
 ### Вне scope / партнёрский слой (явно)
@@ -265,7 +266,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 ### Принцип приоритизации спринтов
 
-1. **P7 Security SSO** или **P7 Mobile**.
+1. **P7 Security SSO** (Google/Microsoft).
 2. 1С/Stripe / WA-коннекторы — по запросу клиентов.
 
 ---
