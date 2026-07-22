@@ -17,6 +17,7 @@
 
 ### Added
 
+- **P6b Client card MVP** — telegram/whatsapp/social_urls, tags & segments, comments & file attachments, owner manager, activity kinds `invoice`/`order`, workspace `crm_role`, Clients UI card tabs + «нет касаний N дней»
 - **Staging checklist** — [`STAGING.md`](STAGING.md): SMTP verification, webhooks, PWA install/update, smoke-тесты
 - **Extended health** — `GET /api/health/?extended=1` (database, redis, email backend, celery_eager)
 - **AI WBS/schedule drafts** — target `wbs` в `POST /api/projects/<id>/ai-draft/`, применение через `POST …/ai-draft/apply/`, UI на Project Overview
@@ -39,6 +40,7 @@
 - **E2E recovery phrase** — 12-word phrase encrypts identity backup (`recovery_blob`) for multi-device sync; UI in Settings
 - **E2E DM media** — attachments and voice encrypted client-side before upload; metadata in ciphertext envelope
 - **P6 Project CRM (start)** — эпик в ROADMAP; P6a: app `crm` (Organization/Person/Activity), страница «Клиенты», `Project.client_organization`
+- **P6 backlog sync** — ROADMAP: матрица 15 блоков требований CRM → фазы P6b–P6i + P7 Security/Mobile; явный out-of-scope
 
 ### Planned
 

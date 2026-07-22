@@ -38,6 +38,12 @@ class WorkspaceMember(models.Model):
         EDITOR = "editor", "Editor"
         VIEWER = "viewer", "Viewer"
 
+    class CrmRole(models.TextChoices):
+        NONE = "", "None"
+        SALES_LEAD = "sales_lead", "Sales lead"
+        SALES = "sales", "Sales"
+        SUPPORT = "support", "Support"
+
     workspace = models.ForeignKey(
         Workspace,
         on_delete=models.CASCADE,
@@ -49,6 +55,12 @@ class WorkspaceMember(models.Model):
         related_name="workspace_memberships",
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.OWNER)
+    crm_role = models.CharField(
+        max_length=20,
+        choices=CrmRole.choices,
+        blank=True,
+        default="",
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

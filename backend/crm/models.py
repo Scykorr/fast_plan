@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 
 class Organization(models.Model):
@@ -15,6 +16,13 @@ class Organization(models.Model):
     website = models.URLField(blank=True, default="")
     industry = models.CharField(max_length=120, blank=True, default="")
     notes = models.TextField(blank=True, default="")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_crm_organizations",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,11 +50,20 @@ class Person(models.Model):
     full_name = models.CharField(max_length=255)
     email = models.EmailField(blank=True, default="")
     phone = models.CharField(max_length=64, blank=True, default="")
+    telegram = models.CharField(max_length=120, blank=True, default="")
+    whatsapp = models.CharField(max_length=64, blank=True, default="")
+    social_urls = models.JSONField(default=list, blank=True)
     job_title = models.CharField(max_length=120, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     birth_date = models.DateField(null=True, blank=True)
     remind_before_days = models.PositiveSmallIntegerField(default=7)
-    # Optional back-links to legacy models after sync.
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_crm_people",
+    )
     legacy_contact = models.OneToOneField(
         "birthdays.Contact",
         on_delete=models.SET_NULL,
@@ -101,6 +118,185 @@ class OrganizationMembership(models.Model):
 
     def __str__(self):
         return f"{self.person_id} @ {self.organization_id}"
+
+
+class Tag(models.Model):
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_tags",
+    )
+    name = models.CharField(max_length=64)
+    color = models.CharField(max_length=16, blank=True, default="#3b82f6")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "name"],
+                name="uniq_crm_tag_workspace_name",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class PersonTag(models.Model):
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="tag_links")
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="person_links")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["person", "tag"], name="uniq_crm_person_tag"),
+        ]
+
+
+class OrganizationTag(models.Model):
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="tag_links"
+    )
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="organization_links")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "tag"], name="uniq_crm_org_tag"
+            ),
+        ]
+
+
+class Segment(models.Model):
+    """Manual or rule-based list of people/orgs."""
+
+    class Kind(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        RULE = "rule", "Rule"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_segments",
+    )
+    name = models.CharField(max_length=120)
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.MANUAL)
+    # Example rule: {"stale_days": 14, "tag": "vip"} — evaluated in services.
+    rule = models.JSONField(default=dict, blank=True)
+    people = models.ManyToManyField(Person, blank=True, related_name="segments")
+    organizations = models.ManyToManyField(
+        Organization, blank=True, related_name="segments"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "name"],
+                name="uniq_crm_segment_workspace_name",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class CrmComment(models.Model):
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_comments",
+    )
+    person = models.ForeignKey(
+        Person,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_comments",
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(person__isnull=False, organization__isnull=True)
+                    | Q(person__isnull=True, organization__isnull=False)
+                ),
+                name="crm_comment_exactly_one_target",
+            ),
+        ]
+
+
+def crm_file_upload_path(instance, filename):
+    if instance.person_id:
+        return f"crm/people/{instance.person_id}/{filename}"
+    return f"crm/orgs/{instance.organization_id}/{filename}"
+
+
+class CrmAttachment(models.Model):
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_attachments",
+    )
+    person = models.ForeignKey(
+        Person,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="attachments",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="attachments",
+    )
+    file = models.FileField(upload_to=crm_file_upload_path)
+    name = models.CharField(max_length=255)
+    size = models.PositiveBigIntegerField(default=0)
+    content_type = models.CharField(max_length=150, blank=True, default="")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_uploaded_files",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(person__isnull=False, organization__isnull=True)
+                    | Q(person__isnull=True, organization__isnull=False)
+                ),
+                name="crm_attachment_exactly_one_target",
+            ),
+        ]
 
 
 class ProjectPersonLink(models.Model):
@@ -166,6 +362,8 @@ class Activity(models.Model):
         MEETING = "meeting", "Meeting"
         EMAIL = "email", "Email"
         NOTE = "note", "Note"
+        INVOICE = "invoice", "Invoice"
+        ORDER = "order", "Order"
         OTHER = "other", "Other"
 
     workspace = models.ForeignKey(
@@ -209,6 +407,11 @@ class Activity(models.Model):
 
     class Meta:
         ordering = ["-occurred_at", "-id"]
+        indexes = [
+            models.Index(fields=["workspace", "occurred_at"]),
+            models.Index(fields=["person", "occurred_at"]),
+            models.Index(fields=["organization", "occurred_at"]),
+        ]
 
     def __str__(self):
         return self.subject

@@ -111,37 +111,120 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 1. **MS Project XML import** — при появлении подтверждённого формата/образца.
 2. ~~**Чаты проектов и портфеля**~~ — см. P5 (выполнено).
 3. **Redis pub/sub для SSE** — надёжные realtime-события при multi-worker gunicorn (сейчас E2E soft-fallback).
-4. **P6 Project CRM** — P6a выполнен; далее P6b UX.
+4. **P6 Project CRM** — P6a ✓; P6b ✓ (карточка клиента MVP); следующий: **P6c** (сделки).
 
 ---
 
 ## P6 — Project CRM
 
-_Цель:_ отношения с клиентами и стейкхолдерами вокруг проектов (не клон Salesforce).  
-_Старт:_ 2026-07-22.
+_Цель:_ CRM вокруг проектов и портфеля Fast Plan (B2B услуги/delivery), а не замена Bitrix24/Salesforce «из коробки».  
+_Старт:_ 2026-07-22 · _требования заказчика сверены:_ 2026-07-22.
 
 ### Позиционирование
 
-- Единый directory людей и компаний (party model)
-- Карточка контакта = timeline + проекты + роли
-- Pipeline сделок — опциональный модуль (позже)
-- Вне scope: marketing automation, dialer, territories
+| Делаем в Fast Plan | Не цель продукта |
+|--------------------|------------------|
+| Карточка клиента + сделки + задачи в контексте проектов | Маркетинг-автоматизация уровня HubSpot Marketing Hub |
+| Встроенный BPM-lite + AI поверх уже существующих AI-черновиков | Полноценный WMS / телефония / мессенджер-шлюз «всё сразу» |
+| REST + webhooks + OAuth-интеграции точечно | GraphQL + SDK + native apps на старте |
+| Переиспользование Finance, Calendar, Kanban, Audit, PWA, RBAC | Дублировать отдельный «второй продукт» рядом с PM |
 
-### Фазы
+### Матрица требований (15 блоков) → статус
 
-- [x] **P6a Foundation** — `Organization` + `Person` + `Activity`, API, страница «Клиенты», `Project.client_organization`, связь Stakeholder→Person, импорт из birthday Contact. **L**
-- [ ] **P6b Project CRM UX** — матрица power/interest, activity log на проекте, RACI из directory, «давно не контактировали». **M**
-- [ ] **P6c Commercial** — опциональный Deal pipeline, counterparty в Finance. **L**
-- [ ] **P6d Growth** — lead inbox, email sync, AI next-best-action, client portal. **L**
+| # | Требование | В Fast Plan сейчас | Приоритет в P6 |
+|---|------------|--------------------|----------------|
+| 1 | MVP: карточка, компании/контакты, история, комменты, файлы, теги, сегменты | **P6b ✓** — карточка + теги/сегменты/комменты/файлы/мессенджеры | **P6b** |
+| 1b | Сделки: воронка Kanban, стадии, %, сумма, прогноз, задачи, reminders | **Нет** (Kanban = работа, не продажи) | **P6c** |
+| 1c | Лиды: импорт, распределение, дедуп, score | **Нет** | **P6d** |
+| 1d | Контакты: phone/email/соцсети/мессенджеры | **P6b ✓** — telegram/whatsapp/social_urls | **P6b** |
+| 1e | Календарь CRM + Google/Outlook | **Частично** — workspace calendar/ICS; нет CRM-сущностей и OAuth-sync | **P6b** + интеграции |
+| 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **Частично** — WBS/Kanban/My Tasks; не привязаны к Deal/Lead | **P6c** |
+| 2 | Автоматизация (BPM / n8n-like) | **Нет** (есть Celery reminders + outbound webhooks) | **P6e** |
+| 3 | AI CRM-помощник (резюме звонков, риски сделок, письма, КП) | **Частично** — AI drafts (risks/charter/WBS), Ollama/OpenAI | **P6f** |
+| 4 | Омниканал (TG/WA/Email/… → одна лента) | **Нет** (есть внутренние чаты + guest chat) | **P6g** (этапами) |
+| 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **Частично** — Finance transactions; нет КП/договоров/SKU/склада | **P6h** (без полноценного склада) |
+| 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **Частично** — доходы/расходы/бюджет проекта; нет AR/AP/forecast | **P6h** + Finance |
+| 7 | Документы по шаблонам (договор/счёт/акт/КП) | **Частично** — PDF status report | **P6h** |
+| 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **Частично** — portfolio/burndown/velocity/EVM | **P6i** |
+| 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **Частично** — P6b: `crm_role` (sales_lead/sales/support) на WorkspaceMember | **P6b** + later |
+| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **Частично** — webhooks, API tokens | точечно в **P6e/g/h** |
+| 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **Частично** — REST + JWT + webhooks + API tokens | REST/OAuth **P6e**; GraphQL/SDK — позже / вне MVP |
+| 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **Сильно** — themes, PWA, search, DnD Kanban/WBS, custom fields tracking | доработка CRM UI в **P6b+** |
+| 13 | Collab: comments @, notify, chat, audit, co-edit | **Сильно** — comments, mentions, SSE, chats, audit; CRM comments/files в **P6b ✓** | **P6b** |
+| 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP allowlist | **Частично** — audit, chat E2E, JWT/CSRF; нет 2FA/SSO/IP | **P7 Security** (см. ниже) |
+| 15 | Mobile: PWA + offline + push | **Частично** — PWA shell/offline; нет push | **P7 Mobile** |
 
-### P6a — критерии готовности
+### Уже переиспользуем (не строить заново)
 
-- [x] CRUD организаций и людей в workspace
-- [x] Activity timeline (call / meeting / email / note) на Person/Organization
-- [x] Навигация «Клиенты» + поиск по directory
-- [x] Проект может иметь `client_organization`
-- [x] Stakeholder опционально ссылается на `Person`
-- [x] Команда/миграция переносит birthday `Contact` → `Person` (`sync_crm_legacy` + `POST /api/crm/import-legacy/`)
+- Finance (`Transaction`, budget, FX), Portfolio, Calendar + ICS  
+- Kanban / WBS / My Tasks / Capacity  
+- Comments + @mentions + attachments (work items)  
+- Chats (project/workspace/DM) + guest share  
+- Outbound webhooks + API tokens + Audit log  
+- Theme light/dark/system, PWA, global search  
+- AI drafts pipeline (OpenAI/Ollama) — расширять на CRM-промпты  
+
+### Фазы реализации
+
+- [x] **P6a Foundation** — `Organization` + `Person` + `Activity`, API, «Клиенты», `Project.client_organization`, Stakeholder→Person, import legacy. **L**
+- [x] **P6b Карточка клиента (MVP CRM)** — мессенджеры/соцсети на Person; теги + сегменты; комментарии и файлы на org/person; ответственный менеджер; enrichment timeline (invoice/order kinds); CRM-роли (sales); фильтры stale/tag/segment; «давно не контактировали». **L**
+- [ ] **P6c Сделки** — Deal + pipeline stages (Kanban), amount/probability/close_date, задачи/reminders по сделке, связь Deal↔Project/Organization, counterparty в Finance. **L**
+- [ ] **P6d Лиды** — Lead entity, CSV/API import, assignment round-robin/manual, dedupe (email/phone), lead score (rules + later AI). **M–L**
+- [ ] **P6e Автоматизация (BPM-lite)** — визуальный/декларативный конструктор: trigger → conditions → actions (create lead/deal/task, assign, webhook, delay); шаблоны «лид из формы / follow-up +2 дня». **L**
+- [ ] **P6f AI CRM** — ассистент: «клиенты без покупок», «сделки под риском»; draft email/КП; резюме активности/переписки; auto-tasks; прогноз (поверх P6c данных). **L**
+- [ ] **P6g Омниканал (этап 1)** — единая лента Activity из Email (Gmail/IMAP) + Telegram bot; WhatsApp/Instagram/VK/телефония — отдельные коннекторы после adoption. **L**
+- [ ] **P6h Коммерция и документы** — Quote/Invoice/Contract templates → PDF; заказы/оплаты; AR/AP lite + cashflow forecast; **склад/SKU — только если явный запрос** (иначе out of scope). **L**
+- [ ] **P6i CRM-аналитика** — дашборд: продажи по менеджерам, конверсия, средний чек, источники; LTV/CAC при наличии затрат на лиды; конструктор отчётов (простые saved queries). **M–L**
+
+### P6a — критерии (архив)
+
+- [x] CRUD организаций и людей  
+- [x] Activity timeline (call / meeting / email / note)  
+- [x] Навигация «Клиенты» + поиск  
+- [x] `Project.client_organization`  
+- [x] Stakeholder → Person  
+- [x] Import Contact/Stakeholder (`sync_crm_legacy` / `POST /api/crm/import-legacy/`)
+
+### P6b — критерии готовности ✓
+
+- [x] Поля связи: telegram / whatsapp / social URLs на Person  
+- [x] Tags + Segments (правила или ручные списки)  
+- [x] Comments + file attachments на Organization/Person  
+- [x] `owner` (ответственный менеджер) на Organization/Person (Deal — в P6c)  
+- [x] Activity kinds: invoice / order (+ существующие call/email/meeting/note)  
+- [x] Workspace CRM roles (sales_lead / sales / support) поверх owner/editor/viewer  
+- [x] UI карточки: компания | контакты | история | документы | заметки | менеджер  
+- [x] Сигнал «нет касаний N дней»
+
+### P6c — критерии готовности (следующий спринт)
+
+- [ ] Deal entity + pipeline stages (Kanban)  
+- [ ] amount / probability / close_date + forecast  
+- [ ] задачи/reminders по сделке  
+- [ ] Deal ↔ Project / Organization  
+- [ ] counterparty в Finance (prep)
+
+### Связанные эпики (не только CRM)
+
+- [ ] **P7 Security** — 2FA, SSO (Google/Microsoft), session management, optional IP allowlist, backup runbook. **L**
+- [ ] **P7 Mobile** — PWA push notifications, offline queue для CRM activities/tasks. **M**
+- [ ] **Redis pub/sub для SSE** — для realtime CRM/чат при multi-worker. **M**
+
+### Вне scope / партнёрский слой (явно)
+
+- Полноценный WMS и складская логистика  
+- Встроенная IP-телефония / dialer (интеграция через коннектор)  
+- Marketing automation (email journeys, landing builders)  
+- GraphQL + официальный SDK — после стабилизации REST  
+- Нативные iOS/Android (достаточно усиленного PWA)  
+- Co-edit документов уровня Google Docs  
+
+### Принцип приоритизации спринтов
+
+1. **P6c** даёт воронку сделок поверх карточки клиента.  
+2. **P6d** — лиды и inbound.  
+3. **P6e + P6f** — дифференциация (автоматизация и AI).  
+4. Омниканал и 1С/Stripe — по запросу клиентов, не блокеры MVP.
 
 ---
 

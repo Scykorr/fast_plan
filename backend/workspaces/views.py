@@ -382,6 +382,7 @@ class WorkspaceMemberListView(WorkspaceMixin, APIView):
                 "email": member.user.email,
                 "username": member.user.username,
                 "role": member.role,
+                "crm_role": member.crm_role,
                 "joined_at": member.joined_at,
             }
             for member in members
@@ -499,20 +500,37 @@ class WorkspaceMemberDetailView(WorkspaceMixin, APIView):
             WorkspaceMember.objects.filter(workspace=workspace),
             pk=member_id,
         )
-        role = request.data.get("role")
-        if role not in WorkspaceMember.Role.values:
-            raise ValidationError({"role": "Invalid role."})
-        old_role = member.role
-        member.role = role
-        member.save(update_fields=["role"])
+        update_fields = []
+        changes = {"user_id": member.user_id}
+        role = request.data.get("role", None)
+        if role is not None:
+            if role not in WorkspaceMember.Role.values:
+                raise ValidationError({"role": "Invalid role."})
+            old_role = member.role
+            member.role = role
+            update_fields.append("role")
+            changes["old_role"] = old_role
+            changes["new_role"] = role
+        if "crm_role" in request.data:
+            crm_role = request.data.get("crm_role") or ""
+            if crm_role not in WorkspaceMember.CrmRole.values:
+                raise ValidationError({"crm_role": "Invalid CRM role."})
+            old_crm = member.crm_role
+            member.crm_role = crm_role
+            update_fields.append("crm_role")
+            changes["old_crm_role"] = old_crm
+            changes["new_crm_role"] = crm_role
+        if not update_fields:
+            raise ValidationError("Provide role and/or crm_role.")
+        member.save(update_fields=update_fields)
         log_audit(
             workspace,
             request.user,
             "member.role_change",
             "WorkspaceMember",
             member.id,
-            summary=f"Changed {member.user.email} role: {old_role} → {role}",
-            changes={"old_role": old_role, "new_role": role, "user_id": member.user_id},
+            summary=f"Updated {member.user.email}: {', '.join(update_fields)}",
+            changes=changes,
         )
         return Response(WorkspaceMemberSerializer(member).data)
 

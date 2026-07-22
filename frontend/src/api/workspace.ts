@@ -13,6 +13,7 @@ export type WorkspaceMember = {
   email: string;
   username: string;
   role: string;
+  crm_role?: string;
   joined_at: string;
 };
 
@@ -207,6 +208,15 @@ export function createWorkspaceApi() {
 
     getMembers: () =>
       request<WorkspaceMember[]>("/workspace/members/", {}),
+
+    updateMember: (
+      memberId: number,
+      body: { role?: string; crm_role?: string },
+    ) =>
+      request<WorkspaceMember>(`/workspace/members/${memberId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
 
     inviteMember: (email: string, role = "editor") =>
       request<WorkspaceInvitation>(

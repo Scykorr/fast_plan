@@ -36,7 +36,7 @@ class WorkspaceInvitationSerializer(serializers.ModelSerializer):
 class WorkspaceMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkspaceMember
-        fields = ("id", "user_id", "role", "joined_at")
+        fields = ("id", "user_id", "role", "crm_role", "joined_at")
         read_only_fields = ("id", "user_id", "joined_at")
 
 

@@ -475,10 +475,45 @@ export function SettingsPage() {
           {members.map((member) => (
             <li
               key={member.id}
-              className="flex justify-between rounded-lg border border-border px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
             >
               <span>{member.email}</span>
-              <span className="text-text-muted">{member.role}</span>
+              <div className="flex flex-wrap items-center gap-2 text-text-muted">
+                <span>{member.role}</span>
+                {activeWorkspace?.role === "owner" ? (
+                  <select
+                    value={member.crm_role ?? ""}
+                    onChange={(event) => {
+                      void (async () => {
+                        if (!workspaceApi) {
+                          return;
+                        }
+                        try {
+                          await workspaceApi.updateMember(member.id, {
+                            crm_role: event.target.value,
+                          });
+                          await load();
+                        } catch (err) {
+                          setError(
+                            parseApiError(err, "Не удалось обновить CRM-роль"),
+                          );
+                        }
+                      })();
+                    }}
+                    className="rounded border border-border bg-cream px-2 py-1 text-xs"
+                    title="CRM role"
+                  >
+                    <option value="">CRM: —</option>
+                    <option value="sales_lead">sales_lead</option>
+                    <option value="sales">sales</option>
+                    <option value="support">support</option>
+                  </select>
+                ) : (
+                  member.crm_role && (
+                    <span className="text-xs">CRM: {member.crm_role}</span>
+                  )
+                )}
+              </div>
             </li>
           ))}
         </ul>
