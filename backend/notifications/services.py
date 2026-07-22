@@ -406,6 +406,9 @@ def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
     milestones, milestone_items = send_milestone_reminders(today=today)
     deadlines, deadline_items = send_deadline_reminders(today=today)
     deal_tasks, deal_task_items = send_deal_task_reminders(today=today)
+    from crm.automation import process_deferred_automations
+
+    deferred = process_deferred_automations()
     created_items = birthday_items + milestone_items + deadline_items + deal_task_items
     emails = send_reminder_digest_emails(created_items, today=today)
     return {
@@ -413,6 +416,7 @@ def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
         "milestones": milestones,
         "deadlines": deadlines,
         "deal_tasks": deal_tasks,
+        "automation_deferred": deferred,
         "emails": emails,
         "workspaces": Workspace.objects.count(),
     }

@@ -2,6 +2,9 @@ from django.contrib import admin
 
 from crm.models import (
     Activity,
+    AutomationDeferred,
+    AutomationRule,
+    AutomationRun,
     CrmAttachment,
     CrmComment,
     Deal,
@@ -37,3 +40,6 @@ admin.site.register(Deal)
 admin.site.register(DealTask)
 admin.site.register(Lead)
 admin.site.register(LeadAssignmentState)
+admin.site.register(AutomationRule)
+admin.site.register(AutomationRun)
+admin.site.register(AutomationDeferred)

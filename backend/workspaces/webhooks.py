@@ -12,6 +12,9 @@ WEBHOOK_EVENTS = {
     "risk.updated",
     "risk.deleted",
     "deadline.upcoming",
+    "crm.automation",
+    "crm.lead.created",
+    "crm.deal.created",
 }
 
 

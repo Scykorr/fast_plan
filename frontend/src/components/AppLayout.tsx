@@ -18,6 +18,7 @@ const navItems = [
   { to: "/clients", labelKey: "clients" },
   { to: "/deals", labelKey: "deals" },
   { to: "/leads", labelKey: "leads" },
+  { to: "/automations", labelKey: "automations" },
   { to: "/projects", labelKey: "projects" },
   { to: "/tasks", labelKey: "myTasks" },
   { to: "/capacity", label: "Capacity" },

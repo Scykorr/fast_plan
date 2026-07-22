@@ -3,6 +3,8 @@ from rest_framework import serializers
 
 from crm.models import (
     Activity,
+    AutomationRule,
+    AutomationRun,
     CrmAttachment,
     CrmComment,
     Deal,
@@ -824,3 +826,50 @@ class LeadWriteSerializer(serializers.Serializer):
     assigned_to_id = serializers.IntegerField(required=False, allow_null=True)
     organization_id = serializers.IntegerField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class AutomationRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AutomationRule
+        fields = [
+            "id",
+            "name",
+            "is_active",
+            "trigger",
+            "conditions",
+            "actions",
+            "template_key",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class AutomationRuleWriteSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=160, required=False)
+    is_active = serializers.BooleanField(required=False)
+    trigger = serializers.ChoiceField(
+        choices=AutomationRule.Trigger.choices,
+        required=False,
+    )
+    conditions = serializers.ListField(required=False, allow_empty=True)
+    actions = serializers.ListField(required=False, allow_empty=True)
+    template_key = serializers.CharField(required=False, allow_blank=True, max_length=64)
+
+
+class AutomationRunSerializer(serializers.ModelSerializer):
+    rule_name = serializers.CharField(source="rule.name", read_only=True)
+
+    class Meta:
+        model = AutomationRun
+        fields = [
+            "id",
+            "rule",
+            "rule_name",
+            "trigger",
+            "context",
+            "result",
+            "success",
+            "created_at",
+        ]
+        read_only_fields = fields

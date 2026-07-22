@@ -646,3 +646,82 @@ class LeadAssignmentState(models.Model):
     )
     last_user_id = models.PositiveIntegerField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class AutomationRule(models.Model):
+    """Declarative CRM automation: trigger → conditions → actions."""
+
+    class Trigger(models.TextChoices):
+        LEAD_CREATED = "lead.created", "Lead created"
+        LEAD_CONVERTED = "lead.converted", "Lead converted"
+        DEAL_CREATED = "deal.created", "Deal created"
+        DEAL_STAGE_CHANGED = "deal.stage_changed", "Deal stage changed"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_automations",
+    )
+    name = models.CharField(max_length=160)
+    is_active = models.BooleanField(default=True)
+    trigger = models.CharField(max_length=40, choices=Trigger.choices)
+    # [{"field": "source", "op": "eq|neq|contains|gte|lte|in", "value": ...}]
+    conditions = models.JSONField(default=list, blank=True)
+    # [{"type": "assign_round_robin|create_deal_task|create_deal|create_lead|assign|webhook|delay|set_status", ...}]
+    actions = models.JSONField(default=list, blank=True)
+    template_key = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class AutomationRun(models.Model):
+    rule = models.ForeignKey(
+        AutomationRule, on_delete=models.CASCADE, related_name="runs"
+    )
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_automation_runs",
+    )
+    trigger = models.CharField(max_length=40)
+    context = models.JSONField(default=dict, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    success = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class AutomationDeferred(models.Model):
+    """Delayed remaining actions from a rule run."""
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_automation_deferred",
+    )
+    rule = models.ForeignKey(
+        AutomationRule,
+        on_delete=models.CASCADE,
+        related_name="deferred",
+        null=True,
+        blank=True,
+    )
+    actions = models.JSONField(default=list)
+    context = models.JSONField(default=dict, blank=True)
+    run_at = models.DateTimeField()
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["run_at", "id"]
+        indexes = [
+            models.Index(fields=["workspace", "run_at", "processed_at"]),
+        ]

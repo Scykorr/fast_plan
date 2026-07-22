@@ -213,6 +213,43 @@ export type CrmLead = {
   updated_at: string;
 };
 
+export type CrmAutomationTrigger =
+  | "lead.created"
+  | "lead.converted"
+  | "deal.created"
+  | "deal.stage_changed";
+
+export type CrmAutomationRule = {
+  id: number;
+  name: string;
+  is_active: boolean;
+  trigger: CrmAutomationTrigger | string;
+  conditions: Array<Record<string, unknown>>;
+  actions: Array<Record<string, unknown>>;
+  template_key: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmAutomationTemplate = {
+  key: string;
+  name: string;
+  trigger: string;
+  conditions: Array<Record<string, unknown>>;
+  actions: Array<Record<string, unknown>>;
+};
+
+export type CrmAutomationRun = {
+  id: number;
+  rule: number;
+  rule_name: string;
+  trigger: string;
+  context: Record<string, unknown>;
+  result: Record<string, unknown>;
+  success: boolean;
+  created_at: string;
+};
+
 export type CrmListParams = {
   q?: string;
   tag_id?: number;
@@ -434,6 +471,29 @@ export function createCrmApi() {
       request<void>(`/crm/deals/${dealId}/tasks/${taskId}/`, {
         method: "DELETE",
       }),
+
+    listAutomations: () => request<CrmAutomationRule[]>("/crm/automations/", {}),
+    createAutomation: (body: Record<string, unknown>) =>
+      request<CrmAutomationRule>("/crm/automations/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchAutomation: (id: number, body: Record<string, unknown>) =>
+      request<CrmAutomationRule>(`/crm/automations/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteAutomation: (id: number) =>
+      request<void>(`/crm/automations/${id}/`, { method: "DELETE" }),
+    listAutomationTemplates: () =>
+      request<CrmAutomationTemplate[]>("/crm/automations/templates/", {}),
+    applyAutomationTemplate: (template_key: string) =>
+      request<CrmAutomationRule>("/crm/automations/templates/apply/", {
+        method: "POST",
+        body: JSON.stringify({ template_key }),
+      }),
+    listAutomationRuns: () =>
+      request<CrmAutomationRun[]>("/crm/automations/runs/", {}),
 
     listLeads: (params: { q?: string; status?: string; assigned_to?: number } = {}) => {
       const qs = new URLSearchParams();

@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
 import type {
@@ -142,6 +143,8 @@ export function DealsPage() {
   const crmApi = useCrmApi();
   const projectsApi = useProjectsApi();
   const { workspaceEpoch } = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const dealFromQuery = Number(searchParams.get("deal") || 0) || null;
   const [pipeline, setPipeline] = useState<CrmPipeline | null>(null);
   const [deals, setDeals] = useState<CrmDeal[]>([]);
   const [orgs, setOrgs] = useState<CrmOrganization[]>([]);
@@ -184,7 +187,15 @@ export function DealsPage() {
       setOrgs(orgRows);
       setForecast(forecastRow);
       setProjects(projectRows);
-      if (selected) {
+      const queryDealId = Number(
+        new URLSearchParams(window.location.search).get("deal") || 0,
+      );
+      if (queryDealId) {
+        const fromQuery = dealRows.find((d) => d.id === queryDealId) ?? null;
+        if (fromQuery) {
+          setSelected(fromQuery);
+        }
+      } else if (selected) {
         const refreshed = dealRows.find((d) => d.id === selected.id) ?? null;
         setSelected(refreshed);
       }
@@ -198,6 +209,21 @@ export function DealsPage() {
   useEffect(() => {
     void load();
   }, [crmApi, projectsApi, workspaceEpoch]);
+
+  useEffect(() => {
+    if (!dealFromQuery || deals.length === 0) {
+      return;
+    }
+    const match = deals.find((d) => d.id === dealFromQuery);
+    if (match && selected?.id !== match.id) {
+      setSelected(match);
+    }
+  }, [dealFromQuery, deals, selected?.id]);
+
+  const selectDeal = (deal: CrmDeal) => {
+    setSelected(deal);
+    setSearchParams({ deal: String(deal.id) }, { replace: true });
+  };
 
   const loadTasks = useCallback(async () => {
     if (!crmApi || !selected) {
@@ -326,30 +352,29 @@ export function DealsPage() {
       .sort((a, b) => a.position - b.position || a.id - b.id);
 
     if (fromStage === targetStageId) {
-      const withMoving = [...fromList];
-      const oldIndex = (dealsByStage.get(fromStage) ?? []).findIndex(
-        (d) => d.id === deal.id,
-      );
-      withMoving.splice(
-        oldIndex < targetIndex ? targetIndex : targetIndex,
-        0,
-        moving,
-      );
-      // simpler: arrayMove on current stage list
       const stageList = [...(dealsByStage.get(fromStage) ?? [])];
       const oldIdx = stageList.findIndex((d) => d.id === deal.id);
-      const newIdx = stageList.findIndex((d) => d.id === (overData?.deal as CrmDeal)?.id);
-      const reordered =
-        overData?.type === "deal" && newIdx >= 0
-          ? arrayMove(stageList, oldIdx, newIdx)
-          : stageList;
-      const optimistic = deals.map((d) => {
-        if (d.stage !== fromStage) return d;
-        const idx = reordered.findIndex((x) => x.id === d.id);
-        return idx >= 0 ? { ...d, position: idx } : d;
-      });
-      setDeals(optimistic);
-      await moveDealToStage(deal, targetStageId, newIdx >= 0 ? newIdx : oldIdx);
+      let newIdx = oldIdx;
+      if (overData?.type === "deal") {
+        newIdx = stageList.findIndex(
+          (d) => d.id === (overData.deal as CrmDeal).id,
+        );
+      }
+      if (oldIdx < 0 || newIdx < 0 || oldIdx === newIdx) {
+        return;
+      }
+      const reordered = arrayMove(stageList, oldIdx, newIdx);
+      const finalPosition = reordered.findIndex((d) => d.id === deal.id);
+      setDeals((prev) =>
+        prev.map((d) => {
+          if (d.stage !== fromStage) {
+            return d;
+          }
+          const idx = reordered.findIndex((x) => x.id === d.id);
+          return idx >= 0 ? { ...d, position: idx } : d;
+        }),
+      );
+      await moveDealToStage(deal, targetStageId, finalPosition);
       return;
     }
 
@@ -526,7 +551,7 @@ export function DealsPage() {
                 stage={stage}
                 deals={dealsByStage.get(stage.id) ?? []}
                 selectedId={selected?.id ?? null}
-                onSelect={setSelected}
+                onSelect={selectDeal}
               />
             ))}
           </div>

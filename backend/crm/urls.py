@@ -1,6 +1,6 @@
 from django.urls import path
 
-from crm import deals_views, leads_views, views
+from crm import automation_views, deals_views, leads_views, views
 
 urlpatterns = [
     path("crm/organizations/", views.OrganizationListCreateView.as_view(), name="crm-orgs"),
@@ -127,5 +127,35 @@ urlpatterns = [
         "crm/leads/<int:lead_id>/convert/",
         leads_views.LeadConvertView.as_view(),
         name="crm-lead-convert",
+    ),
+    path(
+        "crm/automations/",
+        automation_views.AutomationListCreateView.as_view(),
+        name="crm-automations",
+    ),
+    path(
+        "crm/automations/templates/",
+        automation_views.AutomationTemplateListView.as_view(),
+        name="crm-automation-templates",
+    ),
+    path(
+        "crm/automations/templates/apply/",
+        automation_views.AutomationTemplateApplyView.as_view(),
+        name="crm-automation-templates-apply",
+    ),
+    path(
+        "crm/automations/runs/",
+        automation_views.AutomationRunListView.as_view(),
+        name="crm-automation-runs",
+    ),
+    path(
+        "crm/automations/test/",
+        automation_views.AutomationTestView.as_view(),
+        name="crm-automation-test",
+    ),
+    path(
+        "crm/automations/<int:rule_id>/",
+        automation_views.AutomationDetailView.as_view(),
+        name="crm-automation-detail",
     ),
 ]

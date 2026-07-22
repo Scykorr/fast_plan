@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { parseApiError } from "../api/errors";
@@ -24,6 +24,7 @@ export function LeadsPage() {
   const crmApi = useCrmApi();
   const workspaceApi = useWorkspaceApi();
   const { workspaceEpoch } = useWorkspace();
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [query, setQuery] = useState("");
@@ -150,9 +151,7 @@ export function LeadsPage() {
     }
     try {
       const result = await crmApi.convertLead(selected.id);
-      setSelected(result.lead);
-      setMessage(`Конвертировано в сделку #${result.deal.id}: ${result.deal.title}`);
-      await load();
+      navigate(`/deals?deal=${result.deal.id}`);
     } catch (err) {
       setError(parseApiError(err, "Не удалось конвертировать"));
     }

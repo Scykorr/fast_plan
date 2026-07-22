@@ -7,6 +7,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { LocaleProvider } from "./context/LocaleContext";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { AdministrationPage } from "./pages/AdministrationPage";
+import { AutomationsPage } from "./pages/AutomationsPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { CapacityPage } from "./pages/CapacityPage";
 import { ClientsPage } from "./pages/ClientsPage";
@@ -84,6 +85,7 @@ export default function App() {
               <Route path="clients" element={<ClientsPage />} />
               <Route path="deals" element={<DealsPage />} />
               <Route path="leads" element={<LeadsPage />} />
+              <Route path="automations" element={<AutomationsPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
               <Route path="tasks" element={<MyTasksPage />} />

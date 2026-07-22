@@ -10,7 +10,12 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from crm.models import Lead, Organization
+from crm.automation import (
+    build_deal_context,
+    build_lead_context,
+    run_automations,
+)
+from crm.models import AutomationRule, Lead, Organization
 from crm.serializers import (
     LeadSerializer,
     LeadWriteSerializer,
@@ -130,6 +135,14 @@ class LeadListCreateView(WorkspaceMixin, APIView):
             organization=organization,
             notes=data.get("notes", ""),
         )
+        run_automations(
+            workspace,
+            AutomationRule.Trigger.LEAD_CREATED,
+            build_lead_context(lead, trigger=AutomationRule.Trigger.LEAD_CREATED),
+        )
+        lead = Lead.objects.select_related(
+            "assigned_to", "organization", "person", "deal"
+        ).get(pk=lead.pk)
         return Response(LeadSerializer(lead).data, status=status.HTTP_201_CREATED)
 
 
@@ -265,7 +278,21 @@ class LeadConvertView(WorkspaceMixin, APIView):
         from crm.deals_views import _deal_queryset
         from crm.serializers import DealSerializer
 
-        deal = _deal_queryset(self.get_workspace()).get(pk=deal.pk)
+        workspace = self.get_workspace()
+        run_automations(
+            workspace,
+            AutomationRule.Trigger.LEAD_CONVERTED,
+            {
+                **build_lead_context(lead, trigger=AutomationRule.Trigger.LEAD_CONVERTED),
+                **build_deal_context(deal, trigger=AutomationRule.Trigger.LEAD_CONVERTED),
+            },
+        )
+        run_automations(
+            workspace,
+            AutomationRule.Trigger.DEAL_CREATED,
+            build_deal_context(deal, trigger=AutomationRule.Trigger.DEAL_CREATED),
+        )
+        deal = _deal_queryset(workspace).get(pk=deal.pk)
         lead = Lead.objects.select_related(
             "assigned_to", "organization", "person", "deal"
         ).get(pk=lead.pk)

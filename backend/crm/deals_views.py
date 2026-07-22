@@ -17,6 +17,8 @@ from crm.serializers import (
     DealWriteSerializer,
     PipelineSerializer,
 )
+from crm.automation import apply_deal_move, build_deal_context, run_automations
+from crm.models import AutomationRule
 from crm.services import ensure_default_pipeline
 from projects.models import Project
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
@@ -148,6 +150,13 @@ class DealListCreateView(WorkspaceMixin, APIView):
             position=data.get("position", 0),
             notes=data.get("notes", ""),
         )
+        if "position" not in data:
+            apply_deal_move(deal, stage, position=Deal.objects.filter(stage=stage).count() - 1)
+        run_automations(
+            workspace,
+            AutomationRule.Trigger.DEAL_CREATED,
+            build_deal_context(deal, trigger=AutomationRule.Trigger.DEAL_CREATED),
+        )
         deal = _deal_queryset(workspace).get(pk=deal.pk)
         return Response(DealSerializer(deal).data, status=status.HTTP_201_CREATED)
 
@@ -230,7 +239,8 @@ class DealMoveView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 
     def post(self, request, deal_id):
-        deal = get_object_or_404(_deal_queryset(self.get_workspace()), pk=deal_id)
+        workspace = self.get_workspace()
+        deal = get_object_or_404(_deal_queryset(workspace), pk=deal_id)
         serializer = DealMoveSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -238,15 +248,24 @@ class DealMoveView(WorkspaceMixin, APIView):
             PipelineStage.objects.filter(pipeline=deal.pipeline),
             pk=data["stage_id"],
         )
-        deal.stage = stage
-        if "position" in data:
-            deal.position = data["position"]
-        if "probability" in data:
-            deal.probability = data["probability"]
-        else:
-            deal.probability = stage.default_probability
-        deal.save()
-        deal = _deal_queryset(self.get_workspace()).get(pk=deal.pk)
+        from_stage_id = deal.stage_id
+        deal = apply_deal_move(
+            deal,
+            stage,
+            position=data.get("position"),
+            probability=data.get("probability"),
+        )
+        if from_stage_id != deal.stage_id:
+            run_automations(
+                workspace,
+                AutomationRule.Trigger.DEAL_STAGE_CHANGED,
+                build_deal_context(
+                    deal,
+                    trigger=AutomationRule.Trigger.DEAL_STAGE_CHANGED,
+                    from_stage_id=from_stage_id,
+                ),
+            )
+        deal = _deal_queryset(workspace).get(pk=deal.pk)
         return Response(DealSerializer(deal).data)
 
 
