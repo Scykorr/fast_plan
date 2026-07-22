@@ -60,6 +60,7 @@ export type CrmActivityKind =
   | "call"
   | "meeting"
   | "email"
+  | "telegram"
   | "note"
   | "invoice"
   | "order"
@@ -68,6 +69,9 @@ export type CrmActivityKind =
 export type CrmActivity = {
   id: number;
   kind: CrmActivityKind;
+  channel: "manual" | "email" | "telegram" | "other" | string;
+  direction: "inbound" | "outbound" | "internal" | string;
+  external_id: string;
   subject: string;
   body: string;
   occurred_at: string;
@@ -75,11 +79,100 @@ export type CrmActivity = {
   person_name: string | null;
   organization: number | null;
   organization_name: string | null;
+  deal: number | null;
   project: number | null;
   project_name: string | null;
   created_by: number | null;
   created_by_email: string | null;
   created_at: string;
+};
+
+export type CrmChannelConnection = {
+  id: number;
+  provider: "imap" | "telegram" | string;
+  name: string;
+  is_active: boolean;
+  config: Record<string, unknown>;
+  last_synced_at: string | null;
+  last_error: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmDocument = {
+  id: number;
+  doc_type: "quote" | "invoice" | "contract" | string;
+  number: string;
+  title: string;
+  status: string;
+  amount: number | string;
+  currency: string;
+  body: string;
+  line_items: Array<Record<string, unknown>>;
+  issue_date: string | null;
+  due_date: string | null;
+  organization: number | null;
+  organization_name: string | null;
+  person: number | null;
+  person_name: string | null;
+  deal: number | null;
+  deal_title: string | null;
+  project: number | null;
+  pdf_url: string | null;
+  paid_total: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmAnalytics = {
+  leads: {
+    total: number;
+    converted: number;
+    conversion_rate: number;
+    by_source: Array<{
+      source: string;
+      total: number;
+      converted: number;
+      conversion_rate: number;
+    }>;
+  };
+  deals: {
+    open_count: number;
+    won_count: number;
+    lost_count: number;
+    won_amount: number;
+    avg_check: number;
+    forecast_amount: number;
+    by_owner: Array<{
+      owner_id: number | null;
+      owner_email: string | null;
+      open_count: number;
+      won_count: number;
+      won_amount: number;
+    }>;
+  };
+  finance: {
+    income_total: number;
+    expense_total: number;
+    cac: number | null;
+    ltv: number | null;
+  };
+};
+
+export type CrmArAp = {
+  ar_open_amount: number;
+  ar_open_count: number;
+  invoices_paid_amount: number;
+  invoices_total_count: number;
+  open_invoices: Array<{
+    id: number;
+    number: string;
+    title: string;
+    amount: number;
+    due_date: string | null;
+    status: string;
+    organization_name: string | null;
+  }>;
 };
 
 export type CrmSegment = {
@@ -627,6 +720,69 @@ export function createCrmApi() {
         errors: string[];
       }>("/crm/leads/import/", form);
     },
+
+    listChannels: () => request<CrmChannelConnection[]>("/crm/channels/", {}),
+    createChannel: (body: Record<string, unknown>) =>
+      request<CrmChannelConnection>("/crm/channels/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchChannel: (id: number, body: Record<string, unknown>) =>
+      request<CrmChannelConnection>(`/crm/channels/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteChannel: (id: number) =>
+      request<void>(`/crm/channels/${id}/`, { method: "DELETE" }),
+    syncChannel: (id: number) =>
+      request<{ ok: boolean; created: number; connection: CrmChannelConnection }>(
+        `/crm/channels/${id}/sync/`,
+        { method: "POST", body: "{}" },
+      ),
+
+    listDocuments: (params: { doc_type?: string; status?: string } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.doc_type) qs.set("doc_type", params.doc_type);
+      if (params.status) qs.set("status", params.status);
+      const suffix = qs.toString() ? `?${qs}` : "";
+      return request<CrmDocument[]>(`/crm/documents/${suffix}`, {});
+    },
+    createDocument: (body: Record<string, unknown>) =>
+      request<CrmDocument>("/crm/documents/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchDocument: (id: number, body: Record<string, unknown>) =>
+      request<CrmDocument>(`/crm/documents/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteDocument: (id: number) =>
+      request<void>(`/crm/documents/${id}/`, { method: "DELETE" }),
+    renderDocumentPdf: (id: number) =>
+      request<CrmDocument>(`/crm/documents/${id}/pdf/`, {
+        method: "POST",
+        body: "{}",
+      }),
+    createDocumentPayment: (id: number, body: Record<string, unknown>) =>
+      request<Record<string, unknown>>(`/crm/documents/${id}/payments/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    getArAp: () => request<CrmArAp>("/crm/ar-ap/", {}),
+    getAnalytics: () => request<CrmAnalytics>("/crm/analytics/", {}),
+    listSavedReports: () =>
+      request<Array<{ id: number; name: string; query: Record<string, unknown> }>>(
+        "/crm/saved-reports/",
+        {},
+      ),
+    createSavedReport: (body: Record<string, unknown>) =>
+      request<{ id: number; name: string; query: Record<string, unknown> }>(
+        "/crm/saved-reports/",
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    deleteSavedReport: (id: number) =>
+      request<void>(`/crm/saved-reports/${id}/`, { method: "DELETE" }),
   };
 }
 

@@ -306,6 +306,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "crm.run_daily_automations",
         "schedule": float(os.environ.get("CRM_DAILY_AUTOMATION_SECONDS", str(24 * 3600))),
     },
+    "crm-sync-channels": {
+        "task": "crm.sync_channels",
+        "schedule": float(os.environ.get("CRM_CHANNEL_SYNC_SECONDS", "900")),
+    },
 }
 
 if not DEBUG:

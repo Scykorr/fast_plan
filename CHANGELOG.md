@@ -21,6 +21,9 @@
 
 ### Added
 
+- **P6g Omnichannel** — IMAP + Telegram → Activity (`channel`/`direction`/`external_id`), ChannelConnection CRUD/sync, Telegram webhook, Celery `crm.sync_channels`
+- **P6h Commerce** — Quote/Invoice/Contract + PDF, payments, AR lite; страница `/crm-commerce`
+- **P6i CRM analytics** — conversion, avg check, by owner/source, LTV/CAC lite, saved reports; страница `/crm-analytics`
 - **P6f AI CRM** — insights (stale clients / at-risk deals + forecast), draft email/КП, activity summary, suggest/create deal tasks; страница `/crm-ai`; OpenAI/Ollama/heuristics
 - **Automations visual editor** — конструктор conditions/actions вместо JSON preview; CRUD правил в UI
 - **schedule.daily** — триггер + шаблон `stale_deal_daily`, Celery beat `crm.run_daily_automations`, `skip_if_open` для задач

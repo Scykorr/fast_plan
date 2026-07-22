@@ -13,6 +13,8 @@ import { CalendarPage } from "./pages/CalendarPage";
 import { CapacityPage } from "./pages/CapacityPage";
 import { ClientsPage } from "./pages/ClientsPage";
 import { CrmAiPage } from "./pages/CrmAiPage";
+import { CrmAnalyticsPage } from "./pages/CrmAnalyticsPage";
+import { CrmCommercePage } from "./pages/CrmCommercePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DealsPage } from "./pages/DealsPage";
 import { FinancePage } from "./pages/FinancePage";
@@ -90,6 +92,8 @@ export default function App() {
               <Route path="leads" element={<LeadsPage />} />
               <Route path="automations" element={<AutomationsPage />} />
               <Route path="crm-ai" element={<CrmAiPage />} />
+              <Route path="crm-commerce" element={<CrmCommercePage />} />
+              <Route path="crm-analytics" element={<CrmAnalyticsPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
               <Route path="tasks" element={<MyTasksPage />} />

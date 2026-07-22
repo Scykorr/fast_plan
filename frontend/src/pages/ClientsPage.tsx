@@ -32,6 +32,7 @@ const KIND_LABELS: Record<CrmActivityKind, string> = {
   call: "Звонок",
   meeting: "Встреча",
   email: "Email",
+  telegram: "Telegram",
   invoice: "Счёт",
   order: "Заказ",
   other: "Другое",

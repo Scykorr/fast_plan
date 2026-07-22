@@ -16,3 +16,12 @@ def run_daily_automations() -> dict:
     stats = run_schedule_daily_automations()
     logger.info("crm.run_daily_automations finished: %s", stats)
     return stats
+
+
+@shared_task(name="crm.sync_channels")
+def sync_channels() -> dict:
+    from crm.channels import sync_all_active_connections
+
+    stats = sync_all_active_connections()
+    logger.info("crm.sync_channels finished: %s", stats)
+    return stats

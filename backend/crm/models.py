@@ -361,10 +361,22 @@ class Activity(models.Model):
         CALL = "call", "Call"
         MEETING = "meeting", "Meeting"
         EMAIL = "email", "Email"
+        TELEGRAM = "telegram", "Telegram"
         NOTE = "note", "Note"
         INVOICE = "invoice", "Invoice"
         ORDER = "order", "Order"
         OTHER = "other", "Other"
+
+    class Channel(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        EMAIL = "email", "Email"
+        TELEGRAM = "telegram", "Telegram"
+        OTHER = "other", "Other"
+
+    class Direction(models.TextChoices):
+        INBOUND = "inbound", "Inbound"
+        OUTBOUND = "outbound", "Outbound"
+        INTERNAL = "internal", "Internal"
 
     workspace = models.ForeignKey(
         "workspaces.Workspace",
@@ -372,6 +384,13 @@ class Activity(models.Model):
         related_name="crm_activities",
     )
     kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.NOTE)
+    channel = models.CharField(
+        max_length=20, choices=Channel.choices, default=Channel.MANUAL
+    )
+    direction = models.CharField(
+        max_length=20, choices=Direction.choices, default=Direction.INTERNAL
+    )
+    external_id = models.CharField(max_length=255, blank=True, default="")
     subject = models.CharField(max_length=255)
     body = models.TextField(blank=True, default="")
     occurred_at = models.DateTimeField()
@@ -385,6 +404,13 @@ class Activity(models.Model):
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="activities",
+    )
+    deal = models.ForeignKey(
+        "crm.Deal",
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="activities",
@@ -411,6 +437,14 @@ class Activity(models.Model):
             models.Index(fields=["workspace", "occurred_at"]),
             models.Index(fields=["person", "occurred_at"]),
             models.Index(fields=["organization", "occurred_at"]),
+            models.Index(fields=["workspace", "channel", "external_id"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "channel", "external_id"],
+                condition=~Q(external_id=""),
+                name="uniq_crm_activity_external",
+            ),
         ]
 
     def __str__(self):
@@ -726,3 +760,178 @@ class AutomationDeferred(models.Model):
         indexes = [
             models.Index(fields=["workspace", "run_at", "processed_at"]),
         ]
+
+
+class ChannelConnection(models.Model):
+    """Inbound omnichannel connector (IMAP/Gmail-style email or Telegram bot)."""
+
+    class Provider(models.TextChoices):
+        IMAP = "imap", "IMAP / Gmail IMAP"
+        TELEGRAM = "telegram", "Telegram bot"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_channel_connections",
+    )
+    provider = models.CharField(max_length=20, choices=Provider.choices)
+    name = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True)
+    # IMAP: {host, port, username, password, use_ssl, folder}
+    # Telegram: {bot_token, webhook_secret}
+    config = models.JSONField(default=dict, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return f"{self.provider}:{self.name}"
+
+
+def crm_document_upload_path(instance, filename):
+    return f"crm/documents/{instance.workspace_id}/{filename}"
+
+
+class CrmDocument(models.Model):
+    """Commercial document: quote / invoice / contract."""
+
+    class DocType(models.TextChoices):
+        QUOTE = "quote", "Quote / КП"
+        INVOICE = "invoice", "Invoice"
+        CONTRACT = "contract", "Contract"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SENT = "sent", "Sent"
+        ACCEPTED = "accepted", "Accepted"
+        PAID = "paid", "Paid"
+        VOID = "void", "Void"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_documents",
+    )
+    doc_type = models.CharField(max_length=20, choices=DocType.choices)
+    number = models.CharField(max_length=64, blank=True, default="")
+    title = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    currency = models.CharField(max_length=3, default="RUB")
+    body = models.TextField(blank=True, default="")
+    line_items = models.JSONField(default=list, blank=True)
+    issue_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents",
+    )
+    person = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents",
+    )
+    deal = models.ForeignKey(
+        Deal,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents",
+    )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_documents",
+    )
+    pdf_file = models.FileField(
+        upload_to=crm_document_upload_path, blank=True, null=True
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_documents_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["workspace", "doc_type", "status"]),
+            models.Index(fields=["workspace", "due_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.doc_type} {self.number or self.id}: {self.title}"
+
+    @property
+    def is_open_ar(self) -> bool:
+        return (
+            self.doc_type == self.DocType.INVOICE
+            and self.status in (self.Status.SENT, self.Status.ACCEPTED)
+        )
+
+
+class CrmDocumentPayment(models.Model):
+    """Payment against a commercial document (links optional Finance transaction)."""
+
+    document = models.ForeignKey(
+        CrmDocument, on_delete=models.CASCADE, related_name="payments"
+    )
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    paid_at = models.DateField()
+    notes = models.CharField(max_length=255, blank=True, default="")
+    finance_transaction = models.ForeignKey(
+        "finance.Transaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_document_payments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-paid_at", "-id"]
+
+
+class CrmSavedReport(models.Model):
+    """Simple saved analytics query for P6i report builder."""
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_saved_reports",
+    )
+    name = models.CharField(max_length=160)
+    # {"metric": "conversion|avg_check|by_owner|by_source", "filters": {...}}
+    query = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_saved_reports",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name

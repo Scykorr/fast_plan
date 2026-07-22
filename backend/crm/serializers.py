@@ -5,8 +5,12 @@ from crm.models import (
     Activity,
     AutomationRule,
     AutomationRun,
+    ChannelConnection,
     CrmAttachment,
     CrmComment,
+    CrmDocument,
+    CrmDocumentPayment,
+    CrmSavedReport,
     Deal,
     DealTask,
     Lead,
@@ -365,6 +369,9 @@ class ActivitySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "kind",
+            "channel",
+            "direction",
+            "external_id",
             "subject",
             "body",
             "occurred_at",
@@ -372,6 +379,7 @@ class ActivitySerializer(serializers.ModelSerializer):
             "person_name",
             "organization",
             "organization_name",
+            "deal",
             "project",
             "project_name",
             "created_by",
@@ -395,12 +403,21 @@ class ActivitySerializer(serializers.ModelSerializer):
 
 class ActivityWriteSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=Activity.Kind.choices, default=Activity.Kind.NOTE)
+    channel = serializers.ChoiceField(
+        choices=Activity.Channel.choices, required=False, default=Activity.Channel.MANUAL
+    )
+    direction = serializers.ChoiceField(
+        choices=Activity.Direction.choices,
+        required=False,
+        default=Activity.Direction.INTERNAL,
+    )
     subject = serializers.CharField(max_length=255)
     body = serializers.CharField(required=False, allow_blank=True, default="")
     occurred_at = serializers.DateTimeField(required=False)
     person_id = serializers.IntegerField(required=False, allow_null=True)
     organization_id = serializers.IntegerField(required=False, allow_null=True)
     project_id = serializers.IntegerField(required=False, allow_null=True)
+    deal_id = serializers.IntegerField(required=False, allow_null=True)
 
     def validate(self, attrs):
         if not attrs.get("person_id") and not attrs.get("organization_id"):
@@ -434,12 +451,15 @@ class ActivityWriteSerializer(serializers.Serializer):
         return Activity.objects.create(
             workspace=workspace,
             kind=validated_data["kind"],
+            channel=validated_data.get("channel") or Activity.Channel.MANUAL,
+            direction=validated_data.get("direction") or Activity.Direction.INTERNAL,
             subject=validated_data["subject"],
             body=validated_data.get("body", ""),
             occurred_at=validated_data.get("occurred_at") or timezone.now(),
             person=person,
             organization=organization,
             project=project,
+            deal_id=validated_data.get("deal_id"),
             created_by=self.context["request"].user,
         )
 
@@ -871,5 +891,154 @@ class AutomationRunSerializer(serializers.ModelSerializer):
             "result",
             "success",
             "created_at",
+        ]
+        read_only_fields = fields
+
+
+class ChannelConnectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChannelConnection
+        fields = [
+            "id",
+            "provider",
+            "name",
+            "is_active",
+            "config",
+            "last_synced_at",
+            "last_error",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class ChannelConnectionWriteSerializer(serializers.Serializer):
+    provider = serializers.ChoiceField(
+        choices=ChannelConnection.Provider.choices, required=False
+    )
+    name = serializers.CharField(max_length=120, required=False)
+    is_active = serializers.BooleanField(required=False)
+    config = serializers.DictField(required=False)
+
+    def validate(self, attrs):
+        # Create requires provider + name (partial updates skip).
+        if not self.partial:
+            if not attrs.get("provider"):
+                raise serializers.ValidationError({"provider": "Required."})
+            if not attrs.get("name"):
+                raise serializers.ValidationError({"name": "Required."})
+        return attrs
+
+
+class CrmDocumentSerializer(serializers.ModelSerializer):
+    organization_name = serializers.SerializerMethodField()
+    person_name = serializers.SerializerMethodField()
+    deal_title = serializers.SerializerMethodField()
+    pdf_url = serializers.SerializerMethodField()
+    paid_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CrmDocument
+        fields = [
+            "id",
+            "doc_type",
+            "number",
+            "title",
+            "status",
+            "amount",
+            "currency",
+            "body",
+            "line_items",
+            "issue_date",
+            "due_date",
+            "organization",
+            "organization_name",
+            "person",
+            "person_name",
+            "deal",
+            "deal_title",
+            "project",
+            "pdf_url",
+            "paid_total",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_organization_name(self, obj):
+        return obj.organization.name if obj.organization_id else None
+
+    def get_person_name(self, obj):
+        return obj.person.full_name if obj.person_id else None
+
+    def get_deal_title(self, obj):
+        return obj.deal.title if obj.deal_id else None
+
+    def get_pdf_url(self, obj):
+        if not obj.pdf_file:
+            return None
+        request = self.context.get("request")
+        url = obj.pdf_file.url
+        return request.build_absolute_uri(url) if request else url
+
+    def get_paid_total(self, obj):
+        return float(sum((p.amount for p in obj.payments.all()), start=0) or 0)
+
+
+class CrmDocumentWriteSerializer(serializers.Serializer):
+    doc_type = serializers.ChoiceField(
+        choices=CrmDocument.DocType.choices, required=False
+    )
+    number = serializers.CharField(required=False, allow_blank=True, max_length=64)
+    title = serializers.CharField(required=False, max_length=255)
+    status = serializers.ChoiceField(
+        choices=CrmDocument.Status.choices, required=False
+    )
+    amount = serializers.DecimalField(
+        max_digits=14, decimal_places=2, required=False
+    )
+    currency = serializers.CharField(required=False, max_length=3)
+    body = serializers.CharField(required=False, allow_blank=True)
+    line_items = serializers.ListField(required=False, allow_empty=True)
+    issue_date = serializers.DateField(required=False, allow_null=True)
+    due_date = serializers.DateField(required=False, allow_null=True)
+    organization_id = serializers.IntegerField(required=False, allow_null=True)
+    person_id = serializers.IntegerField(required=False, allow_null=True)
+    deal_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        if not self.partial:
+            if not attrs.get("doc_type"):
+                raise serializers.ValidationError({"doc_type": "Required."})
+            if not attrs.get("title"):
+                raise serializers.ValidationError({"title": "Required."})
+        return attrs
+
+
+class CrmDocumentPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CrmDocumentPayment
+        fields = [
+            "id",
+            "document",
+            "amount",
+            "paid_at",
+            "notes",
+            "finance_transaction",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class CrmSavedReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CrmSavedReport
+        fields = [
+            "id",
+            "name",
+            "query",
+            "created_by",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = fields

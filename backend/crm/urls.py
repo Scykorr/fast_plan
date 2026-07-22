@@ -1,6 +1,6 @@
 from django.urls import path
 
-from crm import ai_views, automation_views, deals_views, leads_views, views
+from crm import ai_views, automation_views, commerce_views, deals_views, leads_views, views
 
 urlpatterns = [
     path("crm/organizations/", views.OrganizationListCreateView.as_view(), name="crm-orgs"),
@@ -174,5 +174,61 @@ urlpatterns = [
         "crm/ai/suggest-tasks/",
         ai_views.CrmAiSuggestTasksView.as_view(),
         name="crm-ai-suggest-tasks",
+    ),
+    path(
+        "crm/channels/",
+        commerce_views.ChannelConnectionListCreateView.as_view(),
+        name="crm-channels",
+    ),
+    path(
+        "crm/channels/<int:connection_id>/",
+        commerce_views.ChannelConnectionDetailView.as_view(),
+        name="crm-channel-detail",
+    ),
+    path(
+        "crm/channels/<int:connection_id>/sync/",
+        commerce_views.ChannelConnectionSyncView.as_view(),
+        name="crm-channel-sync",
+    ),
+    path(
+        "crm/channels/telegram/<str:secret>/",
+        commerce_views.TelegramWebhookView.as_view(),
+        name="crm-telegram-webhook",
+    ),
+    path(
+        "crm/documents/",
+        commerce_views.CrmDocumentListCreateView.as_view(),
+        name="crm-documents",
+    ),
+    path(
+        "crm/documents/<int:document_id>/",
+        commerce_views.CrmDocumentDetailView.as_view(),
+        name="crm-document-detail",
+    ),
+    path(
+        "crm/documents/<int:document_id>/pdf/",
+        commerce_views.CrmDocumentPdfView.as_view(),
+        name="crm-document-pdf",
+    ),
+    path(
+        "crm/documents/<int:document_id>/payments/",
+        commerce_views.CrmDocumentPaymentListCreateView.as_view(),
+        name="crm-document-payments",
+    ),
+    path("crm/ar-ap/", commerce_views.CrmArApView.as_view(), name="crm-ar-ap"),
+    path(
+        "crm/analytics/",
+        commerce_views.CrmAnalyticsView.as_view(),
+        name="crm-analytics",
+    ),
+    path(
+        "crm/saved-reports/",
+        commerce_views.CrmSavedReportListCreateView.as_view(),
+        name="crm-saved-reports",
+    ),
+    path(
+        "crm/saved-reports/<int:report_id>/",
+        commerce_views.CrmSavedReportDetailView.as_view(),
+        name="crm-saved-report-detail",
     ),
 ]
