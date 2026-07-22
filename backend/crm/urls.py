@@ -1,6 +1,6 @@
 from django.urls import path
 
-from crm import views
+from crm import deals_views, views
 
 urlpatterns = [
     path("crm/organizations/", views.OrganizationListCreateView.as_view(), name="crm-orgs"),
@@ -80,4 +80,31 @@ urlpatterns = [
         name="crm-project-people",
     ),
     path("crm/import-legacy/", views.CrmImportLegacyView.as_view(), name="crm-import-legacy"),
+    path("crm/pipeline/", deals_views.PipelineBoardView.as_view(), name="crm-pipeline"),
+    path("crm/deals/", deals_views.DealListCreateView.as_view(), name="crm-deals"),
+    path(
+        "crm/deals/forecast/",
+        deals_views.DealForecastView.as_view(),
+        name="crm-deals-forecast",
+    ),
+    path(
+        "crm/deals/<int:deal_id>/",
+        deals_views.DealDetailView.as_view(),
+        name="crm-deal-detail",
+    ),
+    path(
+        "crm/deals/<int:deal_id>/move/",
+        deals_views.DealMoveView.as_view(),
+        name="crm-deal-move",
+    ),
+    path(
+        "crm/deals/<int:deal_id>/tasks/",
+        deals_views.DealTaskListCreateView.as_view(),
+        name="crm-deal-tasks",
+    ),
+    path(
+        "crm/deals/<int:deal_id>/tasks/<int:task_id>/",
+        deals_views.DealTaskDetailView.as_view(),
+        name="crm-deal-task-detail",
+    ),
 ]

@@ -11,6 +11,7 @@ import { CalendarPage } from "./pages/CalendarPage";
 import { CapacityPage } from "./pages/CapacityPage";
 import { ClientsPage } from "./pages/ClientsPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DealsPage } from "./pages/DealsPage";
 import { FinancePage } from "./pages/FinancePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
@@ -80,6 +81,7 @@ export default function App() {
               <Route index element={<DashboardPage />} />
               <Route path="portfolio" element={<PortfolioPage />} />
               <Route path="clients" element={<ClientsPage />} />
+              <Route path="deals" element={<DealsPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
               <Route path="tasks" element={<MyTasksPage />} />

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from audit.services import log_audit
+from crm.models import Deal, Organization
 from finance.imports import import_transactions_csv
 from finance.exports import render_transactions_csv, render_transactions_xlsx
 from finance.models import Transaction
@@ -19,25 +20,50 @@ class TransactionListCreateView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
-        transactions = Transaction.objects.filter(workspace=self.get_workspace())
+        transactions = Transaction.objects.filter(
+            workspace=self.get_workspace()
+        ).select_related("organization", "deal", "project")
         project_id = request.query_params.get("project_id")
+        organization_id = request.query_params.get("organization_id")
+        deal_id = request.query_params.get("deal_id")
         if project_id:
             transactions = transactions.filter(project_id=project_id)
+        if organization_id:
+            transactions = transactions.filter(organization_id=organization_id)
+        if deal_id:
+            transactions = transactions.filter(deal_id=deal_id)
         return Response(TransactionSerializer(transactions, many=True).data)
 
     def post(self, request):
         serializer = TransactionWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        workspace = self.get_workspace()
         project = None
         if data.get("project_id"):
             project = get_object_or_404(
-                Project.objects.filter(workspace=self.get_workspace()),
+                Project.objects.filter(workspace=workspace),
                 pk=data["project_id"],
             )
+        organization = None
+        if data.get("organization_id"):
+            organization = get_object_or_404(
+                Organization.objects.filter(workspace=workspace),
+                pk=data["organization_id"],
+            )
+        deal = None
+        if data.get("deal_id"):
+            deal = get_object_or_404(
+                Deal.objects.filter(workspace=workspace),
+                pk=data["deal_id"],
+            )
+            if organization is None and deal.organization_id:
+                organization = deal.organization
         transaction = Transaction.objects.create(
-            workspace=self.get_workspace(),
+            workspace=workspace,
             project=project,
+            organization=organization,
+            deal=deal,
             title=data["title"],
             amount=data["amount"],
             transaction_type=data.get("transaction_type", Transaction.TransactionType.EXPENSE),
@@ -46,7 +72,7 @@ class TransactionListCreateView(WorkspaceMixin, APIView):
             notes=data.get("notes", ""),
         )
         log_audit(
-            self.get_workspace(),
+            workspace,
             request.user,
             "transaction.create",
             "Transaction",
@@ -84,6 +110,22 @@ class TransactionDetailView(WorkspaceMixin, APIView):
                     pk=data["project_id"],
                 )
             transaction.project = project
+        if "organization_id" in data:
+            organization = None
+            if data["organization_id"]:
+                organization = get_object_or_404(
+                    Organization.objects.filter(workspace=self.get_workspace()),
+                    pk=data["organization_id"],
+                )
+            transaction.organization = organization
+        if "deal_id" in data:
+            deal = None
+            if data["deal_id"]:
+                deal = get_object_or_404(
+                    Deal.objects.filter(workspace=self.get_workspace()),
+                    pk=data["deal_id"],
+                )
+            transaction.deal = deal
         for field in ("title", "amount", "transaction_type", "category", "transaction_date", "notes"):
             if field in data:
                 setattr(transaction, field, data[field])

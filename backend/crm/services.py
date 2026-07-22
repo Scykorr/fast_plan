@@ -106,6 +106,39 @@ def ensure_default_client_org(workspace, name: str = "Клиенты") -> Organi
     return org
 
 
+DEFAULT_PIPELINE_STAGES = (
+    ("Лид", 10, False, False),
+    ("Квалификация", 25, False, False),
+    ("Предложение", 50, False, False),
+    ("Переговоры", 75, False, False),
+    ("Выиграно", 100, True, False),
+    ("Проиграно", 0, False, True),
+)
+
+
+def ensure_default_pipeline(workspace):
+    from crm.models import Pipeline, PipelineStage
+
+    pipeline = Pipeline.objects.filter(workspace=workspace, is_default=True).first()
+    if pipeline is None:
+        pipeline = Pipeline.objects.create(
+            workspace=workspace, name="Продажи", is_default=True
+        )
+    if not pipeline.stages.exists():
+        for index, (name, probability, is_won, is_lost) in enumerate(
+            DEFAULT_PIPELINE_STAGES
+        ):
+            PipelineStage.objects.create(
+                pipeline=pipeline,
+                name=name,
+                position=index,
+                default_probability=probability,
+                is_won=is_won,
+                is_lost=is_lost,
+            )
+    return pipeline
+
+
 def annotate_last_activity(qs: QuerySet, *, person: bool = True) -> QuerySet:
     if person:
         return qs.annotate(last_activity_at=Max("activities__occurred_at"))

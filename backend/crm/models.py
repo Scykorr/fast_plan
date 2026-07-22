@@ -415,3 +415,151 @@ class Activity(models.Model):
 
     def __str__(self):
         return self.subject
+
+
+class Pipeline(models.Model):
+    """Sales pipeline for a workspace (one default board of stages)."""
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_pipelines",
+    )
+    name = models.CharField(max_length=120, default="Продажи")
+    is_default = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.name
+
+
+class PipelineStage(models.Model):
+    pipeline = models.ForeignKey(
+        Pipeline,
+        on_delete=models.CASCADE,
+        related_name="stages",
+    )
+    name = models.CharField(max_length=120)
+    position = models.PositiveIntegerField(default=0)
+    default_probability = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    is_won = models.BooleanField(default=False)
+    is_lost = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pipeline", "name"],
+                name="uniq_crm_pipeline_stage_name",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class Deal(models.Model):
+    """Sales opportunity in a pipeline stage."""
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_deals",
+    )
+    pipeline = models.ForeignKey(
+        Pipeline,
+        on_delete=models.CASCADE,
+        related_name="deals",
+    )
+    stage = models.ForeignKey(
+        PipelineStage,
+        on_delete=models.PROTECT,
+        related_name="deals",
+    )
+    title = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    probability = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    close_date = models.DateField(null=True, blank=True)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deals",
+    )
+    person = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deals",
+    )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_deals",
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_crm_deals",
+    )
+    position = models.PositiveIntegerField(default=0)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["stage__position", "position", "id"]
+        indexes = [
+            models.Index(fields=["workspace", "stage"]),
+            models.Index(fields=["workspace", "close_date"]),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def weighted_amount(self):
+        return (self.amount * self.probability) / 100
+
+    @property
+    def is_open(self):
+        return not self.stage.is_won and not self.stage.is_lost
+
+
+class DealTask(models.Model):
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="tasks")
+    title = models.CharField(max_length=255)
+    due_date = models.DateField(null=True, blank=True)
+    is_done = models.BooleanField(default=False)
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_deal_tasks",
+    )
+    remind_before_days = models.PositiveSmallIntegerField(default=1)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["is_done", "due_date", "id"]
+
+    def __str__(self):
+        return self.title

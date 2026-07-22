@@ -11,9 +11,11 @@ import type {
   CrmSegment,
   CrmTag,
 } from "../api/crm";
+import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 const ACTIVITY_KINDS: CrmActivityKind[] = [
   "note",
@@ -49,6 +51,7 @@ function staleLabel(days: number | null | undefined) {
 
 export function ClientsPage() {
   const crmApi = useCrmApi();
+  const workspaceApi = useWorkspaceApi();
   const { workspaceEpoch } = useWorkspace();
   const [tab, setTab] = useState<"people" | "orgs">("people");
   const [query, setQuery] = useState("");
@@ -57,6 +60,7 @@ export function ClientsPage() {
   const [orgs, setOrgs] = useState<CrmOrganization[]>([]);
   const [tags, setTags] = useState<CrmTag[]>([]);
   const [segments, setSegments] = useState<CrmSegment[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [filterTagId, setFilterTagId] = useState<number | "">("");
   const [filterSegmentId, setFilterSegmentId] = useState<number | "">("");
   const [selectedPerson, setSelectedPerson] = useState<CrmPerson | null>(null);
@@ -132,6 +136,40 @@ export function ClientsPage() {
   useEffect(() => {
     void loadDirectory();
   }, [loadDirectory, workspaceEpoch]);
+
+  useEffect(() => {
+    if (!workspaceApi) {
+      return;
+    }
+    void workspaceApi
+      .getMembers()
+      .then(setMembers)
+      .catch((err) => {
+        setError(parseApiError(err, "Не удалось загрузить участников"));
+      });
+  }, [workspaceApi, workspaceEpoch]);
+
+  const assignOwner = async (ownerId: number | null) => {
+    if (!crmApi) {
+      return;
+    }
+    try {
+      if (selectedPerson) {
+        const updated = await crmApi.patchPerson(selectedPerson.id, {
+          owner_id: ownerId,
+        });
+        setSelectedPerson(updated);
+      } else if (selectedOrg) {
+        const updated = await crmApi.patchOrganization(selectedOrg.id, {
+          owner_id: ownerId,
+        });
+        setSelectedOrg(updated);
+      }
+      await loadDirectory();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось назначить менеджера"));
+    }
+  };
 
   const loadCardSide = useCallback(async () => {
     if (!crmApi) {
@@ -861,6 +899,28 @@ export function ClientsPage() {
                       )}
                     </div>
                   )}
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-text">Менеджер</h3>
+                    <select
+                      value={
+                        selectedPerson?.owner_id ?? selectedOrg?.owner_id ?? ""
+                      }
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        void assignOwner(value ? Number(value) : null);
+                      }}
+                      className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
+                    >
+                      <option value="">Не назначен</option>
+                      {members.map((member) => (
+                        <option key={member.id} value={member.user_id}>
+                          {member.email}
+                          {member.crm_role ? ` (${member.crm_role})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
                   <div>
                     <h3 className="text-sm font-semibold text-text">Теги</h3>

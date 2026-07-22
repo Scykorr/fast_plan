@@ -5,11 +5,15 @@ from crm.models import (
     Activity,
     CrmAttachment,
     CrmComment,
+    Deal,
+    DealTask,
     Organization,
     OrganizationMembership,
     OrganizationTag,
     Person,
     PersonTag,
+    Pipeline,
+    PipelineStage,
     ProjectPersonLink,
     Segment,
     Tag,
@@ -627,3 +631,137 @@ class TagAttachSerializer(serializers.Serializer):
             self.validated_data["name"],
             self.validated_data.get("color") or "#3b82f6",
         )
+
+
+class PipelineStageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PipelineStage
+        fields = [
+            "id",
+            "name",
+            "position",
+            "default_probability",
+            "is_won",
+            "is_lost",
+        ]
+        read_only_fields = fields
+
+
+class PipelineSerializer(serializers.ModelSerializer):
+    stages = PipelineStageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pipeline
+        fields = ["id", "name", "is_default", "stages", "created_at"]
+        read_only_fields = fields
+
+
+class DealSerializer(serializers.ModelSerializer):
+    stage_name = serializers.CharField(source="stage.name", read_only=True)
+    organization_name = serializers.SerializerMethodField()
+    person_name = serializers.SerializerMethodField()
+    project_name = serializers.SerializerMethodField()
+    owner_email = serializers.SerializerMethodField()
+    weighted_amount = serializers.SerializerMethodField()
+    is_open = serializers.SerializerMethodField()
+    open_tasks_count = serializers.IntegerField(read_only=True, required=False)
+
+    class Meta:
+        model = Deal
+        fields = [
+            "id",
+            "pipeline",
+            "stage",
+            "stage_name",
+            "title",
+            "amount",
+            "probability",
+            "weighted_amount",
+            "close_date",
+            "organization",
+            "organization_name",
+            "person",
+            "person_name",
+            "project",
+            "project_name",
+            "owner",
+            "owner_email",
+            "position",
+            "notes",
+            "is_open",
+            "open_tasks_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_organization_name(self, obj):
+        return obj.organization.name if obj.organization_id else None
+
+    def get_person_name(self, obj):
+        return obj.person.full_name if obj.person_id else None
+
+    def get_project_name(self, obj):
+        return obj.project.name if obj.project_id else None
+
+    def get_owner_email(self, obj):
+        return obj.owner.email if obj.owner_id else None
+
+    def get_weighted_amount(self, obj):
+        return float(obj.weighted_amount)
+
+    def get_is_open(self, obj):
+        return obj.is_open
+
+
+class DealWriteSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255, required=False)
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    probability = serializers.IntegerField(required=False, min_value=0, max_value=100)
+    close_date = serializers.DateField(required=False, allow_null=True)
+    stage_id = serializers.IntegerField(required=False)
+    organization_id = serializers.IntegerField(required=False, allow_null=True)
+    person_id = serializers.IntegerField(required=False, allow_null=True)
+    project_id = serializers.IntegerField(required=False, allow_null=True)
+    owner_id = serializers.IntegerField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    position = serializers.IntegerField(required=False, min_value=0)
+
+
+class DealMoveSerializer(serializers.Serializer):
+    stage_id = serializers.IntegerField()
+    position = serializers.IntegerField(required=False, min_value=0)
+    probability = serializers.IntegerField(required=False, min_value=0, max_value=100)
+
+
+class DealTaskSerializer(serializers.ModelSerializer):
+    assignee_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DealTask
+        fields = [
+            "id",
+            "deal",
+            "title",
+            "due_date",
+            "is_done",
+            "assignee",
+            "assignee_email",
+            "remind_before_days",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_assignee_email(self, obj):
+        return obj.assignee.email if obj.assignee_id else None
+
+
+class DealTaskWriteSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255, required=False)
+    due_date = serializers.DateField(required=False, allow_null=True)
+    is_done = serializers.BooleanField(required=False)
+    assignee_id = serializers.IntegerField(required=False, allow_null=True)
+    remind_before_days = serializers.IntegerField(required=False, min_value=0)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")

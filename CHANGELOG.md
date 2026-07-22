@@ -17,6 +17,8 @@
 
 ### Added
 
+- **P6c Deals** — pipeline stages, Deal (amount/probability/close_date), forecast, deal tasks + reminders, Deal↔Org/Project, Finance `organization`/`deal` counterparty; страница «Сделки»
+- **Clients owner UI** — назначение менеджера (`owner`) из карточки клиента
 - **P6b Client card MVP** — telegram/whatsapp/social_urls, tags & segments, comments & file attachments, owner manager, activity kinds `invoice`/`order`, workspace `crm_role`, Clients UI card tabs + «нет касаний N дней»
 - **Staging checklist** — [`STAGING.md`](STAGING.md): SMTP verification, webhooks, PWA install/update, smoke-тесты
 - **Extended health** — `GET /api/health/?extended=1` (database, redis, email backend, celery_eager)

@@ -117,6 +117,73 @@ export type CrmAttachment = {
   created_at: string;
 };
 
+export type CrmPipelineStage = {
+  id: number;
+  name: string;
+  position: number;
+  default_probability: number;
+  is_won: boolean;
+  is_lost: boolean;
+};
+
+export type CrmPipeline = {
+  id: number;
+  name: string;
+  is_default: boolean;
+  stages: CrmPipelineStage[];
+  created_at: string;
+};
+
+export type CrmDeal = {
+  id: number;
+  pipeline: number;
+  stage: number;
+  stage_name: string;
+  title: string;
+  amount: string | number;
+  probability: number;
+  weighted_amount: number;
+  close_date: string | null;
+  organization: number | null;
+  organization_name: string | null;
+  person: number | null;
+  person_name: string | null;
+  project: number | null;
+  project_name: string | null;
+  owner: number | null;
+  owner_email: string | null;
+  position: number;
+  notes: string;
+  is_open: boolean;
+  open_tasks_count?: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmDealForecast = {
+  open_count: number;
+  open_amount: number;
+  forecast_amount: number;
+  won_count: number;
+  won_amount: number;
+  lost_count: number;
+  lost_amount: number;
+};
+
+export type CrmDealTask = {
+  id: number;
+  deal: number;
+  title: string;
+  due_date: string | null;
+  is_done: boolean;
+  assignee: number | null;
+  assignee_email: string | null;
+  remind_before_days: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CrmListParams = {
   q?: string;
   tag_id?: number;
@@ -279,6 +346,65 @@ export function createCrmApi() {
         imported_stakeholders: number;
         synced_at: string;
       }>("/crm/import-legacy/", { method: "POST", body: "{}" }),
+
+    getPipeline: () => request<CrmPipeline>("/crm/pipeline/", {}),
+    listDeals: (params: {
+      stage_id?: number;
+      organization_id?: number;
+      project_id?: number;
+      open?: boolean;
+    } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.stage_id) qs.set("stage_id", String(params.stage_id));
+      if (params.organization_id) {
+        qs.set("organization_id", String(params.organization_id));
+      }
+      if (params.project_id) qs.set("project_id", String(params.project_id));
+      if (params.open) qs.set("open", "1");
+      const suffix = qs.toString() ? `?${qs}` : "";
+      return request<CrmDeal[]>(`/crm/deals/${suffix}`, {});
+    },
+    createDeal: (body: Record<string, unknown>) =>
+      request<CrmDeal>("/crm/deals/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchDeal: (id: number, body: Record<string, unknown>) =>
+      request<CrmDeal>(`/crm/deals/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    moveDeal: (
+      id: number,
+      body: { stage_id: number; position?: number; probability?: number },
+    ) =>
+      request<CrmDeal>(`/crm/deals/${id}/move/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    deleteDeal: (id: number) =>
+      request<void>(`/crm/deals/${id}/`, { method: "DELETE" }),
+    getDealForecast: () => request<CrmDealForecast>("/crm/deals/forecast/", {}),
+    listDealTasks: (dealId: number) =>
+      request<CrmDealTask[]>(`/crm/deals/${dealId}/tasks/`, {}),
+    createDealTask: (dealId: number, body: Record<string, unknown>) =>
+      request<CrmDealTask>(`/crm/deals/${dealId}/tasks/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchDealTask: (
+      dealId: number,
+      taskId: number,
+      body: Record<string, unknown>,
+    ) =>
+      request<CrmDealTask>(`/crm/deals/${dealId}/tasks/${taskId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteDealTask: (dealId: number, taskId: number) =>
+      request<void>(`/crm/deals/${dealId}/tasks/${taskId}/`, {
+        method: "DELETE",
+      }),
   };
 }
 

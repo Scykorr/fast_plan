@@ -16,6 +16,7 @@ const navItems = [
   { to: "/", labelKey: "dashboard", end: true },
   { to: "/portfolio", labelKey: "portfolio" },
   { to: "/clients", labelKey: "clients" },
+  { to: "/deals", labelKey: "deals" },
   { to: "/projects", labelKey: "projects" },
   { to: "/tasks", labelKey: "myTasks" },
   { to: "/capacity", label: "Capacity" },

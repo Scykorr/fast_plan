@@ -14,6 +14,7 @@ class Notification(models.Model):
         COMMENT = "comment", "Comment"
         MENTION = "mention", "Mention"
         CHAT = "chat", "Chat"
+        DEAL_TASK = "deal_task", "Deal task"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

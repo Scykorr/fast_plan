@@ -18,6 +18,21 @@ class Transaction(models.Model):
         blank=True,
         related_name="transactions",
     )
+    organization = models.ForeignKey(
+        "crm.Organization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="finance_transactions",
+        help_text="CRM counterparty (prep for P6c+)",
+    )
+    deal = models.ForeignKey(
+        "crm.Deal",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="finance_transactions",
+    )
     title = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     transaction_type = models.CharField(

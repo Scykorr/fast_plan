@@ -304,6 +304,51 @@ def send_deadline_reminders(*, today: date | None = None) -> tuple[int, list]:
     return created, created_items
 
 
+def send_deal_task_reminders(*, today: date | None = None) -> tuple[int, list[Notification]]:
+    from crm.models import DealTask
+
+    today = today or date.today()
+    horizon = today + timedelta(days=7)
+    tasks = (
+        DealTask.objects.filter(
+            is_done=False,
+            due_date__isnull=False,
+            due_date__lte=horizon,
+        )
+        .select_related("deal", "deal__workspace", "assignee", "deal__owner")
+    )
+    created = 0
+    created_items: list[Notification] = []
+    for task in tasks:
+        remind_on = task.due_date - timedelta(days=task.remind_before_days or 0)
+        if today < remind_on:
+            continue
+        workspace = task.deal.workspace
+        dedupe = f"deal-task:{task.id}:{task.due_date.isoformat()}"
+        link = "/deals"
+        recipients = []
+        if task.assignee_id:
+            recipients.append(task.assignee)
+        elif task.deal.owner_id:
+            recipients.append(task.deal.owner)
+        else:
+            recipients = [m.user for m in _workspace_members(workspace)]
+        for user in recipients:
+            notification, was_created = create_notification(
+                user=user,
+                workspace=workspace,
+                notification_type=Notification.NotificationType.DEAL_TASK,
+                title=f"Сделка: {task.title}",
+                message=f"«{task.deal.title}» — до {task.due_date}",
+                link=link,
+                dedupe_key=f"{dedupe}:{user.id}",
+            )
+            if was_created:
+                created += 1
+                created_items.append(notification)
+    return created, created_items
+
+
 def send_reminder_digest_emails(
     created_items: list[Notification],
     *,
@@ -360,12 +405,14 @@ def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
     birthdays, birthday_items = send_birthday_reminders(today=today)
     milestones, milestone_items = send_milestone_reminders(today=today)
     deadlines, deadline_items = send_deadline_reminders(today=today)
-    created_items = birthday_items + milestone_items + deadline_items
+    deal_tasks, deal_task_items = send_deal_task_reminders(today=today)
+    created_items = birthday_items + milestone_items + deadline_items + deal_task_items
     emails = send_reminder_digest_emails(created_items, today=today)
     return {
         "birthdays": birthdays,
         "milestones": milestones,
         "deadlines": deadlines,
+        "deal_tasks": deal_tasks,
         "emails": emails,
         "workspaces": Workspace.objects.count(),
     }
