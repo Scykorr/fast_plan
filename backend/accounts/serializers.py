@@ -41,6 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
     )
     avatar_url = serializers.SerializerMethodField()
     is_email_verified = serializers.BooleanField(read_only=True)
+    is_totp_enabled = serializers.BooleanField(read_only=True)
 
     def get_avatar_url(self, user):
         if not user.avatar:
@@ -58,6 +59,7 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "avatar_url",
             "is_email_verified",
+            "is_totp_enabled",
             "date_joined",
             "active_workspace_id",
             "active_workspace_name",

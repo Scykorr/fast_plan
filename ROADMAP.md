@@ -34,6 +34,7 @@
 | 2026-07-20 | **Ollama LLM** для AI-черновиков + CI job `staging-smoke` (docker-compose) |
 | 2026-07-20 | **Blue/gray theme** + system preference + auth hero gradient |
 | 2026-07-20 | **P5 Чаты** — project/workspace chat, ACL, модерация, forward, UI |
+| 2026-07-22 | **Redis SSE pub/sub** + **P7 Security MVP** (2FA, sessions, IP allowlist) |
 
 ---
 
@@ -110,8 +111,10 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 
 1. **MS Project XML import** — при появлении подтверждённого формата/образца.
 2. ~~**Чаты проектов и портфеля**~~ — см. P5 (выполнено).
-3. **Redis pub/sub для SSE** — надёжные realtime-события при multi-worker gunicorn (сейчас E2E soft-fallback).
-4. **P6 Project CRM** — P6a–P6i ✓; далее P7 Security/Mobile или Redis SSE по запросу.
+3. ~~**Redis pub/sub для SSE**~~ — Redis channel fan-out + in-process fallback (2026-07-22).
+4. ~~**P6 Project CRM**~~ — P6a–P6i ✓.
+5. **P7 Security** — MVP ✓ (2FA/sessions/IP); SSO Google/Microsoft — остаётся.
+6. **P7 Mobile** — PWA push + offline queue.
 
 ---
 
@@ -246,9 +249,10 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 ### Связанные эпики (не только CRM)
 
-- [ ] **P7 Security** — 2FA, SSO (Google/Microsoft), session management, optional IP allowlist, backup runbook. **L**
+- [x] **P7 Security MVP** — TOTP 2FA, session management, optional IP allowlist, [`SECURITY.md`](SECURITY.md) backup runbook (2026-07-22).
+- [ ] **P7 Security SSO** — Google/Microsoft OAuth. **M**
 - [ ] **P7 Mobile** — PWA push notifications, offline queue для CRM activities/tasks. **M**
-- [ ] **Redis pub/sub для SSE** — для realtime CRM/чат при multi-worker. **M**
+- [x] **Redis pub/sub для SSE** — multi-worker realtime (2026-07-22). **M**
 
 ### Вне scope / партнёрский слой (явно)
 
@@ -261,7 +265,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 ### Принцип приоритизации спринтов
 
-1. **P7 Security** (2FA/SSO) или Redis pub/sub для SSE.
+1. **P7 Security SSO** или **P7 Mobile**.
 2. 1С/Stripe / WA-коннекторы — по запросу клиентов.
 
 ---

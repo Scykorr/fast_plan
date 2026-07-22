@@ -46,6 +46,32 @@ def test_unsubscribe_removes_from_registry():
     assert q.empty()
 
 
+def test_redis_publish_path_when_client_available(monkeypatch):
+    """When Redis client is present, publish goes through publish() not local-only."""
+    from workspaces import events as events_mod
+
+    events_mod.reset_redis_state_for_tests()
+    published = []
+
+    class FakeRedis:
+        def ping(self):
+            return True
+
+        def publish(self, channel, data):
+            published.append((channel, data))
+            return 1
+
+    monkeypatch.setenv("REDIS_URL", "redis://fake:6379/0")
+    monkeypatch.setattr(events_mod, "_redis_checked", True)
+    monkeypatch.setattr(events_mod, "_redis_client", FakeRedis())
+
+    workspace_id = 999010
+    events_mod.publish_event(workspace_id, "wbs.updated", {"wbs_id": 7})
+    assert published
+    assert f"fast_plan:workspace:{workspace_id}:events" in published[0][0]
+    events_mod.reset_redis_state_for_tests()
+
+
 @pytest.mark.django_db
 def test_workspace_events_endpoint_returns_stream_headers(authenticated_client):
     response = authenticated_client.get("/api/workspace/events/")

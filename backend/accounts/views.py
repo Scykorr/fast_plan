@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.middleware.csrf import get_token
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -17,7 +18,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from accounts.authentication import enforce_csrf
 from accounts.cookies import clear_auth_cookies, set_auth_cookies
-from accounts.models import User
+from accounts.models import AuthSession, User
+from accounts.security import create_pre_auth_token, register_auth_session, touch_auth_session
 from accounts.serializers import (
     EmailVerificationResendSerializer,
     EmailVerificationSerializer,
@@ -154,14 +156,24 @@ class LoginView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        user = serializer.user
+        if user.is_totp_enabled:
+            return Response(
+                {
+                    "requires_2fa": True,
+                    "pre_auth_token": create_pre_auth_token(user.id),
+                    "detail": "2FA required",
+                },
+                status=status.HTTP_200_OK,
+            )
         access = serializer.validated_data["access"]
         refresh = serializer.validated_data["refresh"]
+        register_auth_session(user, RefreshToken(refresh), request=request)
         response = Response(
             {
                 "detail": "ok",
-                "user": UserSerializer(
-                    serializer.user, context={"request": request}
-                ).data,
+                "requires_2fa": False,
+                "user": UserSerializer(user, context={"request": request}).data,
             },
             status=status.HTTP_200_OK,
         )
@@ -183,6 +195,18 @@ class RefreshView(APIView):
             )
         if request.COOKIES.get(settings.JWT_REFRESH_COOKIE):
             enforce_csrf(request)
+        try:
+            refresh_token = RefreshToken(raw_refresh)
+        except TokenError as exc:
+            raise InvalidToken(exc.args[0]) from exc
+        jti = str(refresh_token.get("jti") or "")
+        if jti and AuthSession.objects.filter(
+            refresh_jti=jti, revoked_at__isnull=False
+        ).exists():
+            return Response(
+                {"detail": "Session revoked."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         serializer = TokenRefreshSerializer(data={"refresh": raw_refresh})
         try:
             serializer.is_valid(raise_exception=True)
@@ -191,6 +215,8 @@ class RefreshView(APIView):
 
         access = serializer.validated_data["access"]
         refresh = serializer.validated_data.get("refresh", raw_refresh)
+        if jti:
+            touch_auth_session(jti, request=request)
         response = Response({"detail": "ok"}, status=status.HTTP_200_OK)
         set_auth_cookies(response, access=access, refresh=refresh)
         return response
@@ -203,7 +229,13 @@ class LogoutView(APIView):
         raw_refresh = request.COOKIES.get(settings.JWT_REFRESH_COOKIE)
         if raw_refresh:
             try:
-                RefreshToken(raw_refresh).blacklist()
+                token = RefreshToken(raw_refresh)
+                jti = str(token.get("jti") or "")
+                if jti:
+                    AuthSession.objects.filter(
+                        refresh_jti=jti, revoked_at__isnull=True
+                    ).update(revoked_at=timezone.now())
+                token.blacklist()
             except TokenError:
                 pass
         response = Response({"detail": "ok"}, status=status.HTTP_200_OK)

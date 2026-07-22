@@ -1,5 +1,6 @@
 from django.urls import path
 
+from accounts.security_views import WorkspaceIpAllowlistView
 from workspaces.fx_views import (
     ExchangeRateDetailView,
     ExchangeRateListCreateView,
@@ -93,6 +94,11 @@ urlpatterns = [
         "workspace/settings/",
         WorkspaceSettingsView.as_view(),
         name="workspace-settings",
+    ),
+    path(
+        "workspace/ip-allowlist/",
+        WorkspaceIpAllowlistView.as_view(),
+        name="workspace-ip-allowlist",
     ),
     path(
         "workspace/exchange-rates/",

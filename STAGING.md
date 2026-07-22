@@ -11,6 +11,7 @@
 - [ ] `CORS_ALLOWED_ORIGINS` и `CSRF_TRUSTED_ORIGINS` содержат staging URL фронтенда
 - [ ] `FRONTEND_BASE_URL` указывает на staging SPA (ссылки в письмах)
 - [ ] Redis доступен (`REDIS_URL`), Celery worker + beat запущены (`CELERY_TASK_ALWAYS_EAGER=false`)
+- [ ] Для multi-worker gunicorn: `REDIS_URL` обязателен также для SSE pub/sub (см. [`SECURITY.md`](SECURITY.md))
 
 ## Health и инфраструктура
 

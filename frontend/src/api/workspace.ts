@@ -182,6 +182,15 @@ export function createWorkspaceApi() {
     getSettings: () =>
       request<WorkspaceSettings>("/workspace/settings/", {}),
 
+    getIpAllowlist: () =>
+      request<{ ip_allowlist: string[] }>("/workspace/ip-allowlist/", {}),
+
+    patchIpAllowlist: (ip_allowlist: string[]) =>
+      request<{ ip_allowlist: string[] }>("/workspace/ip-allowlist/", {
+        method: "PATCH",
+        body: JSON.stringify({ ip_allowlist }),
+      }),
+
     patchSettings: (body: { currency?: string }) =>
       request<WorkspaceSettings>("/workspace/settings/", {
         method: "PATCH",

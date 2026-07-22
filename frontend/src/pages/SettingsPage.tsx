@@ -13,6 +13,7 @@ import type {
 import { ErrorMessage } from "../components/ErrorMessage";
 import { InviteMemberForm } from "../components/workspace/InviteMemberForm";
 import { ChatE2ERecoveryPanel } from "../components/chats/ChatE2ERecoveryPanel";
+import { SecuritySettingsPanel } from "../components/settings/SecuritySettingsPanel";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLocale, type Currency, type Locale } from "../context/LocaleContext";
@@ -20,7 +21,7 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function SettingsPage() {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, updateProfile, logout, setUser } = useAuth();
   const { preference, setTheme } = useTheme();
   const { locale, currency, baseCurrency, setLocale, setCurrency, setFxConfig } = useLocale();
   const { activeWorkspace, workspaces, switchWorkspace, workspaceEpoch } =
@@ -414,6 +415,13 @@ export function SettingsPage() {
           </button>
         </form>
       </div>
+
+      {user && (
+        <SecuritySettingsPanel
+          user={user}
+          onUserUpdate={(next) => setUser(next)}
+        />
+      )}
 
       <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
         <h2 className="mb-4 text-lg font-semibold text-text">Workspace</h2>

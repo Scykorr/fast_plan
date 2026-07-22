@@ -23,6 +23,8 @@ class Workspace(models.Model):
         choices=Currency.choices,
         default=Currency.RUB,
     )
+    # Optional CIDR/IP allowlist for API access (empty = allow all).
+    ip_allowlist = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

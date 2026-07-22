@@ -9,10 +9,24 @@ export type User = {
   last_name: string;
   avatar_url: string | null;
   is_email_verified: boolean;
+  is_totp_enabled: boolean;
   date_joined: string;
   active_workspace_id: number | null;
   active_workspace_name: string | null;
 };
+
+export type AuthSessionRow = {
+  id: number;
+  user_agent: string;
+  ip_address: string;
+  created_at: string;
+  last_seen_at: string;
+  is_current: boolean;
+};
+
+export type LoginResult =
+  | { requires_2fa: true; pre_auth_token: string; detail: string }
+  | { requires_2fa?: false; detail: string; user: User };
 
 class ApiError extends Error {
   status: number;
@@ -256,11 +270,54 @@ export const api = {
 
   login: async (body: { email: string; password: string }) => {
     await ensureCsrfCookie();
-    return request<{ detail: string; user: User }>("/auth/login/", {
+    return request<LoginResult>("/auth/login/", {
       method: "POST",
       body: JSON.stringify(body),
     });
   },
+
+  verify2fa: async (body: { pre_auth_token: string; code: string }) => {
+    await ensureCsrfCookie();
+    return request<{ detail: string; user: User }>("/auth/2fa/verify/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  setup2fa: () =>
+    request<{ secret: string; otpauth_url: string }>("/auth/2fa/setup/", {
+      method: "POST",
+      body: "{}",
+    }),
+
+  enable2fa: (code: string) =>
+    request<{ detail: string; backup_codes: string[]; user: User }>(
+      "/auth/2fa/enable/",
+      {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      },
+    ),
+
+  disable2fa: (body: { password: string; code: string }) =>
+    request<{ detail: string; user: User }>("/auth/2fa/disable/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  listAuthSessions: () => request<AuthSessionRow[]>("/auth/sessions/"),
+
+  revokeAuthSession: (sessionId: number) =>
+    request<{ detail: string }>(`/auth/sessions/${sessionId}/revoke/`, {
+      method: "POST",
+      body: "{}",
+    }),
+
+  revokeOtherSessions: () =>
+    request<{ revoked: number }>("/auth/sessions/revoke-others/", {
+      method: "POST",
+      body: "{}",
+    }),
 
   me: () => request<User>("/auth/me/"),
 

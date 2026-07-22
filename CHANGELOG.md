@@ -21,6 +21,8 @@
 
 ### Added
 
+- **Redis SSE pub/sub** — `workspaces.events` публикует в Redis при `REDIS_URL` (multi-worker gunicorn); fallback in-process без Redis
+- **P7 Security MVP** — TOTP 2FA (setup/enable/disable/verify + backup codes), `AuthSession` list/revoke, workspace IP allowlist middleware + API; UI в Settings и шаг 2FA на login; [`SECURITY.md`](SECURITY.md) runbook
 - **P6g Omnichannel** — IMAP + Telegram → Activity (`channel`/`direction`/`external_id`), ChannelConnection CRUD/sync, Telegram webhook, Celery `crm.sync_channels`
 - **P6h Commerce** — Quote/Invoice/Contract + PDF, payments, AR lite; страница `/crm-commerce`
 - **P6i CRM analytics** — conversion, avg check, by owner/source, LTV/CAC lite, saved reports; страница `/crm-analytics`

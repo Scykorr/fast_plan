@@ -14,7 +14,11 @@ type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ requires_2fa: true; pre_auth_token: string } | void>;
+  complete2fa: (preAuthToken: string, code: string) => Promise<void>;
   register: (data: {
     email: string;
     username: string;
@@ -23,6 +27,7 @@ type AuthContextValue = {
     last_name?: string;
   }) => Promise<void>;
   updateProfile: (formData: FormData) => Promise<void>;
+  setUser: (user: User | null) => void;
   logout: () => Promise<void>;
 };
 
@@ -42,13 +47,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveWorkspaceId(null);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const result = await api.login({ email, password });
-    if (result.user.active_workspace_id) {
-      setActiveWorkspaceId(result.user.active_workspace_id);
+  const applyUser = useCallback((next: User) => {
+    if (next.active_workspace_id) {
+      setActiveWorkspaceId(next.active_workspace_id);
     }
-    setUser(result.user);
+    setUser(next);
   }, []);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const result = await api.login({ email, password });
+      if ("requires_2fa" in result && result.requires_2fa) {
+        return {
+          requires_2fa: true as const,
+          pre_auth_token: result.pre_auth_token,
+        };
+      }
+      if (!("user" in result) || !result.user) {
+        throw new Error("Unexpected login response");
+      }
+      applyUser(result.user);
+    },
+    [applyUser],
+  );
+
+  const complete2fa = useCallback(
+    async (preAuthToken: string, code: string) => {
+      const result = await api.verify2fa({
+        pre_auth_token: preAuthToken,
+        code,
+      });
+      applyUser(result.user);
+    },
+    [applyUser],
+  );
 
   const register = useCallback(
     async (data: {
@@ -106,11 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user),
       isLoading,
       login,
+      complete2fa,
       register,
       updateProfile,
+      setUser,
       logout,
     }),
-    [user, isLoading, login, register, updateProfile, logout],
+    [user, isLoading, login, complete2fa, register, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -5,7 +5,7 @@ import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, complete2fa } = useAuth();
   const [searchParams] = useSearchParams();
   const next = searchParams.get("next");
   const registerHref = next
@@ -13,6 +13,8 @@ export function LoginPage() {
     : "/register";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [preAuthToken, setPreAuthToken] = useState("");
   const [error, setError] = useState("");
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
@@ -25,7 +27,16 @@ export function LoginPage() {
     setResendMessage("");
     setLoading(true);
     try {
-      await login(email, password);
+      if (preAuthToken) {
+        await complete2fa(preAuthToken, totpCode);
+        setPreAuthToken("");
+        setTotpCode("");
+        return;
+      }
+      const result = await login(email, password);
+      if (result?.requires_2fa) {
+        setPreAuthToken(result.pre_auth_token);
+      }
     } catch (err) {
       const detail =
         err instanceof ApiError && typeof err.data.detail === "string"
@@ -38,7 +49,9 @@ export function LoginPage() {
       }
       setError(
         err instanceof ApiError
-          ? "Неверный email или пароль"
+          ? preAuthToken
+            ? "Неверный код 2FA"
+            : "Неверный email или пароль"
           : "Не удалось войти. Попробуйте снова.",
       );
     } finally {
@@ -51,43 +64,76 @@ export function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-text">Вход</h1>
         <p className="mt-2 text-sm text-text-muted">
-          Добро пожаловать в Fast Plan
+          {preAuthToken
+            ? "Введите код из приложения-аутентификатора"
+            : "Добро пожаловать в Fast Plan"}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-border bg-cream px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
+          {!preAuthToken ? (
+            <>
+              <div>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-cream px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium">
-              Пароль
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-border bg-cream px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-            <p className="mt-1 text-right text-xs">
-              <Link to="/forgot-password" className="text-primary hover:underline">
-                Забыли пароль?
-              </Link>
-            </p>
-          </div>
+              <div>
+                <label htmlFor="password" className="mb-1 block text-sm font-medium">
+                  Пароль
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-cream px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <p className="mt-1 text-right text-xs">
+                  <Link to="/forgot-password" className="text-primary hover:underline">
+                    Забыли пароль?
+                  </Link>
+                </p>
+              </div>
+            </>
+          ) : (
+            <div>
+              <label htmlFor="totp" className="mb-1 block text-sm font-medium">
+                Код 2FA
+              </label>
+              <input
+                id="totp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value)}
+                className="w-full rounded-lg border border-border bg-cream px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              <button
+                type="button"
+                className="mt-2 text-xs text-primary hover:underline"
+                onClick={() => {
+                  setPreAuthToken("");
+                  setTotpCode("");
+                  setError("");
+                }}
+              >
+                Назад к паролю
+              </button>
+            </div>
+          )}
 
           {error && (
             <p className="text-sm text-primary" role="alert">
@@ -120,7 +166,7 @@ export function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
           >
-            {loading ? "Вход..." : "Войти"}
+            {loading ? "Вход..." : preAuthToken ? "Подтвердить" : "Войти"}
           </button>
         </form>
 
