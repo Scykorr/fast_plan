@@ -52,6 +52,23 @@ AUTOMATION_TEMPLATES = {
             },
         ],
     },
+    "stale_deal_daily": {
+        "name": "Ежедневно: stale deals → задача",
+        "trigger": AutomationRule.Trigger.SCHEDULE_DAILY,
+        "conditions": [
+            {"field": "days_since_touch", "op": "gte", "value": 14},
+        ],
+        "actions": [
+            {
+                "type": "create_deal_task",
+                "title": "Stale deal — вернуть в контакт",
+                "due_in_days": 1,
+                "remind_before_days": 0,
+                "notes": "Автоматизация schedule.daily",
+                "skip_if_open": True,
+            },
+        ],
+    },
 }
 
 
@@ -176,11 +193,26 @@ def execute_actions(workspace, actions: list, context: dict, *, rule=None) -> li
                 if deal is None:
                     results.append({"type": action_type, "ok": False, "error": "no deal"})
                     continue
+                title = action.get("title") or "Автозадача"
+                if action.get("skip_if_open"):
+                    exists = DealTask.objects.filter(
+                        deal=deal, is_done=False, title=title
+                    ).exists()
+                    if exists:
+                        results.append(
+                            {
+                                "type": action_type,
+                                "ok": True,
+                                "skipped": True,
+                                "reason": "open task exists",
+                            }
+                        )
+                        continue
                 due_in = int(action.get("due_in_days") or 0)
                 due_date = (timezone.localdate() + timedelta(days=due_in)) if due_in else None
                 task = DealTask.objects.create(
                     deal=deal,
-                    title=action.get("title") or "Автозадача",
+                    title=title,
                     due_date=due_date,
                     remind_before_days=int(action.get("remind_before_days") or 1),
                     assignee=deal.owner,
@@ -329,6 +361,7 @@ def _serialize_context(context: dict) -> dict:
         "status": context.get("status"),
         "stage_id": context.get("stage_id"),
         "from_stage_id": context.get("from_stage_id"),
+        "days_since_touch": context.get("days_since_touch"),
     }
     lead = context.get("lead")
     if isinstance(lead, dict):
@@ -361,6 +394,9 @@ def build_lead_context(lead: Lead, *, trigger: str) -> dict:
 
 
 def build_deal_context(deal: Deal, *, trigger: str, from_stage_id=None) -> dict:
+    from crm.ai import deal_days_since_touch
+
+    touch_days = deal_days_since_touch(deal)
     return {
         "trigger": trigger,
         "deal_obj": deal,
@@ -369,6 +405,7 @@ def build_deal_context(deal: Deal, *, trigger: str, from_stage_id=None) -> dict:
         "from_stage_id": from_stage_id,
         "amount": float(deal.amount),
         "probability": deal.probability,
+        "days_since_touch": touch_days,
         "deal": {
             "id": deal.id,
             "title": deal.title,
@@ -376,8 +413,69 @@ def build_deal_context(deal: Deal, *, trigger: str, from_stage_id=None) -> dict:
             "amount": float(deal.amount),
             "probability": deal.probability,
             "organization_id": deal.organization_id,
+            "days_since_touch": touch_days,
         },
     }
+
+
+def run_schedule_daily_automations(*, workspace=None) -> dict:
+    """Run schedule.daily rules for open deals (e.g. stale follow-ups)."""
+    from workspaces.models import Workspace
+
+    workspaces = [workspace] if workspace is not None else list(Workspace.objects.all())
+    stats = {"workspaces": 0, "rules": 0, "runs": 0, "deals_matched": 0}
+    trigger = AutomationRule.Trigger.SCHEDULE_DAILY
+
+    for ws in workspaces:
+        rules = list(
+            AutomationRule.objects.filter(workspace=ws, is_active=True, trigger=trigger)
+        )
+        if not rules:
+            continue
+        stats["workspaces"] += 1
+        stats["rules"] += len(rules)
+        open_deals = (
+            Deal.objects.filter(workspace=ws)
+            .select_related("stage", "organization", "person")
+            .exclude(stage__is_won=True)
+            .exclude(stage__is_lost=True)
+        )
+        for deal in open_deals:
+            context = build_deal_context(deal, trigger=trigger)
+            matched_any = False
+            for rule in rules:
+                if not conditions_match(rule.conditions or [], context):
+                    continue
+                matched_any = True
+                try:
+                    results = execute_actions(
+                        ws, rule.actions or [], context, rule=rule
+                    )
+                    success = (
+                        all(item.get("ok", False) for item in results) if results else True
+                    )
+                    AutomationRun.objects.create(
+                        rule=rule,
+                        workspace=ws,
+                        trigger=trigger,
+                        context=_serialize_context(context),
+                        result={"actions": results},
+                        success=success,
+                    )
+                    stats["runs"] += 1
+                except Exception as exc:  # noqa: BLE001
+                    AutomationRun.objects.create(
+                        rule=rule,
+                        workspace=ws,
+                        trigger=trigger,
+                        context=_serialize_context(context),
+                        result={"error": str(exc)},
+                        success=False,
+                    )
+                    stats["runs"] += 1
+            if matched_any:
+                stats["deals_matched"] += 1
+    return stats
 
 
 def run_automations(workspace, trigger: str, context: dict) -> list[AutomationRun]:

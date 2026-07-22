@@ -23,8 +23,8 @@ test.describe("login", () => {
 
     await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
     await expect(page.getByText("Fast Plan").first()).toBeVisible();
-    await expect(page.getByText("Дашборд").or(page.getByText("Dashboard"))).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      page.getByRole("link", { name: /Дашборд|Dashboard/i }).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

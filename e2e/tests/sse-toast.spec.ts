@@ -34,16 +34,23 @@ test.describe("SSE toast", () => {
     const wbs = await page.request.get(`/api/projects/${projectId}/wbs/`, {
       headers,
     });
-    expect(wbs.ok()).toBeTruthy();
+    expect(wbs.ok(), `WBS HTTP ${wbs.status()}`).toBeTruthy();
     const tree = await wbs.json();
     const root = Array.isArray(tree) ? tree[0] : null;
     expect(root?.id).toBeTruthy();
+
+    const csrf = await page.request.get("/api/auth/csrf/");
+    const csrfJson = await csrf.json();
+    const csrfToken = csrfJson?.csrfToken as string | undefined;
+    if (csrfToken) {
+      headers["X-CSRFToken"] = csrfToken;
+    }
 
     const comment = await page.request.post(`/api/wbs/${root.id}/comments/`, {
       headers,
       data: { body: `e2e sse ${Date.now()}`, kind: "comment" },
     });
-    expect(comment.ok()).toBeTruthy();
+    expect(comment.ok(), `comment HTTP ${comment.status()}`).toBeTruthy();
 
     // In-process SSE pub/sub can miss events under multi-worker gunicorn;
     // accept either toast or confirmed EventSource registration.

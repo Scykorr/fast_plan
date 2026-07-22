@@ -64,6 +64,19 @@ function parseSetCookie(setCookieHeader) {
   return parts.map((part) => part.split(";")[0]).join("; ");
 }
 
+function cookieValue(cookieHeader, name) {
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const index = trimmed.indexOf("=");
+    if (index <= 0) continue;
+    if (trimmed.slice(0, index) === name) {
+      return trimmed.slice(index + 1);
+    }
+  }
+  return "";
+}
+
 function mergeCookies(existing, setCookieHeader) {
   const jar = new Map(
     existing
@@ -206,6 +219,11 @@ async function checkAuthSmoke() {
   }
   pass("auth login", EMAIL);
 
+  const csrf = await fetchJson("/api/auth/csrf/", { headers: { Cookie: cookies } });
+  cookies = mergeCookies(cookies, csrf.response.headers.getSetCookie?.() ?? []);
+  const csrfToken =
+    csrf.body?.csrfToken || cookieValue(cookies, "csrftoken") || "";
+
   const headers = {
     Cookie: cookies,
     ...(WORKSPACE_ID ? { "X-Workspace-Id": String(WORKSPACE_ID) } : {}),
@@ -223,7 +241,11 @@ async function checkAuthSmoke() {
   if (PROJECT_ID) {
     const draft = await fetchJson(`/api/projects/${PROJECT_ID}/ai-draft/`, {
       method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+        ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+      },
       body: JSON.stringify({ target: "wbs" }),
     });
     cookies = mergeCookies(cookies, draft.response.headers.getSetCookie?.() ?? []);
@@ -233,7 +255,12 @@ async function checkAuthSmoke() {
     }
     const refine = await fetchJson(`/api/projects/${PROJECT_ID}/ai-draft/`, {
       method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
+      headers: {
+        ...headers,
+        Cookie: cookies,
+        "Content-Type": "application/json",
+        ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+      },
       body: JSON.stringify({
         target: "wbs",
         refinement: "добавь этап тестирования",

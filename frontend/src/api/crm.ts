@@ -217,15 +217,27 @@ export type CrmAutomationTrigger =
   | "lead.created"
   | "lead.converted"
   | "deal.created"
-  | "deal.stage_changed";
+  | "deal.stage_changed"
+  | "schedule.daily";
+
+export type CrmAutomationCondition = {
+  field: string;
+  op: string;
+  value: unknown;
+};
+
+export type CrmAutomationAction = {
+  type: string;
+  [key: string]: unknown;
+};
 
 export type CrmAutomationRule = {
   id: number;
   name: string;
   is_active: boolean;
   trigger: CrmAutomationTrigger | string;
-  conditions: Array<Record<string, unknown>>;
-  actions: Array<Record<string, unknown>>;
+  conditions: CrmAutomationCondition[];
+  actions: CrmAutomationAction[];
   template_key: string;
   created_at: string;
   updated_at: string;
@@ -235,8 +247,61 @@ export type CrmAutomationTemplate = {
   key: string;
   name: string;
   trigger: string;
-  conditions: Array<Record<string, unknown>>;
-  actions: Array<Record<string, unknown>>;
+  conditions: CrmAutomationCondition[];
+  actions: CrmAutomationAction[];
+};
+
+export type CrmAiInsights = {
+  summary: string;
+  source: string;
+  stale_days: number;
+  forecast_amount: number;
+  stale_people: Array<{
+    id: number;
+    full_name: string;
+    email: string;
+    days_since_touch: number | null;
+  }>;
+  stale_organizations: Array<{
+    id: number;
+    name: string;
+    days_since_touch: number | null;
+  }>;
+  at_risk_deals: Array<{
+    id: number;
+    title: string;
+    amount: number;
+    probability: number;
+    close_date: string | null;
+    days_since_touch: number;
+    reasons: string[];
+    organization_name: string | null;
+  }>;
+};
+
+export type CrmAiDraftEmail = {
+  subject: string;
+  body: string;
+  source: string;
+};
+
+export type CrmAiDraftKp = {
+  title: string;
+  markdown: string;
+  source: string;
+};
+
+export type CrmAiActivitySummary = {
+  summary: string;
+  highlights: string[];
+  source: string;
+  count: number;
+};
+
+export type CrmAiSuggestTasks = {
+  tasks: Array<{ title: string; due_in_days: number; notes: string }>;
+  created: Array<{ id: number; title: string; due_date: string }>;
+  source: string;
 };
 
 export type CrmAutomationRun = {
@@ -494,6 +559,29 @@ export function createCrmApi() {
       }),
     listAutomationRuns: () =>
       request<CrmAutomationRun[]>("/crm/automations/runs/", {}),
+
+    getAiInsights: (stale_days = 14) =>
+      request<CrmAiInsights>(`/crm/ai/insights/?stale_days=${stale_days}`, {}),
+    draftAiEmail: (body: Record<string, unknown>) =>
+      request<CrmAiDraftEmail>("/crm/ai/draft-email/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    draftAiKp: (body: Record<string, unknown>) =>
+      request<CrmAiDraftKp>("/crm/ai/draft-kp/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    summarizeAiActivity: (body: Record<string, unknown>) =>
+      request<CrmAiActivitySummary>("/crm/ai/activity-summary/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    suggestAiTasks: (body: Record<string, unknown>) =>
+      request<CrmAiSuggestTasks>("/crm/ai/suggest-tasks/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
 
     listLeads: (params: { q?: string; status?: string; assigned_to?: number } = {}) => {
       const qs = new URLSearchParams();

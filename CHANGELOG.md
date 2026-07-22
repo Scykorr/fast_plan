@@ -15,8 +15,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI** — mock `window.matchMedia` in Vitest; ship `VERSION` into backend Docker image; insecure cookies when `DJANGO_SECURE_SSL_REDIRECT=false`; CSRF on smoke AI draft; PWA SW register outside auth; e2e login locator strict-mode
+
 ### Added
 
+- **P6f AI CRM** — insights (stale clients / at-risk deals + forecast), draft email/КП, activity summary, suggest/create deal tasks; страница `/crm-ai`; OpenAI/Ollama/heuristics
+- **Automations visual editor** — конструктор conditions/actions вместо JSON preview; CRUD правил в UI
+- **schedule.daily** — триггер + шаблон `stale_deal_daily`, Celery beat `crm.run_daily_automations`, `skip_if_open` для задач
 - **P6e BPM-lite** — `AutomationRule` (trigger/conditions/actions), templates form_lead + follow_up_2d, deferred delay queue, runs log, страница «Автоматизации»
 - **Deals UX** — convert lead → `/deals?deal=`; same-column DnD persists reindexed `position` via `apply_deal_move`
 - **P6d Leads** — Lead entity, CSV/API import, round-robin/manual assign, email/phone dedupe, rules-based score, convert→Deal; страница «Лиды»

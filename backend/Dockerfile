@@ -12,6 +12,7 @@ RUN apt-get update \
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+COPY VERSION /app/VERSION
 COPY backend/ /app/
 
 RUN chmod +x /app/entrypoint.sh

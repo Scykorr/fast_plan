@@ -150,7 +150,18 @@ JWT_ACCESS_COOKIE = "fp_access"
 JWT_REFRESH_COOKIE = "fp_refresh"
 JWT_COOKIE_SAMESITE = "Lax"
 JWT_COOKIE_PATH = "/api/"
-JWT_COOKIE_SECURE = not DEBUG
+# Secure cookies need HTTPS. When SSL redirect is off (local/CI HTTP), keep cookies insecure.
+COOKIE_SECURE = (
+    os.environ.get(
+        "DJANGO_COOKIE_SECURE",
+        "false"
+        if DEBUG
+        or os.environ.get("DJANGO_SECURE_SSL_REDIRECT", "true").lower() == "false"
+        else "true",
+    ).lower()
+    == "true"
+)
+JWT_COOKIE_SECURE = COOKIE_SECURE
 
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
@@ -174,9 +185,9 @@ CSRF_TRUSTED_ORIGINS = [
 
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = COOKIE_SECURE
 
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = COOKIE_SECURE
 SESSION_COOKIE_SAMESITE = "Lax"
 
 FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:8080").rstrip(
@@ -290,6 +301,10 @@ CELERY_BEAT_SCHEDULE = {
         "kwargs": {
             "older_than_days": int(os.environ.get("CHAT_ARCHIVE_AFTER_DAYS", "30")),
         },
+    },
+    "crm-daily-automations": {
+        "task": "crm.run_daily_automations",
+        "schedule": float(os.environ.get("CRM_DAILY_AUTOMATION_SECONDS", str(24 * 3600))),
     },
 }
 

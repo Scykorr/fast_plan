@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { NotificationBell } from "./NotificationBell";
 import { FxSettingsLoader } from "./FxSettingsLoader";
-import { PwaUpdatePrompt } from "./PwaUpdatePrompt";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +18,7 @@ const navItems = [
   { to: "/deals", labelKey: "deals" },
   { to: "/leads", labelKey: "leads" },
   { to: "/automations", labelKey: "automations" },
+  { to: "/crm-ai", labelKey: "crmAi" },
   { to: "/projects", labelKey: "projects" },
   { to: "/tasks", labelKey: "myTasks" },
   { to: "/capacity", label: "Capacity" },
@@ -196,7 +196,6 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
-      <PwaUpdatePrompt />
     </div>
   );
 }

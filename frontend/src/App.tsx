@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "./components/AppLayout";
+import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import { GuestRoute, ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -11,6 +12,7 @@ import { AutomationsPage } from "./pages/AutomationsPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { CapacityPage } from "./pages/CapacityPage";
 import { ClientsPage } from "./pages/ClientsPage";
+import { CrmAiPage } from "./pages/CrmAiPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DealsPage } from "./pages/DealsPage";
 import { FinancePage } from "./pages/FinancePage";
@@ -37,7 +39,8 @@ export default function App() {
         <AuthProvider>
           <WorkspaceProvider>
             <BrowserRouter>
-          <Routes>
+              <PwaUpdatePrompt />
+              <Routes>
             <Route
               path="/login"
               element={
@@ -86,6 +89,7 @@ export default function App() {
               <Route path="deals" element={<DealsPage />} />
               <Route path="leads" element={<LeadsPage />} />
               <Route path="automations" element={<AutomationsPage />} />
+              <Route path="crm-ai" element={<CrmAiPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
               <Route path="tasks" element={<MyTasksPage />} />

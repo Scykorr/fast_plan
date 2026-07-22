@@ -656,6 +656,7 @@ class AutomationRule(models.Model):
         LEAD_CONVERTED = "lead.converted", "Lead converted"
         DEAL_CREATED = "deal.created", "Deal created"
         DEAL_STAGE_CHANGED = "deal.stage_changed", "Deal stage changed"
+        SCHEDULE_DAILY = "schedule.daily", "Daily schedule"
 
     workspace = models.ForeignKey(
         "workspaces.Workspace",
