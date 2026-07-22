@@ -75,6 +75,8 @@ docker compose --profile ai up -d ollama ollama-init backend
 - [ ] На мобильном/Chrome: «Установить приложение» доступно (standalone)
 - [ ] Offline: shell открывается без сети (навигация SPA)
 - [ ] После деплоя новой версии появляется toast «Доступна новая версия» → **Обновить** перезагружает SW
+- [ ] `VAPID_*` в `.env` (см. `python manage.py generate_vapid_keys`); Settings → «Включить push»
+- [ ] Офлайн: создать CRM-активность без сети → баннер очереди → после online синхронизация
 
 ## E2E Playwright (login / PWA / SSE)
 
