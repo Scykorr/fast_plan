@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "timelog",
     "chats",
     "crm",
+    "process",
 ]
 
 MIDDLEWARE = [
@@ -316,6 +317,10 @@ CELERY_BEAT_SCHEDULE = {
     "crm-sync-channels": {
         "task": "crm.sync_channels",
         "schedule": float(os.environ.get("CRM_CHANNEL_SYNC_SECONDS", "900")),
+    },
+    "process-fire-timers": {
+        "task": "process.fire_due_timers",
+        "schedule": float(os.environ.get("PROCESS_TIMER_SECONDS", "60")),
     },
 }
 

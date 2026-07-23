@@ -1,0 +1,109 @@
+from django.urls import path
+
+from process.views import (
+    CaseDefinitionListCreateView,
+    CaseInstanceCloseView,
+    CaseInstanceCompleteItemView,
+    CaseInstanceListCreateView,
+    DecisionEvaluateView,
+    DecisionListCreateView,
+    ProcessDefinitionDetailView,
+    ProcessDefinitionListCreateView,
+    ProcessExportView,
+    ProcessInstanceDetailView,
+    ProcessInstanceListView,
+    ProcessMetricsView,
+    ProcessMigrateAutomationView,
+    ProcessPackImportView,
+    ProcessPackListView,
+    ProcessPublishView,
+    ProcessStartView,
+    UserTaskCompleteView,
+    UserTaskListView,
+)
+
+urlpatterns = [
+    path(
+        "process/definitions/",
+        ProcessDefinitionListCreateView.as_view(),
+        name="process-definitions",
+    ),
+    path(
+        "process/definitions/<int:pk>/",
+        ProcessDefinitionDetailView.as_view(),
+        name="process-definition-detail",
+    ),
+    path(
+        "process/definitions/<int:pk>/publish/",
+        ProcessPublishView.as_view(),
+        name="process-publish",
+    ),
+    path(
+        "process/definitions/<int:pk>/start/",
+        ProcessStartView.as_view(),
+        name="process-start",
+    ),
+    path(
+        "process/definitions/<int:pk>/export/",
+        ProcessExportView.as_view(),
+        name="process-export",
+    ),
+    path(
+        "process/instances/",
+        ProcessInstanceListView.as_view(),
+        name="process-instances",
+    ),
+    path(
+        "process/instances/<int:pk>/",
+        ProcessInstanceDetailView.as_view(),
+        name="process-instance-detail",
+    ),
+    path("process/tasks/", UserTaskListView.as_view(), name="process-tasks"),
+    path(
+        "process/tasks/<int:pk>/complete/",
+        UserTaskCompleteView.as_view(),
+        name="process-task-complete",
+    ),
+    path(
+        "process/decisions/",
+        DecisionListCreateView.as_view(),
+        name="process-decisions",
+    ),
+    path(
+        "process/decisions/<int:pk>/evaluate/",
+        DecisionEvaluateView.as_view(),
+        name="process-decision-evaluate",
+    ),
+    path(
+        "process/cases/definitions/",
+        CaseDefinitionListCreateView.as_view(),
+        name="process-case-definitions",
+    ),
+    path(
+        "process/cases/",
+        CaseInstanceListCreateView.as_view(),
+        name="process-cases",
+    ),
+    path(
+        "process/cases/<int:pk>/complete-item/",
+        CaseInstanceCompleteItemView.as_view(),
+        name="process-case-complete-item",
+    ),
+    path(
+        "process/cases/<int:pk>/close/",
+        CaseInstanceCloseView.as_view(),
+        name="process-case-close",
+    ),
+    path("process/packs/", ProcessPackListView.as_view(), name="process-packs"),
+    path(
+        "process/packs/import/",
+        ProcessPackImportView.as_view(),
+        name="process-packs-import",
+    ),
+    path(
+        "process/migrate-automation/",
+        ProcessMigrateAutomationView.as_view(),
+        name="process-migrate-automation",
+    ),
+    path("process/metrics/", ProcessMetricsView.as_view(), name="process-metrics"),
+]

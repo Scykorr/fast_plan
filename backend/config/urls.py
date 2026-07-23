@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/", include("timelog.urls")),
     path("api/", include("chats.urls")),
     path("api/", include("crm.urls")),
+    path("api/", include("process.urls")),
 ]
 
 if settings.DEBUG:

@@ -140,6 +140,21 @@ class LeadListCreateView(WorkspaceMixin, APIView):
             AutomationRule.Trigger.LEAD_CREATED,
             build_lead_context(lead, trigger=AutomationRule.Trigger.LEAD_CREATED),
         )
+        try:
+            from process.events import dispatch_domain_event
+
+            dispatch_domain_event(
+                workspace,
+                "lead.created",
+                {
+                    "lead_id": lead.id,
+                    "organization_id": lead.organization_id,
+                    "user_id": request.user.id,
+                    "business_key": f"lead:{lead.id}",
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
         lead = Lead.objects.select_related(
             "assigned_to", "organization", "person", "deal"
         ).get(pk=lead.pk)

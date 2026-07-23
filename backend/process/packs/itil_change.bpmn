@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  id="Defs_itil_change" targetNamespace="http://fastplan.local/bpmn">
+  <bpmn:process id="ITIL_Change" name="ITIL Change Request" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="Change requested">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Activity_Assess" name="Assess risk and impact">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Approve" name="CAB / manager approval">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Implement" name="Implement change">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Review" name="Post-implementation review">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="EndEvent_1" name="Closed">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_Assess" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_Assess" targetRef="Activity_Approve" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Activity_Approve" targetRef="Activity_Implement" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Activity_Implement" targetRef="Activity_Review" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Activity_Review" targetRef="EndEvent_1" />
+  </bpmn:process>
+</bpmn:definitions>

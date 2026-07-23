@@ -157,6 +157,22 @@ class DealListCreateView(WorkspaceMixin, APIView):
             AutomationRule.Trigger.DEAL_CREATED,
             build_deal_context(deal, trigger=AutomationRule.Trigger.DEAL_CREATED),
         )
+        try:
+            from process.events import dispatch_domain_event
+
+            dispatch_domain_event(
+                workspace,
+                "deal.created",
+                {
+                    "deal_id": deal.id,
+                    "organization_id": deal.organization_id,
+                    "project_id": deal.project_id,
+                    "user_id": request.user.id,
+                    "business_key": f"deal:{deal.id}",
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
         deal = _deal_queryset(workspace).get(pk=deal.pk)
         return Response(DealSerializer(deal).data, status=status.HTTP_201_CREATED)
 

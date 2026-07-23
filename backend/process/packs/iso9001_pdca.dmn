@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="lead_routing">
+  <decision id="decision_1" name="Lead routing">
+    <decisionTable id="decisionTable_1" hitPolicy="FIRST">
+      <input id="input_1"><inputExpression id="inputExpression_1" typeRef="number"><text>score</text></inputExpression></input>
+      <output id="output_1" name="route" typeRef="string"/>
+    </decisionTable>
+  </decision>
+</definitions>
+<!--fp-rules
+[
+  {"when": {"score_gte": 80}, "then": {"route": "sales_lead"}},
+  {"when": {"score_gte": 40}, "then": {"route": "sales"}},
+  {"when": {}, "then": {"route": "nurture"}}
+]
+-->

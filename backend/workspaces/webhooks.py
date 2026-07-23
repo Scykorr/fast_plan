@@ -15,6 +15,8 @@ WEBHOOK_EVENTS = {
     "crm.automation",
     "crm.lead.created",
     "crm.deal.created",
+    "process.updated",
+    "process.service",
 }
 
 

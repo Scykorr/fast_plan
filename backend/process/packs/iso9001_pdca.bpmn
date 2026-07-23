@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  id="Defs_iso9001_pdca" targetNamespace="http://fastplan.local/bpmn">
+  <bpmn:process id="ISO9001_PDCA" name="ISO 9001 PDCA Corrective Action" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="Nonconformity reported">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Activity_Plan" name="Plan corrective action">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Do" name="Do — implement fix">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Check" name="Check — verify effectiveness">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Activity_Act" name="notify">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_1" name="Act — close CAPA">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_Plan" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_Plan" targetRef="Activity_Do" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Activity_Do" targetRef="Activity_Check" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Activity_Check" targetRef="Activity_Act" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Activity_Act" targetRef="EndEvent_1" />
+  </bpmn:process>
+</bpmn:definitions>

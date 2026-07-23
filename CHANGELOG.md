@@ -21,6 +21,7 @@
 
 ### Added
 
+- **P8 Process** — BPMN 2.0 (SpiffWorkflow) + bpmn-js viewer, user-task inbox, DMN lite, CMMN-lite cases, compliance packs (ISO 9001/PDCA, ITIL Change, NIST Incident), import/export, P6e→BPMN migrate, metrics; pages `/processes`, `/process-tasks`; ADR [`docs/adr-p8-process.md`](docs/adr-p8-process.md)
 - **P7 Mobile** — Web Push (VAPID + `PushSubscription`, SW `push-sw.js`), offline queue for CRM activities/deal tasks, Settings «Мобильное / PWA»; `manage.py generate_vapid_keys`
 - **Redis SSE pub/sub** — `workspaces.events` публикует в Redis при `REDIS_URL` (multi-worker gunicorn); fallback in-process без Redis
 - **P7 Security MVP** — TOTP 2FA (setup/enable/disable/verify + backup codes), `AuthSession` list/revoke, workspace IP allowlist middleware + API; UI в Settings и шаг 2FA на login; [`SECURITY.md`](SECURITY.md) runbook

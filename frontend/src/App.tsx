@@ -27,6 +27,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { MyTasksPage } from "./pages/MyTasksPage";
 import { PortfolioPage } from "./pages/PortfolioPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
+import { ProcessesPage } from "./pages/ProcessesPage";
+import { ProcessTasksPage } from "./pages/ProcessTasksPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -93,6 +95,8 @@ export default function App() {
               <Route path="deals" element={<DealsPage />} />
               <Route path="leads" element={<LeadsPage />} />
               <Route path="automations" element={<AutomationsPage />} />
+              <Route path="processes" element={<ProcessesPage />} />
+              <Route path="process-tasks" element={<ProcessTasksPage />} />
               <Route path="crm-ai" element={<CrmAiPage />} />
               <Route path="crm-commerce" element={<CrmCommercePage />} />
               <Route path="crm-analytics" element={<CrmAnalyticsPage />} />

@@ -18,6 +18,8 @@ const navItems = [
   { to: "/deals", labelKey: "deals" },
   { to: "/leads", labelKey: "leads" },
   { to: "/automations", labelKey: "automations" },
+  { to: "/processes", labelKey: "processes" },
+  { to: "/process-tasks", labelKey: "processTasks" },
   { to: "/crm-ai", labelKey: "crmAi" },
   { to: "/crm-commerce", labelKey: "crmCommerce" },
   { to: "/crm-analytics", labelKey: "crmAnalytics" },

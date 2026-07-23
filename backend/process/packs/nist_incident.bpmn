@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  id="Defs_nist_incident" targetNamespace="http://fastplan.local/bpmn">
+  <bpmn:process id="NIST_Incident" name="NIST CSF Incident Response" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="Incident detected">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Activity_Identify" name="Identify &amp; classify">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Contain" name="Contain">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Eradicate" name="Eradicate &amp; recover">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Activity_Notify" name="notify">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Activity_Lessons" name="Lessons learned">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="EndEvent_1" name="Closed">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_Identify" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_Identify" targetRef="Activity_Contain" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Activity_Contain" targetRef="Activity_Eradicate" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Activity_Eradicate" targetRef="Activity_Notify" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Activity_Notify" targetRef="Activity_Lessons" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Activity_Lessons" targetRef="EndEvent_1" />
+  </bpmn:process>
+</bpmn:definitions>

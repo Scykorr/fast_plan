@@ -20,6 +20,7 @@
     "@fullcalendar/daygrid": "^6.1.21",
     "@fullcalendar/react": "^6.1.21",
     "@xyflow/react": "^12.11.1",
+    "bpmn-js": "^18.22.0",
     "frappe-gantt": "^1.2.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
