@@ -9,6 +9,7 @@ import type {
   ProcessMetrics,
   ProcessPack,
 } from "../api/process";
+import { BpmnModelerEditor } from "../components/process/BpmnModelerEditor";
 import { BpmnViewer } from "../components/process/BpmnViewer";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useProcessApi } from "../hooks/useProcessApi";
@@ -16,6 +17,9 @@ import { useWorkspace } from "../context/WorkspaceContext";
 
 const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
   id="Defs_new" targetNamespace="http://fastplan.local/bpmn">
   <bpmn:process id="NewProcess" name="New process" isExecutable="true">
     <bpmn:startEvent id="StartEvent_1" name="Start">
@@ -31,6 +35,27 @@ const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
     <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_1" />
     <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_1" targetRef="EndEvent_1" />
   </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="NewProcess">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1_di" bpmnElement="Activity_1">
+        <dc:Bounds x="240" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
+        <dc:Bounds x="392" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="188" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="340" y="120" />
+        <di:waypoint x="392" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
 </bpmn:definitions>`;
 
 export function ProcessesPage() {
@@ -48,6 +73,12 @@ export function ProcessesPage() {
   const [key, setKey] = useState("new-process");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showXml, setShowXml] = useState(false);
+  const [instanceDetail, setInstanceDetail] = useState<{
+    instance: ProcessInstance;
+    bpmn_xml: string;
+    active_element_ids: string[];
+  } | null>(null);
   const [tab, setTab] = useState<"defs" | "instances" | "packs" | "cases" | "metrics">(
     "defs",
   );
@@ -209,14 +240,23 @@ export function ProcessesPage() {
 
           <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
             <h2 className="font-semibold text-text">
-              {selected ? selected.name : "Редактор BPMN XML"}
+              {selected ? selected.name : "Редактор BPMN"}
             </h2>
-            <BpmnViewer xml={xmlDraft} />
-            <textarea
-              className="h-48 w-full rounded-lg border border-border bg-cream p-2 font-mono text-xs"
-              value={xmlDraft}
-              onChange={(e) => setXmlDraft(e.target.value)}
-            />
+            <BpmnModelerEditor xml={xmlDraft} onChange={setXmlDraft} height={400} />
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => setShowXml((v) => !v)}
+            >
+              {showXml ? "Скрыть XML" : "Показать XML"}
+            </button>
+            {showXml && (
+              <textarea
+                className="h-40 w-full rounded-lg border border-border bg-cream p-2 font-mono text-xs"
+                value={xmlDraft}
+                onChange={(e) => setXmlDraft(e.target.value)}
+              />
+            )}
             <div className="flex flex-wrap gap-2">
               {selected && (
                 <>
@@ -272,19 +312,80 @@ export function ProcessesPage() {
       )}
 
       {tab === "instances" && (
-        <ul className="space-y-2 rounded-xl border border-border bg-surface p-4 text-sm">
-          {instances.map((i) => (
-            <li key={i.id} className="rounded-lg border border-border px-3 py-2">
-              #{i.id} · {i.definition_name} · <strong>{i.status}</strong>
-              {i.error_message && (
-                <span className="ml-2 text-primary">{i.error_message}</span>
-              )}
-            </li>
-          ))}
-          {instances.length === 0 && (
-            <li className="text-text-muted">Нет инстансов</li>
+        <div className="space-y-4">
+          <ul className="space-y-2 rounded-xl border border-border bg-surface p-4 text-sm">
+            {instances.map((i) => (
+              <li key={i.id}>
+                <button
+                  type="button"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-left hover:bg-cream"
+                  onClick={() =>
+                    void (async () => {
+                      if (!api) return;
+                      try {
+                        const detail = await api.getInstance(i.id);
+                        setInstanceDetail({
+                          instance: detail.instance,
+                          bpmn_xml: detail.bpmn_xml,
+                          active_element_ids: detail.active_element_ids || [],
+                        });
+                      } catch (err) {
+                        setError(parseApiError(err));
+                      }
+                    })()
+                  }
+                >
+                  #{i.id} · {i.definition_name} · <strong>{i.status}</strong>
+                  {i.error_message && (
+                    <span className="ml-2 text-primary">{i.error_message}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+            {instances.length === 0 && (
+              <li className="text-text-muted">Нет инстансов</li>
+            )}
+          </ul>
+          {instanceDetail && (
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-text">
+                  Инстанс #{instanceDetail.instance.id} ·{" "}
+                  {instanceDetail.instance.status}
+                </h3>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  {instanceDetail.instance.deal != null && (
+                    <a
+                      className="text-primary hover:underline"
+                      href={`/deals?deal=${instanceDetail.instance.deal}`}
+                    >
+                      Сделка #{instanceDetail.instance.deal}
+                    </a>
+                  )}
+                  {instanceDetail.instance.project != null && (
+                    <a
+                      className="text-primary hover:underline"
+                      href={`/projects/${instanceDetail.instance.project}`}
+                    >
+                      Проект #{instanceDetail.instance.project}
+                    </a>
+                  )}
+                </div>
+              </div>
+              <p className="mb-2 text-xs text-text-muted">
+                Активные токены:{" "}
+                {instanceDetail.active_element_ids.length
+                  ? instanceDetail.active_element_ids.join(", ")
+                  : "—"}
+              </p>
+              <BpmnViewer
+                xml={instanceDetail.bpmn_xml}
+                activeElementIds={instanceDetail.active_element_ids}
+                height={320}
+              />
+            </div>
           )}
-        </ul>
+        </div>
       )}
 
       {tab === "packs" && (

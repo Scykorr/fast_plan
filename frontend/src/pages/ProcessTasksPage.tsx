@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
 import type { ProcessUserTask } from "../api/process";
@@ -52,6 +53,24 @@ export function ProcessTasksPage() {
               {task.definition_name} · instance #{task.instance_id}
               {task.due_at ? ` · due ${new Date(task.due_at).toLocaleString()}` : ""}
             </p>
+            <div className="mt-1 flex flex-wrap gap-3 text-xs">
+              {task.deal != null && (
+                <Link
+                  className="text-primary hover:underline"
+                  to={`/deals?deal=${task.deal}`}
+                >
+                  Сделка #{task.deal}
+                </Link>
+              )}
+              {task.project != null && (
+                <Link
+                  className="text-primary hover:underline"
+                  to={`/projects/${task.project}`}
+                >
+                  Проект #{task.project}
+                </Link>
+              )}
+            </div>
             {Object.keys(task.form_schema || {}).length > 0 && (
               <pre className="mt-2 overflow-x-auto rounded bg-cream p-2 text-xs">
                 {JSON.stringify(task.form_schema, null, 2)}

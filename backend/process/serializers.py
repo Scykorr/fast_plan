@@ -78,6 +78,8 @@ class UserTaskSerializer(serializers.ModelSerializer):
     definition_name = serializers.CharField(
         source="instance.deployment.definition.name", read_only=True
     )
+    deal = serializers.IntegerField(source="instance.deal_id", read_only=True)
+    project = serializers.IntegerField(source="instance.project_id", read_only=True)
 
     class Meta:
         model = UserTask
@@ -95,6 +97,8 @@ class UserTaskSerializer(serializers.ModelSerializer):
             "due_at",
             "created_at",
             "completed_at",
+            "deal",
+            "project",
         )
         read_only_fields = (
             "id",
@@ -103,6 +107,8 @@ class UserTaskSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
             "completed_at",
+            "deal",
+            "project",
         )
 
 

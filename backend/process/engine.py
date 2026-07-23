@@ -54,6 +54,25 @@ def deserialize_workflow(state_json: str) -> BpmnWorkflow:
     return _serializer.deserialize_json(state_json)
 
 
+def active_bpmn_element_ids(instance: ProcessInstance) -> list[str]:
+    """BPMN element ids with READY / WAITING / STARTED tokens (for diagram highlight)."""
+    if not instance.state_json:
+        return []
+    try:
+        workflow = deserialize_workflow(instance.state_json)
+    except Exception:  # noqa: BLE001
+        return []
+    ids: list[str] = []
+    for state in (TaskState.READY, TaskState.WAITING, TaskState.STARTED):
+        for task in workflow.get_tasks(state=state):
+            bpmn_id = getattr(task.task_spec, "bpmn_id", None) or ""
+            if not bpmn_id:
+                bpmn_id = getattr(task.task_spec, "name", None) or ""
+            if bpmn_id and bpmn_id not in ids:
+                ids.append(str(bpmn_id))
+    return ids
+
+
 def start_instance(instance: ProcessInstance) -> ProcessInstance:
     deployment = instance.deployment
     spec = load_spec(deployment.bpmn_xml, deployment.process_id)

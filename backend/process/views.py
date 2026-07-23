@@ -12,7 +12,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from process.engine import complete_user_task, parse_process_id, start_instance
+from process.engine import (
+    active_bpmn_element_ids,
+    complete_user_task,
+    parse_process_id,
+    start_instance,
+)
 from process.metrics import build_process_metrics
 from process.migration_tools import automation_rule_to_bpmn
 from process.models import (
@@ -167,6 +172,7 @@ class ProcessInstanceDetailView(WorkspaceMixin, APIView):
                 "instance": ProcessInstanceSerializer(obj).data,
                 "user_tasks": UserTaskSerializer(tasks, many=True).data,
                 "bpmn_xml": obj.deployment.bpmn_xml,
+                "active_element_ids": active_bpmn_element_ids(obj),
             }
         )
 

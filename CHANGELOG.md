@@ -15,12 +15,24 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **SSO** — вход через Google временно отключён; остаётся Microsoft OAuth
+
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+
+## [0.12.0] — 2026-07-23
+
 ### Fixed
 
 - **CI** — mock `window.matchMedia` in Vitest; ship `VERSION` into backend Docker image; insecure cookies when `DJANGO_SECURE_SSL_REDIRECT=false`; CSRF on smoke AI draft; PWA SW register outside auth; e2e login locator strict-mode
 
 ### Added
 
+- **P7 Security SSO** — Google/Microsoft OAuth (`SocialAccount`, `/api/auth/oauth/…`, login buttons; 2FA redirect with `pre_auth_token`); env `OAUTH_*` / `OAUTH_REDIRECT_BASE`
+- **P8 Process UX** — bpmn-js Modeler, instance token highlight (`active_element_ids`), XOR approval pack, deep-links Deal/Project from process tasks
 - **P8 Process** — BPMN 2.0 (SpiffWorkflow) + bpmn-js viewer, user-task inbox, DMN lite, CMMN-lite cases, compliance packs (ISO 9001/PDCA, ITIL Change, NIST Incident), import/export, P6e→BPMN migrate, metrics; pages `/processes`, `/process-tasks`; ADR [`docs/adr-p8-process.md`](docs/adr-p8-process.md)
 - **P7 Mobile** — Web Push (VAPID + `PushSubscription`, SW `push-sw.js`), offline queue for CRM activities/deal tasks, Settings «Мобильное / PWA»; `manage.py generate_vapid_keys`
 - **Redis SSE pub/sub** — `workspaces.events` публикует в Redis при `REDIS_URL` (multi-worker gunicorn); fallback in-process без Redis
@@ -60,10 +72,6 @@
 - **E2E DM media** — attachments and voice encrypted client-side before upload; metadata in ciphertext envelope
 - **P6 Project CRM (start)** — эпик в ROADMAP; P6a: app `crm` (Organization/Person/Activity), страница «Клиенты», `Project.client_organization`
 - **P6 backlog sync** — ROADMAP: матрица 15 блоков требований CRM → фазы P6b–P6i + P7 Security/Mobile; явный out-of-scope
-
-### Planned
-
-См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
 
 ## [0.11.0] — 2026-07-20
 

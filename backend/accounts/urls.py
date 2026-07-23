@@ -1,5 +1,10 @@
 from django.urls import path
 
+from accounts.oauth_views import (
+    OAuthCallbackView,
+    OAuthProvidersView,
+    OAuthStartView,
+)
 from accounts.security_views import (
     AuthSessionListView,
     AuthSessionRevokeOthersView,
@@ -58,4 +63,15 @@ urlpatterns = [
     path("password/forgot/", PasswordForgotView.as_view(), name="password-forgot"),
     path("password/reset/", PasswordResetView.as_view(), name="password-reset"),
     path("password/change/", PasswordChangeView.as_view(), name="password-change"),
+    path("oauth/providers/", OAuthProvidersView.as_view(), name="oauth-providers"),
+    path(
+        "oauth/<str:provider>/",
+        OAuthStartView.as_view(),
+        name="oauth-start",
+    ),
+    path(
+        "oauth/<str:provider>/callback/",
+        OAuthCallbackView.as_view(),
+        name="oauth-callback",
+    ),
 ]

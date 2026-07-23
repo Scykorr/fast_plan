@@ -7,7 +7,7 @@
 - **Sessions** — each successful login/2FA registers an `AuthSession` by refresh `jti`. Owners can revoke sessions in Settings; revoke also blacklists outstanding refresh tokens when present.
 - **IP allowlist** — optional per workspace (owner). Empty list = allow all. Enforced by `WorkspaceIpAllowlistMiddleware` on `/api/*` (auth/health/share/telegram webhook exempt).
 
-SSO (Google/Microsoft) is **not** in MVP — tracked in ROADMAP.
+SSO (Microsoft) — optional; set `OAUTH_MICROSOFT_CLIENT_ID/SECRET` in env. Flow: `/api/auth/oauth/microsoft/` → IdP → callback sets JWT cookies (or redirects to `/login` with `pre_auth_token` if 2FA is enabled). Google IdP is temporarily disabled (`DISABLED_PROVIDERS` in `accounts/oauth_views.py`).
 
 ## Redis & realtime
 

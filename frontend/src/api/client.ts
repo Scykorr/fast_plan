@@ -335,6 +335,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
+  oauthProviders: () =>
+    request<{ google: boolean; microsoft: boolean }>("/auth/oauth/providers/"),
+  oauthStartUrl: (provider: "microsoft", next?: string | null) => {
+    const q = next ? `?next=${encodeURIComponent(next)}` : "";
+    return `${API_BASE}/auth/oauth/${provider}/${q}`;
+  },
 
   refresh: () => refreshSession(),
 

@@ -44,6 +44,8 @@ export type ProcessUserTask = {
   due_at: string | null;
   created_at: string;
   completed_at: string | null;
+  deal: number | null;
+  project: number | null;
 };
 
 export type CaseDefinition = {
@@ -122,6 +124,7 @@ export function createProcessApi() {
         instance: ProcessInstance;
         user_tasks: ProcessUserTask[];
         bpmn_xml: string;
+        active_element_ids: string[];
       }>(`/process/instances/${id}/`, {}),
     listTasks: (params?: { status?: string; mine?: boolean }) => {
       const q = new URLSearchParams();

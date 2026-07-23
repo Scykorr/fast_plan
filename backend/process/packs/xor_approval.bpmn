@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  id="Defs_xor_approval" targetNamespace="http://fastplan.local/bpmn">
+  <bpmn:process id="XorApproval" name="XOR approval gateway" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="Start">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Activity_Review" name="Review request">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_Xor" name="Approved?" default="Flow_No">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Activity_Implement" name="Implement change">
+      <bpmn:incoming>Flow_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Activity_RejectNotify" name="notify">
+      <bpmn:incoming>Flow_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_Yes" name="Done">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="EndEvent_No" name="Rejected">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_Review" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_Review" targetRef="Gateway_Xor" />
+    <bpmn:sequenceFlow id="Flow_Yes" sourceRef="Gateway_Xor" targetRef="Activity_Implement">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[approved == True]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_No" sourceRef="Gateway_Xor" targetRef="Activity_RejectNotify" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Activity_Implement" targetRef="EndEvent_Yes" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Activity_RejectNotify" targetRef="EndEvent_No" />
+  </bpmn:process>
+</bpmn:definitions>

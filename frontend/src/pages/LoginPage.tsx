@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
@@ -19,6 +19,31 @@ export function LoginPage() {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [oauth, setOauth] = useState<{ microsoft: boolean }>({
+    microsoft: false,
+  });
+
+  useEffect(() => {
+    const oauthError = searchParams.get("oauth_error");
+    if (oauthError) {
+      setError(
+        oauthError === "invalid_state"
+          ? "Сессия OAuth истекла. Попробуйте снова."
+          : `Ошибка входа через SSO (${oauthError}).`,
+      );
+    }
+    const token = searchParams.get("pre_auth_token");
+    if (searchParams.get("oauth_2fa") === "1" && token) {
+      setPreAuthToken(token);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    void api
+      .oauthProviders()
+      .then((p) => setOauth({ microsoft: p.microsoft }))
+      .catch(() => setOauth({ microsoft: false }));
+  }, []);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -59,6 +84,8 @@ export function LoginPage() {
     }
   };
 
+  const showOauth = !preAuthToken && oauth.microsoft;
+
   return (
     <div className="flex min-h-screen items-center justify-center auth-hero px-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-sm">
@@ -68,6 +95,18 @@ export function LoginPage() {
             ? "Введите код из приложения-аутентификатора"
             : "Добро пожаловать в Fast Plan"}
         </p>
+
+        {showOauth && (
+          <div className="mt-6 space-y-2">
+            <a
+              href={api.oauthStartUrl("microsoft", next)}
+              className="flex w-full items-center justify-center rounded-lg border border-border bg-cream px-4 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+            >
+              Войти через Microsoft
+            </a>
+            <p className="pt-1 text-center text-xs text-text-muted">или email</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           {!preAuthToken ? (

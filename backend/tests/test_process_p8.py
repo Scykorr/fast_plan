@@ -1,5 +1,7 @@
 """P8 Process API and engine tests."""
 
+from pathlib import Path
+
 import pytest
 from rest_framework import status
 
@@ -182,3 +184,63 @@ def test_export_definition(authenticated_client, workspace, user):
     response = authenticated_client.get(f"/api/process/definitions/{definition.id}/export/")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["bpmn_xml"].startswith("<?xml")
+
+
+XOR_BPMN = Path(__file__).resolve().parents[1] / "process" / "packs" / "xor_approval.bpmn"
+
+
+@pytest.mark.django_db
+def test_xor_gateway_and_active_tokens(authenticated_client, workspace, user):
+    xml = XOR_BPMN.read_text(encoding="utf-8")
+    create = authenticated_client.post(
+        "/api/process/definitions/",
+        {
+            "key": "xor-approval",
+            "name": "XOR",
+            "bpmn_xml": xml,
+            "process_id": "XorApproval",
+        },
+        format="json",
+    )
+    assert create.status_code == status.HTTP_201_CREATED
+    pk = create.data["id"]
+    authenticated_client.post(f"/api/process/definitions/{pk}/publish/", {}, format="json")
+    start = authenticated_client.post(
+        f"/api/process/definitions/{pk}/start/",
+        {"data": {}},
+        format="json",
+    )
+    assert start.status_code == status.HTTP_201_CREATED
+    instance_id = start.data["id"]
+
+    detail = authenticated_client.get(f"/api/process/instances/{instance_id}/")
+    assert detail.status_code == status.HTTP_200_OK
+    assert "Activity_Review" in detail.data["active_element_ids"]
+
+    tasks = authenticated_client.get("/api/process/tasks/?status=open")
+    review = next(t for t in tasks.data if t["instance_id"] == instance_id)
+    assert review["deal"] is None
+    assert review["project"] is None
+
+    done = authenticated_client.post(
+        f"/api/process/tasks/{review['id']}/complete/",
+        {"form_data": {"approved": True}},
+        format="json",
+    )
+    assert done.status_code == status.HTTP_200_OK
+
+    tasks2 = authenticated_client.get("/api/process/tasks/?status=open")
+    implement = [
+        t
+        for t in tasks2.data
+        if t["instance_id"] == instance_id and "Implement" in t["name"]
+    ]
+    assert len(implement) == 1
+
+    done2 = authenticated_client.post(
+        f"/api/process/tasks/{implement[0]['id']}/complete/",
+        {"form_data": {}},
+        format="json",
+    )
+    assert done2.status_code == status.HTTP_200_OK
+    assert done2.data["instance"]["status"] == ProcessInstance.Status.COMPLETED

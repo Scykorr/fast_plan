@@ -60,3 +60,35 @@ class AuthSession(models.Model):
 
     def __str__(self):
         return f"session {self.refresh_jti[:8]}… for {self.user_id}"
+
+
+class SocialAccount(models.Model):
+    """OAuth identity linked to a User (P7 SSO)."""
+
+    class Provider(models.TextChoices):
+        GOOGLE = "google", "Google"
+        MICROSOFT = "microsoft", "Microsoft"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="social_accounts",
+    )
+    provider = models.CharField(max_length=32, choices=Provider.choices)
+    uid = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, default="")
+    extra_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "uid"],
+                name="uniq_social_provider_uid",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.provider}:{self.uid} → {self.user_id}"

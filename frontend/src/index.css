@@ -155,3 +155,10 @@ body {
   fill: var(--color-cream);
   opacity: 0.6;
 }
+
+/* BPMN token highlight on active elements */
+.fp-bpmn-viewer .fp-token-highlight:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: var(--color-primary) !important;
+  stroke-width: 3px !important;
+  fill: color-mix(in srgb, var(--color-primary) 18%, transparent) !important;
+}
