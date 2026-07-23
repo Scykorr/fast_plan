@@ -109,8 +109,20 @@ def test_case_instance_flow(authenticated_client, workspace):
         key="support",
         name="Support case",
         plan_items=[
-            {"id": "triage", "name": "Triage"},
-            {"id": "resolve", "name": "Resolve", "discretionary": True},
+            {"id": "triage", "name": "Triage", "required": True},
+            {
+                "id": "resolve",
+                "name": "Resolve",
+                "required": True,
+                "depends_on": ["triage"],
+            },
+            {
+                "id": "optional",
+                "name": "Optional note",
+                "discretionary": True,
+                "required": False,
+                "depends_on": ["triage"],
+            },
         ],
     )
     create = authenticated_client.post(
@@ -120,6 +132,15 @@ def test_case_instance_flow(authenticated_client, workspace):
     )
     assert create.status_code == status.HTTP_201_CREATED
     case_id = create.data["id"]
+    assert [i["id"] for i in create.data["available_items"]] == ["triage"]
+
+    blocked = authenticated_client.post(
+        f"/api/process/cases/{case_id}/complete-item/",
+        {"item_id": "resolve"},
+        format="json",
+    )
+    assert blocked.status_code == status.HTTP_400_BAD_REQUEST
+
     complete = authenticated_client.post(
         f"/api/process/cases/{case_id}/complete-item/",
         {"item_id": "triage"},
@@ -127,6 +148,26 @@ def test_case_instance_flow(authenticated_client, workspace):
     )
     assert complete.status_code == status.HTTP_200_OK
     assert "triage" in complete.data["completed_items"]
+    assert {i["id"] for i in complete.data["available_items"]} == {
+        "resolve",
+        "optional",
+    }
+
+    close_early = authenticated_client.post(
+        f"/api/process/cases/{case_id}/close/", {}, format="json"
+    )
+    assert close_early.status_code == status.HTTP_400_BAD_REQUEST
+
+    authenticated_client.post(
+        f"/api/process/cases/{case_id}/complete-item/",
+        {"item_id": "resolve"},
+        format="json",
+    )
+    closed = authenticated_client.post(
+        f"/api/process/cases/{case_id}/close/", {}, format="json"
+    )
+    assert closed.status_code == status.HTTP_200_OK
+    assert closed.data["status"] == "closed"
 
 
 @pytest.mark.django_db
@@ -244,3 +285,78 @@ def test_xor_gateway_and_active_tokens(authenticated_client, workspace, user):
     )
     assert done2.status_code == status.HTTP_200_OK
     assert done2.data["instance"]["status"] == ProcessInstance.Status.COMPLETED
+
+
+TABLE_DMN = """<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="tbl">
+  <decision id="decision_1" name="Route">
+    <decisionTable id="decisionTable_1" hitPolicy="FIRST">
+      <input id="input_1">
+        <inputExpression id="ie1" typeRef="number"><text>score</text></inputExpression>
+      </input>
+      <output id="output_1" name="route" typeRef="string"/>
+      <rule id="r1">
+        <inputEntry id="in1"><text>&gt;= 80</text></inputEntry>
+        <outputEntry id="out1"><text>"sales_lead"</text></outputEntry>
+      </rule>
+      <rule id="r2">
+        <inputEntry id="in2"><text></text></inputEntry>
+        <outputEntry id="out2"><text>"nurture"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>
+"""
+
+
+@pytest.mark.django_db
+def test_dmn_decision_table_xml(workspace):
+    DecisionDefinition.objects.create(
+        workspace=workspace,
+        key="table-route",
+        name="Table route",
+        decision_id="decision_1",
+        dmn_xml=TABLE_DMN,
+    )
+    high = evaluate_decision(
+        workspace=workspace, decision_key="table-route", inputs={"score": 90}
+    )
+    assert high.get("route") == "sales_lead"
+    low = evaluate_decision(
+        workspace=workspace, decision_key="table-route", inputs={"score": 10}
+    )
+    assert low.get("route") == "nurture"
+
+
+@pytest.mark.django_db
+def test_process_mining_endpoint(authenticated_client, workspace, user):
+    create = authenticated_client.post(
+        "/api/process/definitions/",
+        {
+            "key": "mine-simple",
+            "name": "Mine",
+            "bpmn_xml": SIMPLE_BPMN,
+            "process_id": "SimpleProcess",
+        },
+        format="json",
+    )
+    pk = create.data["id"]
+    authenticated_client.post(f"/api/process/definitions/{pk}/publish/", {}, format="json")
+    start = authenticated_client.post(
+        f"/api/process/definitions/{pk}/start/", {"data": {}}, format="json"
+    )
+    instance_id = start.data["id"]
+    tasks = authenticated_client.get("/api/process/tasks/?status=open")
+    task_id = next(t["id"] for t in tasks.data if t["instance_id"] == instance_id)
+    authenticated_client.post(
+        f"/api/process/tasks/{task_id}/complete/",
+        {"form_data": {}},
+        format="json",
+    )
+
+    mining = authenticated_client.get("/api/process/mining/")
+    assert mining.status_code == status.HTTP_200_OK
+    assert mining.data["event_count"] >= 1
+    assert "dfg" in mining.data
+    assert "top_paths" in mining.data
+    assert "bottlenecks" in mining.data

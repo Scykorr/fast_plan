@@ -19,7 +19,13 @@ from process.engine import (
     start_instance,
 )
 from process.metrics import build_process_metrics
+from process.mining import build_process_mining
 from process.migration_tools import automation_rule_to_bpmn
+from process.cases import (
+    find_plan_item,
+    is_item_available,
+    required_incomplete,
+)
 from process.models import (
     CaseDefinition,
     CaseInstance,
@@ -307,18 +313,28 @@ class CaseInstanceCompleteItemView(WorkspaceMixin, APIView):
     def post(self, request, pk):
         case = CaseInstance.objects.filter(
             workspace=self.get_workspace(), pk=pk
-        ).first()
+        ).select_related("definition").first()
         if case is None:
             raise NotFound()
+        if case.status != CaseInstance.Status.OPEN:
+            raise ValidationError({"status": "Case is closed"})
         item_id = str(request.data.get("item_id") or "")
         if not item_id:
             raise ValidationError({"item_id": "Required"})
+        item = find_plan_item(case.definition, item_id)
+        if item is None:
+            raise ValidationError({"item_id": "Unknown plan item"})
+        if not is_item_available(case, item_id):
+            raise ValidationError(
+                {
+                    "item_id": "Item is not available (already done or dependencies unmet)"
+                }
+            )
         completed = list(case.completed_items or [])
-        if item_id not in completed:
-            completed.append(item_id)
+        completed.append(item_id)
         case.completed_items = completed
-        # Optional: start linked process
-        process_key = request.data.get("process_key")
+        # Auto-start linked BPMN from plan item or request override
+        process_key = request.data.get("process_key") or item.get("process_key") or ""
         if process_key:
             definition = ProcessDefinition.objects.filter(
                 workspace=self.get_workspace(),
@@ -348,9 +364,18 @@ class CaseInstanceCloseView(WorkspaceMixin, APIView):
     def post(self, request, pk):
         case = CaseInstance.objects.filter(
             workspace=self.get_workspace(), pk=pk
-        ).first()
+        ).select_related("definition").first()
         if case is None:
             raise NotFound()
+        missing = required_incomplete(case)
+        force = request.data.get("force") in (True, "true", "1", 1)
+        if missing and not force:
+            raise ValidationError(
+                {
+                    "required_incomplete": missing,
+                    "detail": "Complete required plan items before closing (or pass force=true)",
+                }
+            )
         case.status = CaseInstance.Status.CLOSED
         case.closed_at = timezone.now()
         case.save(update_fields=["status", "closed_at"])
@@ -480,3 +505,12 @@ class ProcessMetricsView(WorkspaceMixin, APIView):
 
     def get(self, request):
         return Response(build_process_metrics(self.get_workspace()))
+
+
+class ProcessMiningView(WorkspaceMixin, APIView):
+    """Lite process mining: DFG, top paths, bottlenecks from ActivityInstance log."""
+
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        return Response(build_process_mining(self.get_workspace()))

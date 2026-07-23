@@ -146,6 +146,8 @@ class CaseDefinitionSerializer(serializers.ModelSerializer):
 
 class CaseInstanceSerializer(serializers.ModelSerializer):
     definition_name = serializers.CharField(source="definition.name", read_only=True)
+    available_items = serializers.SerializerMethodField()
+    required_incomplete = serializers.SerializerMethodField()
 
     class Meta:
         model = CaseInstance
@@ -158,6 +160,8 @@ class CaseInstanceSerializer(serializers.ModelSerializer):
             "deal",
             "project",
             "completed_items",
+            "available_items",
+            "required_incomplete",
             "data",
             "started_at",
             "closed_at",
@@ -167,6 +171,18 @@ class CaseInstanceSerializer(serializers.ModelSerializer):
             "definition_name",
             "status",
             "completed_items",
+            "available_items",
+            "required_incomplete",
             "started_at",
             "closed_at",
         )
+
+    def get_available_items(self, obj):
+        from process.cases import available_items
+
+        return available_items(obj)
+
+    def get_required_incomplete(self, obj):
+        from process.cases import required_incomplete
+
+        return required_incomplete(obj)

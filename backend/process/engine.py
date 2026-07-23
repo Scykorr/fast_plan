@@ -190,6 +190,15 @@ def _run_engine_loop(instance: ProcessInstance, workflow: BpmnWorkflow) -> None:
             break
         for task in service_tasks:
             name = task.task_spec.name or getattr(task.task_spec, "bpmn_id", None) or "noop"
+            bpmn_id = getattr(task.task_spec, "bpmn_id", None) or name
+            activity = ActivityInstance.objects.create(
+                instance=instance,
+                task_id=str(task.id),
+                task_name=task.task_spec.name or "",
+                task_type="serviceTask",
+                status=ActivityInstance.Status.ACTIVE,
+                payload={"bpmn_id": bpmn_id, "operation": name},
+            )
             result = run_service_task(instance, name, dict(task.data))
             task.data.update(result)
             workflow.data.update(result)
@@ -197,6 +206,10 @@ def _run_engine_loop(instance: ProcessInstance, workflow: BpmnWorkflow) -> None:
                 task.run()
             if task.state == TaskState.STARTED:
                 task.complete()
+            activity.status = ActivityInstance.Status.COMPLETED
+            activity.completed_at = timezone.now()
+            activity.payload = {**activity.payload, "result_keys": list(result.keys())}
+            activity.save(update_fields=["status", "completed_at", "payload"])
 
 
 

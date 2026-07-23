@@ -260,7 +260,7 @@ class CaseDefinition(models.Model):
     key = models.SlugField(max_length=100)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
-    # stages: [{id, name, discretionary, process_key?}]
+    # stages: [{id, name, discretionary, required?, depends_on?, process_key?}]
     plan_items = models.JSONField(default=list, blank=True)
     cmmn_xml = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)

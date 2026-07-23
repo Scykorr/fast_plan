@@ -15,6 +15,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **P8g Process advanced** — mining lite (`GET /api/process/mining/` DFG/paths/bottlenecks), OMG DMN decisionTable FEEL-lite + DMN UI tab, richer CMMN (`depends_on` / `required` / `available_items` / gated close); ADR updated
+
 ### Changed
 
 - **SSO** — вход через Google временно отключён; остаётся Microsoft OAuth

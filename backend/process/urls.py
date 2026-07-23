@@ -13,6 +13,7 @@ from process.views import (
     ProcessInstanceDetailView,
     ProcessInstanceListView,
     ProcessMetricsView,
+    ProcessMiningView,
     ProcessMigrateAutomationView,
     ProcessPackImportView,
     ProcessPackListView,
@@ -106,4 +107,5 @@ urlpatterns = [
         name="process-migrate-automation",
     ),
     path("process/metrics/", ProcessMetricsView.as_view(), name="process-metrics"),
+    path("process/mining/", ProcessMiningView.as_view(), name="process-mining"),
 ]

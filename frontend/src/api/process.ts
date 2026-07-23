@@ -48,12 +48,22 @@ export type ProcessUserTask = {
   project: number | null;
 };
 
+export type CasePlanItem = {
+  id: string;
+  name: string;
+  discretionary?: boolean;
+  required?: boolean;
+  depends_on?: string[];
+  process_key?: string;
+  enabled?: boolean;
+};
+
 export type CaseDefinition = {
   id: number;
   key: string;
   name: string;
   description: string;
-  plan_items: Array<{ id: string; name: string; discretionary?: boolean }>;
+  plan_items: CasePlanItem[];
   cmmn_xml: string;
 };
 
@@ -64,6 +74,10 @@ export type CaseInstance = {
   title: string;
   status: string;
   completed_items: string[];
+  available_items: CasePlanItem[];
+  required_incomplete: string[];
+  deal?: number | null;
+  project?: number | null;
   started_at: string;
   closed_at: string | null;
 };
@@ -86,6 +100,21 @@ export type ProcessMetrics = {
   by_status: Record<string, number>;
 };
 
+export type ProcessMining = {
+  instance_sample: number;
+  event_count: number;
+  dfg: Array<{ from: string; to: string; count: number }>;
+  top_paths: Array<{ path: string[]; count: number }>;
+  bottlenecks: Array<{ node: string; avg_hours: number; samples: number }>;
+};
+
+export type DecisionDefinition = {
+  id: number;
+  key: string;
+  name: string;
+  dmn_xml: string;
+  decision_id?: string;
+};
 export function createProcessApi() {
   return {
     listDefinitions: () =>
@@ -148,6 +177,7 @@ export function createProcessApi() {
         { method: "POST", body: JSON.stringify({ pack_id: packId }) },
       ),
     metrics: () => request<ProcessMetrics>("/process/metrics/", {}),
+    mining: () => request<ProcessMining>("/process/mining/", {}),
     listCaseDefinitions: () =>
       request<CaseDefinition[]>("/process/cases/definitions/", {}),
     createCaseDefinition: (body: Partial<CaseDefinition>) =>
@@ -171,10 +201,10 @@ export function createProcessApi() {
         method: "POST",
         body: JSON.stringify({ item_id: itemId }),
       }),
-    closeCase: (id: number) =>
+    closeCase: (id: number, force = false) =>
       request<CaseInstance>(`/process/cases/${id}/close/`, {
         method: "POST",
-        body: "{}",
+        body: JSON.stringify({ force }),
       }),
     migrateAutomation: (automationRuleId: number) =>
       request<ProcessDefinition>("/process/migrate-automation/", {
@@ -182,17 +212,14 @@ export function createProcessApi() {
         body: JSON.stringify({ automation_rule_id: automationRuleId }),
       }),
     listDecisions: () =>
-      request<Array<{ id: number; key: string; name: string; dmn_xml: string }>>(
-        "/process/decisions/",
-        {},
-      ),
+      request<DecisionDefinition[]>("/process/decisions/", {}),
     createDecision: (body: {
       key: string;
       name: string;
       dmn_xml: string;
       decision_id: string;
     }) =>
-      request("/process/decisions/", {
+      request<DecisionDefinition>("/process/decisions/", {
         method: "POST",
         body: JSON.stringify(body),
       }),

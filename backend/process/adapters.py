@@ -111,4 +111,19 @@ def _evaluate_dmn(instance, data):
         decision_key=key,
         inputs=data.get("inputs") or instance.data,
     )
-    return {"dmn_result": result}
+    out = {"dmn_result": result}
+    output_map = data.get("output_map")
+    if isinstance(output_map, dict) and isinstance(result, dict):
+        mapped = {}
+        for target, source in output_map.items():
+            if source in result:
+                mapped[str(target)] = result[source]
+                instance.data[str(target)] = result[source]
+        out["dmn_mapped"] = mapped
+    elif isinstance(result, dict):
+        # Default: merge non-meta keys into instance data
+        for k, v in result.items():
+            if k in ("matched", "hit_policy", "matched_unique", "all_matches", "inputs"):
+                continue
+            instance.data[k] = v
+    return out

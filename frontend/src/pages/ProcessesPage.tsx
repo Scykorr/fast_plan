@@ -4,9 +4,11 @@ import { parseApiError } from "../api/errors";
 import type {
   CaseDefinition,
   CaseInstance,
+  DecisionDefinition,
   ProcessDefinition,
   ProcessInstance,
   ProcessMetrics,
+  ProcessMining,
   ProcessPack,
 } from "../api/process";
 import { BpmnModelerEditor } from "../components/process/BpmnModelerEditor";
@@ -65,8 +67,12 @@ export function ProcessesPage() {
   const [instances, setInstances] = useState<ProcessInstance[]>([]);
   const [packs, setPacks] = useState<ProcessPack[]>([]);
   const [metrics, setMetrics] = useState<ProcessMetrics | null>(null);
+  const [mining, setMining] = useState<ProcessMining | null>(null);
   const [cases, setCases] = useState<CaseInstance[]>([]);
   const [caseDefs, setCaseDefs] = useState<CaseDefinition[]>([]);
+  const [decisions, setDecisions] = useState<DecisionDefinition[]>([]);
+  const [dmnScore, setDmnScore] = useState("85");
+  const [dmnResult, setDmnResult] = useState("");
   const [selected, setSelected] = useState<ProcessDefinition | null>(null);
   const [xmlDraft, setXmlDraft] = useState(EMPTY_BPMN);
   const [name, setName] = useState("Новый процесс");
@@ -79,27 +85,32 @@ export function ProcessesPage() {
     bpmn_xml: string;
     active_element_ids: string[];
   } | null>(null);
-  const [tab, setTab] = useState<"defs" | "instances" | "packs" | "cases" | "metrics">(
-    "defs",
-  );
+  const [tab, setTab] = useState<
+    "defs" | "instances" | "packs" | "cases" | "dmn" | "metrics"
+  >("defs");
 
   const load = useCallback(async () => {
     if (!api) return;
     try {
-      const [defs, inst, packList, m, caseList, caseDefList] = await Promise.all([
-        api.listDefinitions(),
-        api.listInstances(),
-        api.listPacks(),
-        api.metrics(),
-        api.listCases(),
-        api.listCaseDefinitions(),
-      ]);
+      const [defs, inst, packList, m, mine, caseList, caseDefList, decisionList] =
+        await Promise.all([
+          api.listDefinitions(),
+          api.listInstances(),
+          api.listPacks(),
+          api.metrics(),
+          api.mining(),
+          api.listCases(),
+          api.listCaseDefinitions(),
+          api.listDecisions(),
+        ]);
       setDefinitions(defs);
       setInstances(inst);
       setPacks(packList);
       setMetrics(m);
+      setMining(mine);
       setCases(caseList);
       setCaseDefs(caseDefList);
+      setDecisions(decisionList);
     } catch (err) {
       setError(parseApiError(err));
     }
@@ -168,7 +179,8 @@ export function ProcessesPage() {
             ["instances", "Инстансы"],
             ["packs", "Пакеты"],
             ["cases", "Кейсы CMMN"],
-            ["metrics", "Метрики"],
+            ["dmn", "DMN"],
+            ["metrics", "Метрики / Mining"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -443,11 +455,22 @@ export function ProcessesPage() {
                     def = await api.createCaseDefinition({
                       key: "support-case",
                       name: "Support case",
-                      description: "CMMN-lite",
+                      description: "CMMN-lite with depends_on",
                       plan_items: [
-                        { id: "triage", name: "Triage" },
-                        { id: "investigate", name: "Investigate", discretionary: true },
-                        { id: "resolve", name: "Resolve" },
+                        { id: "triage", name: "Triage", required: true },
+                        {
+                          id: "investigate",
+                          name: "Investigate",
+                          discretionary: true,
+                          required: false,
+                          depends_on: ["triage"],
+                        },
+                        {
+                          id: "resolve",
+                          name: "Resolve",
+                          required: true,
+                          depends_on: ["triage"],
+                        },
                       ],
                       cmmn_xml: "",
                     });
@@ -464,72 +487,196 @@ export function ProcessesPage() {
             Создать support-кейс
           </button>
           <ul className="space-y-3 text-sm">
-            {cases.map((c) => (
-              <li key={c.id} className="rounded-lg border border-border p-3">
-                <p className="font-medium">
-                  {c.title} · {c.status}
-                </p>
-                <p className="text-xs text-text-muted">{c.definition_name}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(caseDefs.find((d) => d.id === c.definition)?.plan_items || []).map(
-                    (item) => {
+            {cases.map((c) => {
+              const availableIds = new Set(
+                (c.available_items || []).map((i) => i.id),
+              );
+              const plan =
+                caseDefs.find((d) => d.id === c.definition)?.plan_items || [];
+              return (
+                <li key={c.id} className="rounded-lg border border-border p-3">
+                  <p className="font-medium">
+                    {c.title} · {c.status}
+                  </p>
+                  <p className="text-xs text-text-muted">{c.definition_name}</p>
+                  {(c.required_incomplete || []).length > 0 && (
+                    <p className="mt-1 text-xs text-primary">
+                      Обязательные: {c.required_incomplete.join(", ")}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {plan.map((item) => {
                       const done = c.completed_items.includes(item.id);
+                      const enabled =
+                        !done &&
+                        c.status === "open" &&
+                        availableIds.has(item.id);
                       return (
                         <button
                           key={item.id}
                           type="button"
-                          disabled={done || c.status === "closed"}
+                          disabled={!enabled}
+                          title={
+                            item.depends_on?.length
+                              ? `depends_on: ${item.depends_on.join(", ")}`
+                              : undefined
+                          }
                           className="rounded border border-border px-2 py-1 text-xs disabled:opacity-50"
                           onClick={() =>
                             void (async () => {
                               if (!api) return;
-                              await api.completeCaseItem(c.id, item.id);
-                              await load();
+                              try {
+                                await api.completeCaseItem(c.id, item.id);
+                                await load();
+                              } catch (err) {
+                                setError(parseApiError(err));
+                              }
                             })()
                           }
                         >
                           {done ? "✓ " : ""}
                           {item.name}
+                          {item.discretionary ? " (opt)" : ""}
                         </button>
                       );
-                    },
-                  )}
-                  {c.status === "open" && (
-                    <button
-                      type="button"
-                      className="rounded border border-border px-2 py-1 text-xs"
-                      onClick={() =>
-                        void (async () => {
-                          if (!api) return;
-                          await api.closeCase(c.id);
-                          await load();
-                        })()
-                      }
-                    >
-                      Закрыть
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
+                    })}
+                    {c.status === "open" && (
+                      <button
+                        type="button"
+                        className="rounded border border-border px-2 py-1 text-xs"
+                        onClick={() =>
+                          void (async () => {
+                            if (!api) return;
+                            try {
+                              await api.closeCase(c.id, false);
+                              await load();
+                            } catch (err) {
+                              setError(parseApiError(err));
+                            }
+                          })()
+                        }
+                      >
+                        Закрыть
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
 
+      {tab === "dmn" && (
+        <div className="space-y-4 rounded-xl border border-border bg-surface p-4 text-sm">
+          <p className="text-text-muted">
+            Decision tables (OMG XML + FEEL-lite). Импортируйте pack с `.dmn` или
+            создайте определение через API.
+          </p>
+          <ul className="space-y-2">
+            {decisions.map((d) => (
+              <li
+                key={d.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+              >
+                <span>
+                  <strong>{d.name}</strong>{" "}
+                  <span className="text-text-muted">({d.key})</span>
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    className="w-24 rounded border border-border bg-cream px-2 py-1 text-xs"
+                    value={dmnScore}
+                    onChange={(e) => setDmnScore(e.target.value)}
+                    placeholder="score"
+                  />
+                  <button
+                    type="button"
+                    className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white"
+                    onClick={() =>
+                      void (async () => {
+                        if (!api) return;
+                        try {
+                          const res = await api.evaluateDecision(d.id, {
+                            score: Number(dmnScore),
+                          });
+                          setDmnResult(JSON.stringify(res.result, null, 2));
+                        } catch (err) {
+                          setError(parseApiError(err));
+                        }
+                      })()
+                    }
+                  >
+                    Evaluate
+                  </button>
+                </div>
+              </li>
+            ))}
+            {decisions.length === 0 && (
+              <li className="text-text-muted">
+                Нет DMN — импортируйте пакет iso9001_pdca
+              </li>
+            )}
+          </ul>
+          {dmnResult && (
+            <pre className="overflow-x-auto rounded bg-cream p-3 text-xs">
+              {dmnResult}
+            </pre>
+          )}
+        </div>
+      )}
+
       {tab === "metrics" && metrics && (
-        <div className="grid gap-3 sm:grid-cols-3 rounded-xl border border-border bg-surface p-4 text-sm">
-          <div>Всего инстансов: {metrics.instance_count}</div>
-          <div>Активных: {metrics.active_count}</div>
-          <div>Завершённых: {metrics.completed_count}</div>
-          <div>Ошибок: {metrics.error_count}</div>
-          <div>Open tasks: {metrics.open_user_tasks}</div>
-          <div>Просрочено: {metrics.overdue_user_tasks}</div>
-          <div>
-            Avg cycle (ч):{" "}
-            {metrics.avg_cycle_hours != null
-              ? metrics.avg_cycle_hours.toFixed(2)
-              : "—"}
+        <div className="space-y-4">
+          <div className="grid gap-3 rounded-xl border border-border bg-surface p-4 text-sm sm:grid-cols-3">
+            <div>Всего инстансов: {metrics.instance_count}</div>
+            <div>Активных: {metrics.active_count}</div>
+            <div>Завершённых: {metrics.completed_count}</div>
+            <div>Ошибок: {metrics.error_count}</div>
+            <div>Open tasks: {metrics.open_user_tasks}</div>
+            <div>Просрочено: {metrics.overdue_user_tasks}</div>
+            <div>
+              Avg cycle (ч):{" "}
+              {metrics.avg_cycle_hours != null
+                ? metrics.avg_cycle_hours.toFixed(2)
+                : "—"}
+            </div>
           </div>
+          {mining && (
+            <div className="space-y-3 rounded-xl border border-border bg-surface p-4 text-sm">
+              <h3 className="font-semibold text-text">Process mining (lite)</h3>
+              <p className="text-xs text-text-muted">
+                Sample {mining.instance_sample} · events {mining.event_count} —
+                DFG из ActivityInstance (не Celonis)
+              </p>
+              <div>
+                <p className="mb-1 text-xs font-medium">Top DFG edges</p>
+                <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+                  {mining.dfg.slice(0, 15).map((e) => (
+                    <li key={`${e.from}->${e.to}`}>
+                      {e.from} → {e.to} · {e.count}
+                    </li>
+                  ))}
+                  {mining.dfg.length === 0 && (
+                    <li className="text-text-muted">Нет рёбер — запустите процессы</li>
+                  )}
+                </ul>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium">Bottlenecks (avg hours)</p>
+                <ul className="max-h-32 space-y-1 overflow-y-auto text-xs">
+                  {mining.bottlenecks.slice(0, 10).map((b) => (
+                    <li key={b.node}>
+                      {b.node}: {b.avg_hours.toFixed(3)} ч (n={b.samples})
+                    </li>
+                  ))}
+                  {mining.bottlenecks.length === 0 && (
+                    <li className="text-text-muted">—</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

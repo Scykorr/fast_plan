@@ -2,8 +2,24 @@
 <definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="lead_routing">
   <decision id="decision_1" name="Lead routing">
     <decisionTable id="decisionTable_1" hitPolicy="FIRST">
-      <input id="input_1"><inputExpression id="inputExpression_1" typeRef="number"><text>score</text></inputExpression></input>
+      <input id="input_1">
+        <inputExpression id="inputExpression_1" typeRef="number">
+          <text>score</text>
+        </inputExpression>
+      </input>
       <output id="output_1" name="route" typeRef="string"/>
+      <rule id="rule_1">
+        <inputEntry id="in_1"><text>&gt;= 80</text></inputEntry>
+        <outputEntry id="out_1"><text>"sales_lead"</text></outputEntry>
+      </rule>
+      <rule id="rule_2">
+        <inputEntry id="in_2"><text>&gt;= 40</text></inputEntry>
+        <outputEntry id="out_2"><text>"sales"</text></outputEntry>
+      </rule>
+      <rule id="rule_3">
+        <inputEntry id="in_3"><text></text></inputEntry>
+        <outputEntry id="out_3"><text>"nurture"</text></outputEntry>
+      </rule>
     </decisionTable>
   </decision>
 </definitions>
