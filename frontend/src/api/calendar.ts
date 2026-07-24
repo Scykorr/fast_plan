@@ -23,7 +23,16 @@ export type CalendarEvent = {
     project_id?: number;
     project_name?: string;
     wbs_code?: string;
-    event_type?: "birthday" | "milestone";
+    deal_id?: number;
+    deal_task_id?: number;
+    deal_title?: string;
+    organization_id?: number;
+    event_type?:
+      | "birthday"
+      | "milestone"
+      | "deal_task"
+      | "meeting"
+      | "deal_close";
   };
 };
 
@@ -66,6 +75,9 @@ export function createCalendarApi() {
         `/calendar/milestones/?year=${year}&month=${month}`,
         {}
       ),
+
+    getCrmEvents: (year: number, month: number) =>
+      request<CalendarEvent[]>(`/calendar/crm/?year=${year}&month=${month}`, {}),
 
     getUpcoming: (limit = 5) =>
       request<UpcomingBirthday[]>(`/calendar/upcoming/?limit=${limit}`, {}),

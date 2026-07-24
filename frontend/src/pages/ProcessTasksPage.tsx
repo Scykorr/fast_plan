@@ -13,14 +13,18 @@ export function ProcessTasksPage() {
   const [tasks, setTasks] = useState<ProcessUserTask[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [formNote, setFormNote] = useState("");
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!api) return;
+    setLoading(true);
     try {
       setTasks(await api.listTasks({ status: "open" }));
     } catch (err) {
       setError(parseApiError(err));
+    } finally {
+      setLoading(false);
     }
   }, [api]);
 
@@ -28,13 +32,41 @@ export function ProcessTasksPage() {
     void load();
   }, [load, workspaceEpoch]);
 
+  const complete = async (task: ProcessUserTask, approved: boolean) => {
+    if (!api) return;
+    try {
+      await api.completeTask(task.id, {
+        note: notes[task.id] || "",
+        approved,
+      });
+      setNotes((prev) => {
+        const next = { ...prev };
+        delete next[task.id];
+        return next;
+      });
+      setMessage(
+        approved
+          ? `Задача #${task.id} завершена (одобрено)`
+          : `Задача #${task.id} завершена (отклонено)`,
+      );
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">Задачи процессов</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Inbox user tasks (BPMN). Форма: note + произвольные поля из schema.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-text">Задачи процессов</h1>
+          <p className="mt-1 text-sm text-text-muted">
+            Inbox user tasks (BPMN). Комментарий — отдельно на каждую задачу.
+          </p>
+        </div>
+        <Link to="/processes" className="text-sm text-primary hover:underline">
+          К процессам →
+        </Link>
       </div>
       <ErrorMessage message={error} />
       {message && (
@@ -42,6 +74,7 @@ export function ProcessTasksPage() {
           {message}
         </p>
       )}
+      {loading && <p className="text-sm text-text-muted">Загрузка…</p>}
       <ul className="space-y-3">
         {tasks.map((task) => (
           <li
@@ -79,36 +112,30 @@ export function ProcessTasksPage() {
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <input
                 className="min-w-[12rem] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
-                placeholder="Комментарий / form note"
-                value={formNote}
-                onChange={(e) => setFormNote(e.target.value)}
+                placeholder="Комментарий"
+                value={notes[task.id] || ""}
+                onChange={(e) =>
+                  setNotes((prev) => ({ ...prev, [task.id]: e.target.value }))
+                }
               />
               <button
                 type="button"
                 className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
-                onClick={() =>
-                  void (async () => {
-                    if (!api) return;
-                    try {
-                      await api.completeTask(task.id, {
-                        note: formNote,
-                        approved: true,
-                      });
-                      setFormNote("");
-                      setMessage(`Задача #${task.id} завершена`);
-                      await load();
-                    } catch (err) {
-                      setError(parseApiError(err));
-                    }
-                  })()
-                }
+                onClick={() => void complete(task, true)}
               >
-                Завершить
+                Одобрить
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-2 text-sm"
+                onClick={() => void complete(task, false)}
+              >
+                Отклонить
               </button>
             </div>
           </li>
         ))}
-        {tasks.length === 0 && (
+        {!loading && tasks.length === 0 && (
           <li className="text-sm text-text-muted">Нет открытых задач</li>
         )}
       </ul>

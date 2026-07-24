@@ -169,7 +169,7 @@ export function LoginPage() {
                   setError("");
                 }}
               >
-                Назад к паролю
+                Назад
               </button>
             </div>
           )}

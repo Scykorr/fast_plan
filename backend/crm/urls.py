@@ -1,6 +1,14 @@
 from django.urls import path
 
-from crm import ai_views, automation_views, commerce_views, deals_views, leads_views, views
+from crm import (
+    ai_views,
+    automation_views,
+    calendar_views,
+    commerce_views,
+    deals_views,
+    leads_views,
+    views,
+)
 
 urlpatterns = [
     path("crm/organizations/", views.OrganizationListCreateView.as_view(), name="crm-orgs"),
@@ -230,5 +238,40 @@ urlpatterns = [
         "crm/saved-reports/<int:report_id>/",
         commerce_views.CrmSavedReportDetailView.as_view(),
         name="crm-saved-report-detail",
+    ),
+    path(
+        "calendar/crm/",
+        calendar_views.CrmCalendarEventsView.as_view(),
+        name="crm-calendar-events",
+    ),
+    path(
+        "crm/calendar/providers/",
+        calendar_views.CalendarProvidersView.as_view(),
+        name="crm-calendar-providers",
+    ),
+    path(
+        "crm/calendar/connections/",
+        calendar_views.CalendarConnectionListView.as_view(),
+        name="crm-calendar-connections",
+    ),
+    path(
+        "crm/calendar/connections/<int:pk>/sync/",
+        calendar_views.CalendarConnectionSyncView.as_view(),
+        name="crm-calendar-sync",
+    ),
+    path(
+        "crm/calendar/connections/<int:pk>/",
+        calendar_views.CalendarConnectionDeleteView.as_view(),
+        name="crm-calendar-disconnect",
+    ),
+    path(
+        "crm/calendar/oauth/<str:provider>/",
+        calendar_views.CalendarOAuthStartView.as_view(),
+        name="crm-calendar-oauth-start",
+    ),
+    path(
+        "crm/calendar/oauth/<str:provider>/callback/",
+        calendar_views.CalendarOAuthCallbackView.as_view(),
+        name="crm-calendar-oauth-callback",
     ),
 ]

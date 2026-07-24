@@ -10,12 +10,22 @@ type WorkspaceCalendarProps = {
   refreshKey?: number;
   showBirthdays?: boolean;
   showMilestones?: boolean;
+  showCrm?: boolean;
+};
+
+const EVENT_COLORS: Record<string, string> = {
+  milestone: "#6B8F71",
+  birthday: "#E8A838",
+  deal_task: "#3B82F6",
+  meeting: "#0EA5E9",
+  deal_close: "#F97316",
 };
 
 export function WorkspaceCalendar({
   refreshKey = 0,
   showBirthdays = true,
   showMilestones = true,
+  showCrm = true,
 }: WorkspaceCalendarProps) {
   const calendarApi = createCalendarApi();
   const [events, setEvents] = useState<EventInput[]>([]);
@@ -32,24 +42,29 @@ export function WorkspaceCalendar({
         if (showMilestones) {
           requests.push(calendarApi.getMilestoneEvents(year, month));
         }
+        if (showCrm) {
+          requests.push(calendarApi.getCrmEvents(year, month));
+        }
         const batches = await Promise.all(requests);
         setEvents(
-          batches.flat().map((event) => ({
-            id: String(event.id),
-            title: event.title,
-            start: event.start,
-            allDay: event.allDay,
-            extendedProps: event.extendedProps,
-            color:
-              event.extendedProps.event_type === "milestone" ? "#6B8F71" : "#E8A838",
-            textColor: "#2D2926",
-          })),
+          batches.flat().map((event) => {
+            const type = event.extendedProps.event_type || "birthday";
+            return {
+              id: String(event.id),
+              title: event.title,
+              start: event.start,
+              allDay: event.allDay,
+              extendedProps: event.extendedProps,
+              color: EVENT_COLORS[type] || "#E8A838",
+              textColor: "#2D2926",
+            };
+          }),
         );
       } finally {
         setLoading(false);
       }
     },
-    [calendarApi, showBirthdays, showMilestones],
+    [calendarApi, showBirthdays, showMilestones, showCrm],
   );
 
   const handleDatesSet = useCallback(
@@ -69,7 +84,7 @@ export function WorkspaceCalendar({
       )}
       <div className="birthday-calendar rounded-xl border border-border bg-surface p-4">
         <FullCalendar
-          key={`${refreshKey}-${showBirthdays}-${showMilestones}`}
+          key={`${refreshKey}-${showBirthdays}-${showMilestones}-${showCrm}`}
           plugins={[dayGridPlugin]}
           initialView="dayGridMonth"
           locale="ru"

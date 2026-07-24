@@ -935,3 +935,72 @@ class CrmSavedReport(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CalendarConnection(models.Model):
+    """OAuth connection for pushing CRM events to Google or Outlook calendars."""
+
+    class Provider(models.TextChoices):
+        MICROSOFT = "microsoft", "Outlook / Microsoft 365"
+        GOOGLE = "google", "Google Calendar"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="calendar_connections",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="calendar_connections",
+    )
+    provider = models.CharField(max_length=20, choices=Provider.choices)
+    refresh_token = models.TextField(blank=True, default="")
+    access_token = models.TextField(blank=True, default="")
+    token_expires_at = models.DateTimeField(null=True, blank=True)
+    external_calendar_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Outlook calendar id or Google calendar id (empty = primary)",
+    )
+    scopes = models.TextField(blank=True, default="")
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "user", "provider"],
+                name="uniq_calendar_connection_ws_user_provider",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.provider} calendar for user {self.user_id}"
+
+
+class CalendarEventLink(models.Model):
+    """Maps a Fast Plan source event to an external calendar event id."""
+
+    connection = models.ForeignKey(
+        CalendarConnection,
+        on_delete=models.CASCADE,
+        related_name="event_links",
+    )
+    source_type = models.CharField(max_length=40)
+    source_id = models.CharField(max_length=64)
+    external_event_id = models.CharField(max_length=255)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["connection", "source_type", "source_id"],
+                name="uniq_calendar_event_link",
+            )
+        ]

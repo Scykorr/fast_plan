@@ -13,7 +13,7 @@
  *   STAGING_PASSWORD       Login password (optional)
  *   STAGING_SHARE_TOKEN    Guest share token for /api/share/ check (optional)
  *   STAGING_PROJECT_ID     Project id for WBS refine API smoke (optional)
- *   STAGING_WORKSPACE_ID   X-Workspace-Id header when using auth (optional)
+ *   STAGING_EXPECT_MICROSOFT_SSO  Set to 1 to require microsoft:true on providers
  */
 
 import { readFileSync } from "node:fs";
@@ -283,6 +283,68 @@ async function checkAuthSmoke() {
     warn("ai wbs refine", "STAGING_PROJECT_ID not set — skipped");
   }
 
+  // P8 process + CRM calendar smoke (authenticated)
+  const processGets = [
+    { path: "/api/process/metrics/", name: "process metrics", ok: (b) => typeof b?.instance_count === "number" },
+    { path: "/api/process/mining/", name: "process mining", ok: (b) => Array.isArray(b?.dfg) },
+    { path: "/api/process/decisions/", name: "process decisions", ok: (b) => Array.isArray(b) },
+    { path: "/api/process/cases/", name: "process cases", ok: (b) => Array.isArray(b) },
+    {
+      path: "/api/process/cases/definitions/",
+      name: "process case defs",
+      ok: (b) => Array.isArray(b),
+    },
+    { path: "/api/process/packs/", name: "process packs", ok: (b) => Array.isArray(b) },
+    {
+      path: "/api/calendar/crm/?year=2026&month=7",
+      name: "crm calendar events",
+      ok: (b) => Array.isArray(b),
+    },
+  ];
+  for (const check of processGets) {
+    const res = await fetchJson(check.path, { headers });
+    if (!res.response.ok || !check.ok(res.body)) {
+      fail(check.name, `HTTP ${res.response.status}`);
+      return false;
+    }
+    pass(check.name);
+  }
+
+  return true;
+}
+
+async function checkSsoProviders() {
+  const { response, body } = await fetchJson("/api/auth/oauth/providers/");
+  if (!response.ok || typeof body?.microsoft !== "boolean" || typeof body?.google !== "boolean") {
+    fail("oauth providers", `HTTP ${response.status}`);
+    return false;
+  }
+  if (body.google === true) {
+    warn("oauth google", "unexpectedly enabled (DISABLED_PROVIDERS should hide Google)");
+  } else {
+    pass("oauth google", "disabled");
+  }
+  const expectMs = process.env.STAGING_EXPECT_MICROSOFT_SSO === "1";
+  if (body.microsoft) {
+    pass("oauth microsoft", "configured");
+    const start = await fetch(`${BASE_URL}/api/auth/oauth/microsoft/`, {
+      redirect: "manual",
+    });
+    const loc = start.headers.get("location") || "";
+    if ([302, 301, 303, 307, 308].includes(start.status) && loc.includes("microsoftonline.com")) {
+      pass("oauth microsoft start", "redirects to IdP");
+    } else if (start.status === 400) {
+      fail("oauth microsoft start", "provider listed but start returned 400");
+      return false;
+    } else {
+      warn("oauth microsoft start", `HTTP ${start.status}`);
+    }
+  } else if (expectMs) {
+    fail("oauth microsoft", "STAGING_EXPECT_MICROSOFT_SSO=1 but microsoft=false");
+    return false;
+  } else {
+    warn("oauth microsoft", "not configured — set OAUTH_MICROSOFT_* to enable");
+  }
   return true;
 }
 
@@ -315,6 +377,7 @@ async function main() {
     await checkHealth();
     await checkExtendedHealth();
     await checkFrontendPwa();
+    await checkSsoProviders();
     await checkAuthSmoke();
     await checkPublicShare();
   } catch (error) {

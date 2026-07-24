@@ -21,6 +21,7 @@ export function CalendarPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showBirthdays, setShowBirthdays] = useState(true);
   const [showMilestones, setShowMilestones] = useState(true);
+  const [showCrm, setShowCrm] = useState(true);
   const [error, setError] = useState("");
 
   const loadContacts = useCallback(async () => {
@@ -98,7 +99,7 @@ export function CalendarPage() {
         <div>
           <h1 className="text-3xl font-bold text-text">Календарь</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Дни рождения и вехи проектов
+            Дни рождения, вехи и CRM (задачи сделок / встречи)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -145,13 +146,22 @@ export function CalendarPage() {
           />
           Вехи проектов
         </label>
+        <label className="flex items-center gap-2 text-text">
+          <input
+            type="checkbox"
+            checked={showCrm}
+            onChange={(event) => setShowCrm(event.target.checked)}
+            className="rounded border-border text-primary"
+          />
+          CRM
+        </label>
       </div>
 
       <WorkspaceCalendar
-        
         refreshKey={refreshKey}
         showBirthdays={showBirthdays}
         showMilestones={showMilestones}
+        showCrm={showCrm}
       />
 
       <section>

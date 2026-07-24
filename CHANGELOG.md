@@ -18,9 +18,12 @@
 ### Added
 
 - **P8g Process advanced** — mining lite (`GET /api/process/mining/` DFG/paths/bottlenecks), OMG DMN decisionTable FEEL-lite + DMN UI tab, richer CMMN (`depends_on` / `required` / `available_items` / gated close); ADR updated
+- **CRM calendar** — deal tasks / meetings / close dates on `/calendar`; Outlook + Google Calendar OAuth push sync (Settings); `GET /api/calendar/crm/`
+- **Staging smoke 0.12** — SSO providers check, process metrics/mining/DMN/CMMN/packs, CRM calendar API
 
 ### Changed
 
+- **Process UX** — per-task notes, approve/reject on inbox; link processes ↔ tasks
 - **SSO** — вход через Google временно отключён; остаётся Microsoft OAuth
 
 ### Planned

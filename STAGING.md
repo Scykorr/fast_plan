@@ -44,6 +44,20 @@ docker compose --profile ai up -d ollama ollama-init backend
 
 - [ ] `node scripts/staging-smoke-check.mjs` проходит без ошибок (warnings допустимы)
 
+### SSO и Process (0.12 smoke)
+
+Автоматически в `staging-smoke-check.mjs` (при `STAGING_EMAIL`/`PASSWORD`):
+
+- [ ] `GET /api/auth/oauth/providers/` — `google: false`; `microsoft` warn если не настроен
+- [ ] При `STAGING_EXPECT_MICROSOFT_SSO=1` — `microsoft: true` и redirect start на `login.microsoftonline.com`
+- [ ] `GET /api/process/metrics|mining|decisions|cases|packs/` → 200
+- [ ] `GET /api/calendar/crm/?year=&month=` → 200 (CRM-события на календаре)
+
+Ручная проверка UI:
+
+- [ ] `/processes` — вкладки DMN / Метрики·Mining / CMMN; `/process-tasks` inbox
+- [ ] Settings → Outlook/Google Calendar sync (нужны `OAUTH_*` + redirect URI `…/api/crm/calendar/oauth/{provider}/callback/`)
+
 - [ ] `GET /api/health/` → `{ "status": "ok", "version": "…" }` совпадает с `VERSION`
 - [ ] `GET /api/health/?extended=1` → `checks.database` = `ok`
 - [ ] `checks.redis` = `ok` (или `skipped` при locmem — не для production)

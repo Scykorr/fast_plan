@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
 import type {
@@ -161,7 +162,10 @@ export function ProcessesPage() {
       <div>
         <h1 className="text-2xl font-bold text-text">Процессы (BPMN)</h1>
         <p className="mt-1 text-sm text-text-muted">
-          P8: BPMN 2.0 + SpiffWorkflow · рядом с CRM-автоматизациями (P6e)
+          P8: BPMN 2.0 + SpiffWorkflow ·{" "}
+          <Link to="/process-tasks" className="text-primary hover:underline">
+            inbox задач
+          </Link>
         </p>
       </div>
 

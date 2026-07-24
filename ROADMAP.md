@@ -113,7 +113,8 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 
 1. **MS Project XML import** — при появлении подтверждённого формата/образца.
 2. 1С / Stripe / WA-коннекторы — по запросу клиентов.
-3. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
+3. Двусторонний calendar sync / conflict resolution — later.
+4. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
 
 ~~Ранее закрыто:~~ P5 чаты · Redis SSE · P6 CRM · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g.
 
@@ -173,7 +174,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 1b | Сделки: воронка Kanban, стадии, %, сумма, прогноз, задачи, reminders | **P6c ✓** — Deal + pipeline + forecast + DealTask reminders | **P6c** |
 | 1c | Лиды: импорт, распределение, дедуп, score | **P6d ✓** — Lead + CSV/API import, RR/manual, dedupe, rules score | **P6d** |
 | 1d | Контакты: phone/email/соцсети/мессенджеры | **P6b ✓** — telegram/whatsapp/social_urls | **P6b** |
-| 1e | Календарь CRM + Google/Outlook | **Частично** — workspace calendar/ICS; нет CRM-сущностей и OAuth-sync | **P6b** + интеграции |
+| 1e | Календарь CRM + Google/Outlook | **Частично** — workspace calendar + CRM events + Outlook/Google push sync MVP | Углубление 2-way sync later |
 | 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **Частично** — WBS/Kanban/My Tasks; не привязаны к Deal/Lead | **P6c** |
 | 2 | Автоматизация (BPM / n8n-like) | **P6e ✓** — AutomationRule + templates + delay queue | **P6e** |
 | 3 | AI CRM-помощник (резюме звонков, риски сделок, письма, КП) | **✓ P6f** — insights, draft email/КП, summary, suggest tasks | — |
