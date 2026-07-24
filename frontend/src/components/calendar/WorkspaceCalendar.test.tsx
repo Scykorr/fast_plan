@@ -5,11 +5,13 @@ import { WorkspaceCalendar } from "./WorkspaceCalendar";
 
 const getBirthdayEvents = vi.fn();
 const getMilestoneEvents = vi.fn();
+const getCrmEvents = vi.fn();
 
 vi.mock("../../api/calendar", () => ({
   createCalendarApi: () => ({
     getBirthdayEvents,
     getMilestoneEvents,
+    getCrmEvents,
   }),
 }));
 
@@ -40,6 +42,7 @@ describe("WorkspaceCalendar", () => {
   beforeEach(() => {
     getBirthdayEvents.mockReset();
     getMilestoneEvents.mockReset();
+    getCrmEvents.mockReset();
     getBirthdayEvents.mockResolvedValue([
       {
         id: "bday-1",
@@ -58,6 +61,15 @@ describe("WorkspaceCalendar", () => {
         extendedProps: { event_type: "milestone" },
       },
     ]);
+    getCrmEvents.mockResolvedValue([
+      {
+        id: "crm-1",
+        title: "CRM: Встреча",
+        start: "2026-07-12",
+        allDay: true,
+        extendedProps: { event_type: "crm" },
+      },
+    ]);
   });
 
   it("loads and renders birthday and milestone events", async () => {
@@ -69,5 +81,6 @@ describe("WorkspaceCalendar", () => {
     });
     expect(getBirthdayEvents).toHaveBeenCalledWith(2026, 7);
     expect(getMilestoneEvents).toHaveBeenCalledWith(2026, 7);
+    expect(getCrmEvents).toHaveBeenCalledWith(2026, 7);
   });
 });

@@ -15,6 +15,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Chat** — emoji/GIF reaction picker via portal (no overflow clip), scrollable list; compact horizontal layout (messages + composer side-by-side on wide screens); guest chat matches the same layout
+- **Calendar tests** — mock `getCrmEvents` in `WorkspaceCalendar` unit test (CI regression after CRM calendar)
+
 ### Added
 
 - **P8g Process advanced** — mining lite (`GET /api/process/mining/` DFG/paths/bottlenecks), OMG DMN decisionTable FEEL-lite + DMN UI tab, richer CMMN (`depends_on` / `required` / `available_items` / gated close); ADR updated
@@ -25,6 +30,7 @@
 
 - **Process UX** — per-task notes, approve/reject on inbox; link processes ↔ tasks
 - **SSO** — вход через Google временно отключён; остаётся Microsoft OAuth
+- **ROADMAP CRM matrix** — статусы 15 блоков сверены (P6a–P6i + calendar sync ✓); явный CRM backlog (1f/6/9/10)
 
 ### Planned
 

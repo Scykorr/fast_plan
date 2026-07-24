@@ -70,6 +70,7 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const pickerAnchorRef = useRef<HTMLButtonElement | null>(null);
 
   const loadRoom = useCallback(async () => {
     if (!chatsApi) {
@@ -505,24 +506,22 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
             : null;
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-text">
+    <div className="flex h-full min-h-[28rem] flex-col gap-3 rounded-xl border border-border bg-surface p-3 lg:min-h-[32rem]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold text-text">
             {room.scope === "dm" && room.dm_peer_email
               ? `DM: ${room.dm_peer_email}`
               : room.label}
           </h2>
-          <p className="text-xs text-text-muted">
-            Режим: {STATUS_LABELS[room.status]}
-            {room.e2e_enabled ? " · E2E DM" : ""}
+          <p className="text-[11px] text-text-muted">
+            {STATUS_LABELS[room.status]}
+            {room.e2e_enabled ? " · E2E" : ""}
+            {e2eStatus ? ` · ${e2eStatus}` : ""}
           </p>
-          {e2eStatus && (
-            <p className="mt-1 text-xs text-primary">{e2eStatus}</p>
-          )}
         </div>
         {room.is_moderator && room.scope !== "dm" && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1">
             {(["open", "announcements", "disabled", "archived"] as const).map(
               (value) => (
                 <button
@@ -530,7 +529,7 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                   type="button"
                   onClick={() => void handleStatus(value)}
                   className={[
-                    "rounded-lg border px-3 py-1.5 text-xs font-medium",
+                    "rounded-md border px-2 py-1 text-[11px] font-medium",
                     room.status === value
                       ? "border-primary bg-primary text-white"
                       : "border-border bg-cream text-text hover:border-primary",
@@ -574,81 +573,68 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
       {banner && (
-        <p className="rounded-lg border border-border bg-cream px-3 py-2 text-sm text-text">
+        <p className="rounded-md border border-border bg-cream px-2.5 py-1.5 text-xs text-text">
           {banner}
         </p>
       )}
 
       {room.is_moderator && room.scope !== "dm" && (
-        <div className="space-y-2 rounded-lg border border-border bg-cream/60 p-3">
-          <p className="text-sm font-medium text-text">Запретить писать</p>
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={muteUserId}
-              onChange={(event) =>
-                setMuteUserId(event.target.value ? Number(event.target.value) : "")
-              }
-              className="rounded-lg border border-border bg-surface px-2 py-1.5 text-sm"
-            >
-              <option value="">Участник…</option>
-              {participantOptions
-                .filter((item) => item.user_id !== user?.id)
-                .filter(
-                  (item) => !room.mutes.some((mute) => mute.user_id === item.user_id),
-                )
-                .map((item) => (
-                  <option key={item.user_id} value={item.user_id}>
-                    {item.email}
-                  </option>
-                ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => void handleMute()}
-              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:border-primary"
-            >
-              Запретить
-            </button>
-          </div>
-          {room.mutes.length > 0 && (
-            <ul className="space-y-1 text-sm">
-              {room.mutes.map((mute) => (
-                <li
-                  key={mute.id}
-                  className="flex items-center justify-between gap-2 rounded-md bg-surface px-2 py-1"
-                >
-                  <span>
-                    {mute.user_email}
-                    {mute.reason ? ` — ${mute.reason}` : ""}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void handleUnmute(mute.user_id)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Снять
-                  </button>
-                </li>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-cream/60 p-2">
+          <select
+            value={muteUserId}
+            onChange={(event) =>
+              setMuteUserId(event.target.value ? Number(event.target.value) : "")
+            }
+            className="min-w-[10rem] flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-xs"
+          >
+            <option value="">Мьют участника…</option>
+            {participantOptions
+              .filter((item) => item.user_id !== user?.id)
+              .filter(
+                (item) => !room.mutes.some((mute) => mute.user_id === item.user_id),
+              )
+              .map((item) => (
+                <option key={item.user_id} value={item.user_id}>
+                  {item.email}
+                </option>
               ))}
-            </ul>
-          )}
+          </select>
+          <button
+            type="button"
+            onClick={() => void handleMute()}
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text hover:border-primary"
+          >
+            Мьют
+          </button>
+          {room.mutes.map((mute) => (
+            <button
+              key={mute.id}
+              type="button"
+              onClick={() => void handleUnmute(mute.user_id)}
+              className="rounded-md border border-border px-2 py-1 text-[11px] text-text-muted hover:border-primary hover:text-primary"
+              title={mute.reason || undefined}
+            >
+              {mute.user_email} ×
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="max-h-96 space-y-3 overflow-y-auto rounded-lg border border-border bg-cream/40 p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border border-border bg-cream/40 p-2">
         {messages.length === 0 ? (
-          <p className="text-sm text-text-muted">Пока нет сообщений</p>
+          <p className="px-1 py-6 text-center text-xs text-text-muted">Пока нет сообщений</p>
         ) : (
           messages.map((message) => (
             <div
               key={message.id}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+              className="rounded-lg border border-border/80 bg-surface px-2.5 py-1.5 text-sm"
             >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="font-medium text-text">{message.author_email}</span>
-                <time className="text-xs text-text-muted">
+              <div className="mb-0.5 flex items-baseline justify-between gap-2">
+                <span className="truncate text-xs font-medium text-text">{message.author_email}</span>
+                <time className="shrink-0 text-[10px] text-text-muted">
                   {new Date(message.created_at).toLocaleString("ru-RU")}
-                  {message.edited_at ? " · изменено" : ""}
+                  {message.edited_at ? " · изм." : ""}
                 </time>
               </div>
               {message.reply_to_preview && (
@@ -742,26 +728,27 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                       <span>{reaction.count}</span>
                     </button>
                   ))}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPickerFor((prev) =>
-                          prev === message.id ? null : message.id,
-                        )
-                      }
-                      className="text-xs opacity-70 hover:opacity-100"
-                      title="Реакция"
-                    >
-                      +😊
-                    </button>
-                    {pickerFor === message.id && (
-                      <ReactionPicker
-                        onPick={(pick) => void handleReaction(message.id, pick)}
-                        onClose={() => setPickerFor(null)}
-                      />
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    ref={pickerFor === message.id ? pickerAnchorRef : undefined}
+                    onClick={(event) => {
+                      pickerAnchorRef.current = event.currentTarget;
+                      setPickerFor((prev) =>
+                        prev === message.id ? null : message.id,
+                      );
+                    }}
+                    className="text-xs opacity-70 hover:opacity-100"
+                    title="Реакция"
+                  >
+                    +😊
+                  </button>
+                  {pickerFor === message.id && (
+                    <ReactionPicker
+                      anchorRef={pickerAnchorRef}
+                      onPick={(pick) => void handleReaction(message.id, pick)}
+                      onClose={() => setPickerFor(null)}
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => setReplyTo(message)}
@@ -812,17 +799,20 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
       </div>
 
       {room.can_post ? (
-        <form onSubmit={(event) => void handleSend(event)} className="space-y-2">
+        <form
+          onSubmit={(event) => void handleSend(event)}
+          className="flex w-full shrink-0 flex-col gap-2 rounded-lg border border-border bg-cream/30 p-2 lg:w-[min(100%,22rem)]"
+        >
           {replyTo && (
-            <p className="text-xs text-text-muted">
-              Ответ на: {replyTo.author_email} — {replyTo.body.slice(0, 80)}{" "}
+            <p className="truncate text-[11px] text-text-muted">
+              Ответ: {replyTo.author_email}{" "}
               <button type="button" className="text-primary" onClick={() => setReplyTo(null)}>
                 отмена
               </button>
             </p>
           )}
           {editingId && (
-            <p className="text-xs text-text-muted">
+            <p className="text-[11px] text-text-muted">
               Редактирование #{editingId}{" "}
               <button
                 type="button"
@@ -845,28 +835,27 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                 ? "Сообщение (шифруется на устройстве)…"
                 : "Сообщение…"
             }
-            className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="w-full resize-y rounded-md border border-border bg-surface px-2.5 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="file"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              className="text-xs text-text-muted"
+              className="min-w-0 flex-1 text-[11px] text-text-muted"
             />
             {!editingId && (
               <button
                 type="button"
                 onClick={() => (recording ? stopRecording() : void startRecording())}
-                className="rounded-lg border border-border bg-cream px-3 py-1.5 text-xs font-medium"
+                className={[
+                  "rounded-md border px-2.5 py-1.5 text-xs font-medium",
+                  recording
+                    ? "border-danger text-danger"
+                    : "border-border text-text hover:border-primary",
+                ].join(" ")}
               >
-                {recording ? "Стоп запись" : "Голосовое"}
+                {recording ? "■" : "🎙"}
               </button>
-            )}
-            {voice && (
-              <span className="text-xs text-text-muted">Голос: {voice.name}</span>
-            )}
-            {file && (
-              <span className="text-xs text-text-muted">Файл: {file.name}</span>
             )}
             <button
               type="submit"
@@ -875,15 +864,25 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                 (!body.trim() && !file && !voice && !editingId) ||
                 (Boolean(room.e2e_enabled) && !roomKey)
               }
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover disabled:opacity-50"
             >
               {sending ? "…" : editingId ? "Сохранить" : "Отправить"}
             </button>
           </div>
+          {(file || voice) && (
+            <p className="truncate text-[11px] text-text-muted">
+              {file ? `Файл: ${file.name}` : null}
+              {file && voice ? " · " : null}
+              {voice ? `Голос: ${voice.name}` : null}
+            </p>
+          )}
         </form>
       ) : (
-        <p className="text-sm text-text-muted">Отправка сообщений недоступна.</p>
+        <p className="w-full shrink-0 text-xs text-text-muted lg:w-[min(100%,22rem)]">
+          Отправка сообщений недоступна.
+        </p>
       )}
+      </div>
 
       {forwardMessageId != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

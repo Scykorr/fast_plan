@@ -37,6 +37,9 @@
 | 2026-07-22 | **Redis SSE pub/sub** + **P7 Security MVP** (2FA, sessions, IP allowlist) |
 | 2026-07-22 | **P7 Mobile** — Web Push + offline CRM queue |
 | 2026-07-23 | **P8 Process** — эпик BPMN/DMN/CMMN + ADR SpiffWorkflow/bpmn-js |
+| 2026-07-23 | Релиз **v0.12.0** — SSO Microsoft, P8 UX, P7 Mobile/Security в changelog |
+| 2026-07-25 | **CRM calendar sync** — events + Outlook/Google push; staging smoke 0.12 |
+| 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
 
 ---
 
@@ -111,12 +114,13 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 
 Следующие кандидаты:
 
-1. **MS Project XML import** — при появлении подтверждённого формата/образца.
-2. 1С / Stripe / WA-коннекторы — по запросу клиентов.
-3. Двусторонний calendar sync / conflict resolution — later.
-4. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
+1. **CRM backlog** — tasks UX (1f), finance deep (6), roles expand (9).
+2. **MS Project XML import** — при появлении подтверждённого формата/образца.
+3. 1С / Stripe / WA-коннекторы — по запросу клиентов.
+4. Двусторонний calendar sync / conflict resolution — later.
+5. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
 
-~~Ранее закрыто:~~ P5 чаты · Redis SSE · P6 CRM · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g.
+~~Ранее закрыто:~~ P5 чаты · Redis SSE · P6 CRM (a–i + calendar sync MVP) · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · staging smoke 0.12.
 
 ---
 
@@ -155,51 +159,55 @@ Start/End, UserTask, ServiceTask, ExclusiveGateway, ParallelGateway, Timer (Cele
 ## P6 — Project CRM
 
 _Цель:_ CRM вокруг проектов и портфеля Fast Plan (B2B услуги/delivery), а не замена Bitrix24/Salesforce «из коробки».  
-_Старт:_ 2026-07-22 · _требования заказчика сверены:_ 2026-07-22.
+_Старт:_ 2026-07-22 · _требования заказчика сверены:_ 2026-07-22 · _матрица обновлена:_ 2026-07-25.
 
 ### Позиционирование
 
 | Делаем в Fast Plan | Не цель продукта |
 |--------------------|------------------|
 | Карточка клиента + сделки + задачи в контексте проектов | Маркетинг-автоматизация уровня HubSpot Marketing Hub |
-| Встроенный BPM-lite + AI поверх уже существующих AI-черновиков | Полноценный WMS / телефония / мессенджер-шлюз «всё сразу» |
-| REST + webhooks + OAuth-интеграции точечно | GraphQL + SDK + native apps на старте |
+| BPM-lite (P6e) + полноценный BPMN/DMN/CMMN (P8) + AI | Полноценный WMS / телефония / мессенджер-шлюз «всё сразу» |
+| REST + webhooks + OAuth (SSO + calendar) точечно | GraphQL + SDK + native apps на старте |
 | Переиспользование Finance, Calendar, Kanban, Audit, PWA, RBAC | Дублировать отдельный «второй продукт» рядом с PM |
 
 ### Матрица требований (15 блоков) → статус
 
-| # | Требование | В Fast Plan сейчас | Приоритет в P6 |
-|---|------------|--------------------|----------------|
-| 1 | MVP: карточка, компании/контакты, история, комменты, файлы, теги, сегменты | **P6b ✓** — карточка + теги/сегменты/комменты/файлы/мессенджеры | **P6b** |
-| 1b | Сделки: воронка Kanban, стадии, %, сумма, прогноз, задачи, reminders | **P6c ✓** — Deal + pipeline + forecast + DealTask reminders | **P6c** |
-| 1c | Лиды: импорт, распределение, дедуп, score | **P6d ✓** — Lead + CSV/API import, RR/manual, dedupe, rules score | **P6d** |
-| 1d | Контакты: phone/email/соцсети/мессенджеры | **P6b ✓** — telegram/whatsapp/social_urls | **P6b** |
-| 1e | Календарь CRM + Google/Outlook | **Частично** — workspace calendar + CRM events + Outlook/Google push sync MVP | Углубление 2-way sync later |
-| 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **Частично** — WBS/Kanban/My Tasks; не привязаны к Deal/Lead | **P6c** |
-| 2 | Автоматизация (BPM / n8n-like) | **P6e ✓** — AutomationRule + templates + delay queue | **P6e** |
-| 3 | AI CRM-помощник (резюме звонков, риски сделок, письма, КП) | **✓ P6f** — insights, draft email/КП, summary, suggest tasks | — |
-| 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g** — IMAP + Telegram → Activity | — |
-| 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** — Quote/Invoice/Contract PDF + payments + AR lite | — |
-| 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **Частично** — AR lite (P6h) + Finance income/expense | доработка |
-| 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h** — PDF templates | — |
+| # | Требование | В Fast Plan сейчас | Приоритет / остаток |
+|---|------------|--------------------|---------------------|
+| 1 | MVP: карточка, компании/контакты, история, комменты, файлы, теги, сегменты | **✓ P6b** | — |
+| 1b | Сделки: воронка Kanban, стадии, %, сумма, прогноз, задачи, reminders | **✓ P6c** | — |
+| 1c | Лиды: импорт, распределение, дедуп, score | **✓ P6d** | — |
+| 1d | Контакты: phone/email/соцсети/мессенджеры | **✓ P6b** | — |
+| 1e | Календарь CRM + Google/Outlook | **✓ MVP** — CRM events на `/calendar` + односторонний push sync Outlook/Google (Settings); ICS milestones | **Later:** 2-way sync, conflict resolution |
+| 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **Частично** — DealTask + reminders; My Tasks / Kanban не унифицированы с CRM | **P6 backlog** — CRM task board / checklist / repeat |
+| 2 | Автоматизация (BPM / n8n-like) | **✓ P6e** (+ **P8** BPMN/DMN/CMMN для сложных процессов) | — |
+| 3 | AI CRM-помощник | **✓ P6f** — insights, draft email/КП, summary, suggest tasks (OpenAI / Ollama / heuristics) | — |
+| 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g** — IMAP + Telegram → Activity | **Later:** WA / Instagram / VK / telephony connectors |
+| 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** — Quote/Invoice/Contract PDF + payments + AR lite | Склад/SKU — out of scope без запроса |
+| 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **Частично** — AR lite (P6h) + Finance income/expense / FX | **P6 backlog** — P&L CRM, AP, cashflow forecast UI |
+| 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h** — PDF templates | Акт — later при запросе |
 | 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **✓ P6i** — dashboard + saved reports | — |
-| 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **Частично** — P6b: `crm_role` (sales_lead/sales/support) на WorkspaceMember | **P6b** + later |
-| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **Частично** — webhooks, API tokens | точечно в **P6e/g/h** |
-| 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **Частично** — REST + JWT + webhooks + API tokens | REST/OAuth **P6e**; GraphQL/SDK — позже / вне MVP |
-| 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **Сильно** — themes, PWA, search, DnD Kanban/WBS, custom fields tracking | доработка CRM UI в **P6b+** |
-| 13 | Collab: comments @, notify, chat, audit, co-edit | **Сильно** — comments, mentions, SSE, chats, audit; CRM comments/files в **P6b ✓** | **P6b** |
-| 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP allowlist | **Частично** — audit, chat E2E, JWT/CSRF, 2FA/sessions/IP, SSO Google/Microsoft | Backup/encryption hardening later |
+| 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **Частично** — `crm_role`: sales_lead / sales / support | **P6 backlog** — accounting / marketing roles |
+| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **Частично** — Calendar OAuth sync, IMAP/TG, webhooks, API tokens, Microsoft SSO | **По запросу:** Stripe / 1С / WA / SMS / telephony |
+| 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **Частично** — REST + JWT + webhooks + API tokens + OAuth SSO/calendar | GraphQL / SDK — вне MVP |
+| 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **Сильно** — themes, PWA, search, DnD; CRM pages shipped | Hotkeys / saved CRM filters — polish |
+| 13 | Collab: comments @, notify, chat, audit, co-edit | **Сильно** — comments, mentions, SSE, chats, audit; CRM comments/files ✓ | Co-edit docs — out of scope |
+| 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 MVP + SSO** — 2FA, sessions, IP, Microsoft SSO (Google login временно off); chat E2E | Backup/encryption hardening later |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
+
+**Итог по ядру CRM (P6a–P6i + calendar sync):** MVP закрыт. Открытый CRM-бэклог: **1f** (богатые CRM-задачи), **6** (финансы CRM), **9** (расширение ролей), **10** (клиентские коннекторы), **1e later** (2-way calendar).
 
 ### Уже переиспользуем (не строить заново)
 
-- Finance (`Transaction`, budget, FX), Portfolio, Calendar + ICS  
+- Finance (`Transaction`, budget, FX), Portfolio  
+- Calendar + ICS + CRM events + Outlook/Google push  
 - Kanban / WBS / My Tasks / Capacity  
-- Comments + @mentions + attachments (work items)  
+- Comments + @mentions + attachments (work items + CRM)  
 - Chats (project/workspace/DM) + guest share  
 - Outbound webhooks + API tokens + Audit log  
 - Theme light/dark/system, PWA, global search  
-- AI drafts pipeline (OpenAI/Ollama) — расширять на CRM-промпты  
+- AI drafts pipeline (OpenAI/Ollama) — CRM prompts в P6f  
+- Process engine (P8) рядом с P6e automations  
 
 ### Фазы реализации
 
@@ -212,6 +220,15 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 - [x] **P6g Омниканал (этап 1)** — единая лента Activity из Email (Gmail/IMAP) + Telegram bot; WhatsApp/Instagram/VK/телефония — отдельные коннекторы после adoption. **L**
 - [x] **P6h Коммерция и документы** — Quote/Invoice/Contract templates → PDF; заказы/оплаты; AR/AP lite + cashflow forecast; **склад/SKU — только если явный запрос** (иначе out of scope). **L**
 - [x] **P6i CRM-аналитика** — дашборд: продажи по менеджерам, конверсия, средний чек, источники; LTV/CAC при наличии затрат на лиды; конструктор отчётов (простые saved queries). **M–L**
+- [x] **P6 calendar sync** — CRM events на workspace calendar + OAuth push в Outlook/Google (2026-07-25). **M**
+
+### CRM backlog (после P6i)
+
+- [ ] **CRM tasks UX** — чек-листы, repeat, priority, единый Kanban Deal/Lead tasks (**1f**). **M**
+- [ ] **CRM finance deep** — P&L по клиенту/сделке, AP, cashflow forecast UI (**6**). **M–L**
+- [ ] **CRM roles expand** — accounting / marketing поверх `crm_role` (**9**). **S**
+- [ ] **Connectors on demand** — Stripe, 1С, WhatsApp, SMS (**10**). **по запросу**
+- [ ] **Calendar 2-way** — pull + conflict policy (**1e later**). **M**
 
 ### P6a — критерии (архив)
 
@@ -284,10 +301,10 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 ### Связанные эпики (не только CRM)
 
 - [x] **P7 Security MVP** — TOTP 2FA, session management, optional IP allowlist, [`SECURITY.md`](SECURITY.md) backup runbook (2026-07-22).
-- [x] **P7 Security SSO** — Google/Microsoft OAuth (`SocialAccount`, cookies / 2FA redirect). **M** (2026-07-23)
+- [x] **P7 Security SSO** — Microsoft OAuth login (Google login временно disabled); calendar OAuth Google/Outlook отдельно (2026-07-23…25).
 - [x] **P7 Mobile** — PWA Web Push (VAPID) + offline queue для CRM activities/deal tasks (2026-07-22). **M**
 - [x] **Redis pub/sub для SSE** — multi-worker realtime (2026-07-22). **M**
-- [x] **P8 Process** — BPMN/DMN/CMMN (см. секцию P8 + ADR). **XL** (MVP shipped 2026-07-23)
+- [x] **P8 Process** — BPMN/DMN/CMMN + P8g mining/DMN tables/richer CMMN (2026-07-23). **XL**
 
 ### Вне scope / партнёрский слой (явно)
 
@@ -298,11 +315,12 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 - Нативные iOS/Android (достаточно усиленного PWA)  
 - Co-edit документов уровня Google Docs  
 
-### Принцип приоритизации спринтов
+### Принцип приоритизации спринтов (CRM)
 
-1. Клиентские коннекторы (1С / Stripe / WA) — по запросу.
-2. MS Project XML import — при наличии образца.
-3. Process conformance / full FEEL — out of scope (см. ADR).
+1. **CRM backlog** из матрицы: tasks UX (1f) → finance deep (6) → roles (9).
+2. Клиентские коннекторы (1С / Stripe / WA) — по запросу.
+3. Calendar 2-way sync — после adoption одностороннего push.
+4. MS Project XML import — при наличии образца.
 
 ---
 

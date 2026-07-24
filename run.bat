@@ -26,7 +26,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [1/4] Freeing ports 5173 and 8000 if still in use...
+echo [1/5] Checking Python dependencies...
+venv\Scripts\python.exe -c "import pyotp, SpiffWorkflow" >nul 2>&1
+if errorlevel 1 (
+    echo Missing packages — installing from requirements.txt...
+    venv\Scripts\python.exe -m pip install -r requirements.txt
+    if errorlevel 1 (
+        echo [ERROR] pip install failed.
+        pause
+        exit /b 1
+    )
+)
+
+echo [2/5] Freeing ports 5173 and 8000 if still in use...
 for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":5173" ^| findstr "LISTENING"') do (
     taskkill /PID %%P /F >nul 2>&1
 )
@@ -35,7 +47,7 @@ for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING
 )
 timeout /t 1 /nobreak >nul
 
-echo [2/4] Applying database migrations...
+echo [3/5] Applying database migrations...
 venv\Scripts\python.exe backend\manage.py migrate --noinput
 if errorlevel 1 (
     echo [ERROR] Migrations failed.
@@ -43,12 +55,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [3/4] Starting backend (Django)...
+echo [4/5] Starting backend (Django)...
 start "Fast Plan - Backend" cmd /k "cd /d "%~dp0backend" && "%~dp0venv\Scripts\python.exe" manage.py runserver"
 
 timeout /t 2 /nobreak >nul
 
-echo [4/4] Starting frontend (Vite)...
+echo [5/5] Starting frontend (Vite)...
 start "Fast Plan - Frontend" cmd /k "cd /d "%~dp0frontend" && npm run dev"
 
 echo.

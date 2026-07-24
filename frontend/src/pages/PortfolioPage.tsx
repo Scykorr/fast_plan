@@ -134,11 +134,7 @@ export function PortfolioPage() {
 
           {isAuthenticated && (
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-text">Чат портфеля</h2>
-              <p className="text-sm text-text-muted">
-                Общение участников workspace. Руководитель может выключить чат,
-                включить режим оповещений или запретить писать отдельным людям.
-              </p>
+              <h2 className="text-base font-semibold text-text">Чат портфеля</h2>
               <ChatPanel scope="workspace" />
             </div>
           )}
