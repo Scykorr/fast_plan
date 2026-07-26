@@ -16,7 +16,7 @@ from decimal import Decimal
 from django.db import IntegrityError
 from django.utils import timezone
 
-from crm.models import Activity, CrmDocument, IntegrationConnector, Person
+from crm.models import Activity, CrmDocument, Deal, IntegrationConnector, Person
 from finance.models import Transaction
 
 logger = logging.getLogger("fast_plan")
@@ -138,6 +138,8 @@ def ensure_activity(
     subject: str,
     body: str = "",
     person: Person | None = None,
+    deal=None,
+    organization=None,
     occurred_at=None,
 ) -> Activity | None:
     if not external_id:
@@ -153,6 +155,8 @@ def ensure_activity(
             body=body or "",
             occurred_at=occurred_at or timezone.now(),
             person=person,
+            deal=deal,
+            organization=organization,
         )
     except IntegrityError:
         return None
@@ -484,8 +488,143 @@ def _party_number(value) -> str:
     return str(value or "")
 
 
+_ARI_NOISE = {
+    "ChannelVarset",
+    "ChannelDialplan",
+    "ChannelCallerId",
+    "ChannelConnectedLine",
+    "ChannelHold",
+    "ChannelUnhold",
+    "ChannelToneDetect",
+    "DeviceStateChanged",
+    "PeerStatusChange",
+}
+_AMI_NOISE = {"VarSet", "Newexten", "NewAccountCode", "RTCPSent", "RTCPReceived"}
+
+
+def _unwrap_asterisk_event(data: dict) -> dict | None:
+    """Flatten Asterisk ARI or AMI event into generic telephony fields."""
+    # ARI WebSocket / webhook event
+    event_type = str(data.get("type") or "")
+    if event_type:
+        if event_type in _ARI_NOISE:
+            return None
+        channel = data.get("channel") if isinstance(data.get("channel"), dict) else {}
+        peer = data.get("peer") if isinstance(data.get("peer"), dict) else {}
+        caller = data.get("caller") if isinstance(data.get("caller"), dict) else {}
+        if not caller and channel:
+            caller = channel.get("caller") if isinstance(channel.get("caller"), dict) else {}
+        connected = {}
+        if channel:
+            connected = (
+                channel.get("connected")
+                if isinstance(channel.get("connected"), dict)
+                else {}
+            )
+        dialplan = channel.get("dialplan") if isinstance(channel.get("dialplan"), dict) else {}
+        if event_type == "ChannelStateChange":
+            state = str(channel.get("state") or "")
+            if state not in ("Ring", "Ringing", "Up"):
+                return None
+        call_id = str(
+            channel.get("id")
+            or peer.get("id")
+            or data.get("asterisk_id")
+            or data.get("bridge_id")
+            or ""
+        )
+        from_phone = _party_number(caller) or _party_number(channel.get("caller"))
+        to_phone = (
+            _party_number(connected)
+            or _party_number((peer.get("caller") if peer else None))
+            or str(dialplan.get("exten") or "")
+        )
+        status = str(
+            channel.get("state")
+            or data.get("dialstatus")
+            or data.get("cause_txt")
+            or event_type
+        )
+        direction = ""
+        endpoint = str(channel.get("name") or "")
+        if endpoint.startswith(("PJSIP/", "SIP/", "Local/")) and to_phone and from_phone:
+            # Heuristic: trunk names often contain "trunk" / DID contexts inbound
+            context = str(dialplan.get("context") or "").lower()
+            if "from-trunk" in context or "from-pstn" in context or "inbound" in context:
+                direction = "inbound"
+            elif "from-internal" in context or "outbound" in context:
+                direction = "outbound"
+        return {
+            "call_id": call_id,
+            "from": from_phone,
+            "to": to_phone,
+            "status": status,
+            "duration": data.get("duration") or data.get("billsec") or "",
+            "direction": direction,
+            "source": "ari",
+            "event": event_type,
+        }
+
+    # AMI Event: ...
+    ami_event = str(data.get("Event") or data.get("event") or "")
+    if ami_event:
+        if ami_event in _AMI_NOISE:
+            return None
+        call_id = str(
+            data.get("Uniqueid")
+            or data.get("Linkedid")
+            or data.get("uniqueid")
+            or data.get("Channel")
+            or ""
+        )
+        from_phone = str(
+            data.get("CallerIDNum")
+            or data.get("CallerID")
+            or data.get("Src")
+            or data.get("source")
+            or ""
+        )
+        to_phone = str(
+            data.get("ConnectedLineNum")
+            or data.get("DestCallerIDNum")
+            or data.get("Destination")
+            or data.get("Exten")
+            or data.get("Dst")
+            or data.get("dialstring")
+            or ""
+        )
+        status = str(
+            data.get("ChannelStateDesc")
+            or data.get("DialStatus")
+            or data.get("Cause-txt")
+            or data.get("Cause")
+            or ami_event
+        )
+        direction = str(data.get("Direction") or data.get("direction") or "").lower()
+        context = str(data.get("Context") or "").lower()
+        if not direction:
+            if "from-trunk" in context or "from-pstn" in context:
+                direction = "inbound"
+            elif "from-internal" in context:
+                direction = "outbound"
+        return {
+            "call_id": call_id,
+            "from": from_phone,
+            "to": to_phone,
+            "status": status,
+            "duration": data.get("BillableSeconds")
+            or data.get("billsec")
+            or data.get("Duration")
+            or "",
+            "direction": direction,
+            "source": "ami",
+            "event": ami_event,
+        }
+    return None
+
+
 def normalize_telephony_payload(payload: dict) -> dict:
-    """Normalize generic / Asterisk CDR / Mango Office call events."""
+    """Normalize generic / Asterisk AMI·ARI / CDR / Mango Office call events."""
     data = dict(payload or {})
     # Mango often posts form fields: json + vpbx_api_key + sign
     raw_json = data.get("json")
@@ -496,6 +635,10 @@ def normalize_telephony_payload(payload: dict) -> dict:
                 data = {**data, **nested}
         except json.JSONDecodeError:
             pass
+
+    asterisk = _unwrap_asterisk_event(data)
+    if asterisk is not None:
+        return asterisk
 
     call_id = str(
         data.get("call_id")
@@ -553,12 +696,17 @@ def normalize_telephony_payload(payload: dict) -> dict:
         "status": status,
         "duration": duration,
         "direction": direction_raw,
+        "source": "generic",
+        "event": "",
     }
 
 
-def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> dict:
-    """Ingest PBX/telephony CDR or call event → Activity(kind=call)."""
+def _ingest_one_telephony_event(connector: IntegrationConnector, payload: dict) -> dict:
     norm = normalize_telephony_payload(payload if isinstance(payload, dict) else {})
+    if norm.get("source") in ("ari", "ami") and not norm.get("call_id") and not (
+        norm.get("from") or norm.get("to")
+    ):
+        return {"created": 0, "skipped": True, "reason": "empty asterisk event"}
     call_id = norm["call_id"]
     direction_raw = norm["direction"]
     if direction_raw in ("out", "outbound", "outgoing"):
@@ -577,6 +725,8 @@ def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> 
         f"to={to_phone}" if to_phone else "",
         f"status={status}" if status else "",
         f"duration={duration}s" if duration != "" else "",
+        f"via={norm.get('source')}" if norm.get("source") else "",
+        f"event={norm.get('event')}" if norm.get("event") else "",
     ]
     body = "; ".join(p for p in body_parts if p)
     person = find_person_by_phone(connector.workspace, peer) if peer else None
@@ -590,7 +740,47 @@ def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> 
         body=body,
         person=person,
     )
-    return {"created": 1 if activity else 0, "provider": "telephony", "call_id": call_id}
+    return {
+        "created": 1 if activity else 0,
+        "provider": "telephony",
+        "call_id": call_id,
+        "source": norm.get("source") or "generic",
+    }
+
+
+def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> dict:
+    """Ingest PBX/telephony AMI, ARI, CDR or Mango event(s) → Activity(kind=call)."""
+    data = payload if isinstance(payload, dict) else {}
+    items: list = []
+    if isinstance(data.get("events"), list):
+        items = [e for e in data["events"] if isinstance(e, dict)]
+    elif isinstance(data.get("EventList"), list):
+        items = [e for e in data["EventList"] if isinstance(e, dict)]
+    else:
+        items = [data]
+
+    created = 0
+    last: dict = {"created": 0, "provider": "telephony"}
+    skipped = 0
+    for item in items:
+        # Skip pure noise before unwrap when type/Event known
+        et = str(item.get("type") or item.get("Event") or item.get("event") or "")
+        if et in _ARI_NOISE or et in _AMI_NOISE:
+            skipped += 1
+            continue
+        result = _ingest_one_telephony_event(connector, item)
+        if result.get("skipped"):
+            skipped += 1
+            continue
+        created += int(result.get("created") or 0)
+        last = result
+    return {
+        **last,
+        "created": created,
+        "events": len(items),
+        "skipped": skipped,
+        "provider": "telephony",
+    }
 
 
 def _dial_asterisk_ari(config: dict, *, to: str, note: str = "") -> dict:
@@ -682,12 +872,31 @@ def _dial_generic(config: dict, *, to: str, note: str = "") -> dict:
     return {"remote": True, "pbx": "generic"}
 
 
-def dial_telephony(connector: IntegrationConnector, *, to: str, note: str = "") -> dict:
+def dial_telephony(
+    connector: IntegrationConnector,
+    *,
+    to: str,
+    note: str = "",
+    person_id: int | None = None,
+    deal_id: int | None = None,
+) -> dict:
     config = connector.config or {}
     if not to:
         raise ValueError("to is required")
     pbx = str(config.get("pbx") or config.get("provider") or "generic").strip().lower()
     external_id = f"tel:out:{secrets.token_hex(8)}"
+    person = None
+    if person_id:
+        person = Person.objects.filter(
+            workspace=connector.workspace, pk=person_id
+        ).first()
+    if person is None:
+        person = find_person_by_phone(connector.workspace, to)
+    deal = None
+    if deal_id:
+        deal = Deal.objects.filter(workspace=connector.workspace, pk=deal_id).first()
+        if deal and person is None and deal.person_id:
+            person = deal.person
     ensure_activity(
         connector.workspace,
         kind=Activity.Kind.CALL,
@@ -696,7 +905,9 @@ def dial_telephony(connector: IntegrationConnector, *, to: str, note: str = "") 
         external_id=external_id,
         subject=f"Call to {to}",
         body=note or f"Outbound dial via {pbx}",
-        person=find_person_by_phone(connector.workspace, to),
+        person=person,
+        deal=deal,
+        organization=deal.organization if deal else None,
     )
     try:
         if pbx in ("asterisk", "ari"):

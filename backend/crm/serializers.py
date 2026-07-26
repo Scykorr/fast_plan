@@ -685,6 +685,7 @@ class DealSerializer(serializers.ModelSerializer):
     stage_name = serializers.CharField(source="stage.name", read_only=True)
     organization_name = serializers.SerializerMethodField()
     person_name = serializers.SerializerMethodField()
+    person_phone = serializers.SerializerMethodField()
     project_name = serializers.SerializerMethodField()
     owner_email = serializers.SerializerMethodField()
     weighted_amount = serializers.SerializerMethodField()
@@ -707,6 +708,7 @@ class DealSerializer(serializers.ModelSerializer):
             "organization_name",
             "person",
             "person_name",
+            "person_phone",
             "project",
             "project_name",
             "owner",
@@ -725,6 +727,9 @@ class DealSerializer(serializers.ModelSerializer):
 
     def get_person_name(self, obj):
         return obj.person.full_name if obj.person_id else None
+
+    def get_person_phone(self, obj):
+        return obj.person.phone if obj.person_id else None
 
     def get_project_name(self, obj):
         return obj.project.name if obj.project_id else None

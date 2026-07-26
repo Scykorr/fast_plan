@@ -31,6 +31,7 @@ import type {
 } from "../api/crm";
 import type { Project } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { ClickToCallButton } from "../components/crm/ClickToCallButton";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useWorkspace } from "../context/WorkspaceContext";
@@ -155,6 +156,7 @@ export function DealsPage() {
   const [tasks, setTasks] = useState<CrmDealTask[]>([]);
   const [activeDeal, setActiveDeal] = useState<CrmDeal | null>(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     title: "",
@@ -514,6 +516,11 @@ export function DealsPage() {
       </div>
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      {message && (
+        <p className="mb-3 text-sm text-secondary" role="status">
+          {message}
+        </p>
+      )}
 
       <form
         onSubmit={(event) => void createDeal(event)}
@@ -626,6 +633,24 @@ export function DealsPage() {
                 {selected.probability}% = {money(selected.weighted_amount)}
                 {selected.owner_email ? ` · ${selected.owner_email}` : ""}
               </p>
+              {(selected.person_name || selected.person_phone) && (
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-text-muted">
+                  {selected.person_name && <span>{selected.person_name}</span>}
+                  {selected.person_phone && (
+                    <>
+                      <span>{selected.person_phone}</span>
+                      <ClickToCallButton
+                        phone={selected.person_phone}
+                        personId={selected.person}
+                        dealId={selected.id}
+                        note={`CRM deal #${selected.id}`}
+                        onDone={(detail) => setMessage(detail)}
+                        onError={(msg) => setError(msg)}
+                      />
+                    </>
+                  )}
+                </p>
+              )}
             </div>
             <select
               value={selected.stage}

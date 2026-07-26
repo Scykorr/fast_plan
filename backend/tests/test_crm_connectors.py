@@ -244,7 +244,7 @@ def test_telephony_mango_and_asterisk_dial(authenticated_client, workspace, monk
         "location": "abonent",
     }
     raw_json = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
-    sign = __import__("hashlib").sha256(f"key1{raw_json}salt1".encode()).hexdigest()
+    sign = hashlib.sha256(f"key1{raw_json}salt1".encode()).hexdigest()
     mango_event = authenticated_client.post(
         "/api/crm/connectors/webhooks/telephony/tok-mango/",
         {"vpbx_api_key": "key1", "json": raw_json, "sign": sign},
@@ -301,9 +301,124 @@ def test_telephony_mango_and_asterisk_dial(authenticated_client, workspace, monk
     assert Activity.objects.filter(external_id="tel:1730000.1").exists()
 
 
-def test_mango_webhook_sign_verification(authenticated_client, workspace):
-    import hashlib
+def test_asterisk_ari_and_ami_event_ingest(authenticated_client, workspace):
+    IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="Asterisk events",
+        webhook_token="tok-ari-ev",
+        config={"pbx": "asterisk"},
+    )
+    ari = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-ari-ev/",
+        {
+            "type": "ChannelStateChange",
+            "channel": {
+                "id": "1731111.5",
+                "name": "PJSIP/trunk-00000001",
+                "state": "Up",
+                "caller": {"number": "79001112233"},
+                "connected": {"number": "100"},
+                "dialplan": {"context": "from-trunk", "exten": "100"},
+            },
+        },
+        format="json",
+    )
+    assert ari.status_code == 200
+    assert ari.data["created"] == 1
+    assert ari.data["source"] == "ari"
+    assert Activity.objects.filter(
+        workspace=workspace,
+        external_id="tel:1731111.5",
+        direction=Activity.Direction.INBOUND,
+    ).exists()
 
+    noise = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-ari-ev/",
+        {"type": "ChannelVarset", "channel": {"id": "x"}},
+        format="json",
+    )
+    assert noise.status_code == 200
+    assert noise.data["created"] == 0
+
+    ami = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-ari-ev/",
+        {
+            "events": [
+                {
+                    "Event": "Hangup",
+                    "Uniqueid": "1732222.9",
+                    "CallerIDNum": "100",
+                    "ConnectedLineNum": "79005554433",
+                    "Context": "from-internal",
+                    "Cause-txt": "Normal Clearing",
+                    "BillableSeconds": "15",
+                }
+            ]
+        },
+        format="json",
+    )
+    assert ami.status_code == 200
+    assert ami.data["created"] == 1
+    assert Activity.objects.filter(
+        workspace=workspace,
+        external_id="tel:1732222.9",
+        direction=Activity.Direction.OUTBOUND,
+    ).exists()
+
+
+def test_click_to_call_links_person_and_deal(authenticated_client, workspace, user):
+    from crm.models import Deal, Organization, Person
+    from crm.services import ensure_default_pipeline
+
+    person = Person.objects.create(
+        workspace=workspace, full_name="Alice", phone="+79001112233", owner=user
+    )
+    org = Organization.objects.create(workspace=workspace, name="Acme")
+    pipeline = ensure_default_pipeline(workspace)
+    deal = Deal.objects.create(
+        workspace=workspace,
+        pipeline=pipeline,
+        stage=pipeline.stages.first(),
+        title="Deal call",
+        organization=org,
+        person=person,
+        owner=user,
+    )
+    tel = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="PBX",
+        webhook_token="tok-ctc",
+        config={"pbx": "generic"},
+    )
+    dialed = authenticated_client.post(
+        f"/api/crm/connectors/{tel.id}/send/",
+        {
+            "to": "+79001112233",
+            "note": "from deal",
+            "person_id": person.id,
+            "deal_id": deal.id,
+        },
+        format="json",
+    )
+    assert dialed.status_code == 200
+    activity = Activity.objects.get(
+        workspace=workspace,
+        channel=Activity.Channel.TELEPHONY,
+        direction=Activity.Direction.OUTBOUND,
+        person=person,
+        deal=deal,
+    )
+    assert "from deal" in activity.body
+
+    board = authenticated_client.get("/api/crm/deals/")
+    assert board.status_code == 200
+    row = next(d for d in board.data if d["id"] == deal.id)
+    assert row["person_phone"] == "+79001112233"
+
+
+def test_mango_webhook_sign_verification(authenticated_client, workspace):
     api_key = "key1"
     api_salt = "salt1"
     IntegrationConnector.objects.create(

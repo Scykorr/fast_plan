@@ -324,6 +324,7 @@ export type CrmDeal = {
   organization_name: string | null;
   person: number | null;
   person_name: string | null;
+  person_phone?: string | null;
   project: number | null;
   project_name: string | null;
   owner: number | null;
@@ -956,11 +957,22 @@ export function createCrmApi() {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    sendConnectorDial: (id: number, body: { to: string; note?: string }) =>
-      request<{ ok: boolean; dialed?: boolean }>(`/crm/connectors/${id}/send/`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
+    sendConnectorDial: (
+      id: number,
+      body: {
+        to: string;
+        note?: string;
+        person_id?: number;
+        deal_id?: number;
+      },
+    ) =>
+      request<{ ok: boolean; dialed?: boolean; remote?: boolean; pbx?: string }>(
+        `/crm/connectors/${id}/send/`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
 
     listDocuments: (params: { doc_type?: string; status?: string } = {}) => {
       const qs = new URLSearchParams();

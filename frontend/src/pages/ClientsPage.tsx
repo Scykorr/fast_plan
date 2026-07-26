@@ -14,6 +14,7 @@ import type {
 } from "../api/crm";
 import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { ClickToCallButton } from "../components/crm/ClickToCallButton";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
@@ -866,7 +867,18 @@ export function ClientsPage() {
                   {selectedPerson && (
                     <div className="space-y-1 text-sm text-text-muted">
                       {selectedPerson.email && <p>Email: {selectedPerson.email}</p>}
-                      {selectedPerson.phone && <p>Телефон: {selectedPerson.phone}</p>}
+                      {selectedPerson.phone && (
+                        <p className="flex flex-wrap items-center gap-2">
+                          <span>Телефон: {selectedPerson.phone}</span>
+                          <ClickToCallButton
+                            phone={selectedPerson.phone}
+                            personId={selectedPerson.id}
+                            note={`CRM person #${selectedPerson.id}`}
+                            onDone={(detail) => setMessage(detail)}
+                            onError={(msg) => setError(msg)}
+                          />
+                        </p>
+                      )}
                       {selectedPerson.telegram && (
                         <p>Telegram: {selectedPerson.telegram}</p>
                       )}

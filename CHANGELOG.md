@@ -15,13 +15,17 @@
 
 ## [Unreleased]
 
-### Added
-
-- **Mango VPBX webhook sign** — verify `sha256(api_key + json + api_salt)` on telephony webhooks when `pbx=mango`; clearer inbound/outbound from Mango `from`/`to` parties
-
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+
+## [0.14.1] — 2026-07-26
+
+### Added
+
+- **Mango VPBX webhook sign** — verify `sha256(api_key + json + api_salt)` on telephony webhooks when `pbx=mango`; clearer inbound/outbound from Mango `from`/`to` parties
+- **Asterisk AMI/ARI event ingest** — normalize `ChannelStateChange` / Hangup / batch `events[]` (not only CDR); noise events skipped
+- **Click-to-call** — «Позвонить» on Person (`/clients`) and Deal detail (`/deals`); dial links `person_id` / `deal_id`; deals expose `person_phone`
 
 ## [0.14.0] — 2026-07-26
 

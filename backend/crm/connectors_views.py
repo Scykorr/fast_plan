@@ -146,8 +146,16 @@ class ConnectorSendView(WorkspaceMixin, APIView):
         if row.provider == IntegrationConnector.Provider.TELEPHONY:
             to = (request.data.get("to") or "").strip()
             note = (request.data.get("note") or request.data.get("body") or "").strip()
+            person_id = request.data.get("person_id")
+            deal_id = request.data.get("deal_id")
             try:
-                result = dial_telephony(row, to=to, note=note)
+                result = dial_telephony(
+                    row,
+                    to=to,
+                    note=note,
+                    person_id=int(person_id) if person_id else None,
+                    deal_id=int(deal_id) if deal_id else None,
+                )
             except Exception as exc:  # noqa: BLE001
                 raise ValidationError({"detail": str(exc)}) from exc
             return Response({"ok": True, **result})
