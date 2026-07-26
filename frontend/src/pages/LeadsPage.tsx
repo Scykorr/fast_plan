@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { parseApiError } from "../api/errors";
-import type { CrmLead, CrmLeadStatus } from "../api/crm";
+import type { CrmLead, CrmLeadStatus, CrmLeadTask } from "../api/crm";
 import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useCrmApi } from "../hooks/useCrmApi";
@@ -40,6 +40,26 @@ export function LeadsPage() {
     company_name: "",
     source: "website",
   });
+  const [tasks, setTasks] = useState<CrmLeadTask[]>([]);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDue, setTaskDue] = useState("");
+  const [taskPriority, setTaskPriority] = useState("normal");
+
+  const loadTasks = useCallback(async () => {
+    if (!crmApi || !selected) {
+      setTasks([]);
+      return;
+    }
+    try {
+      setTasks(await crmApi.listLeadTasks(selected.id));
+    } catch {
+      setTasks([]);
+    }
+  }, [crmApi, selected]);
+
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
 
   const load = useCallback(async () => {
     if (!crmApi) {
@@ -378,6 +398,96 @@ export function LeadsPage() {
                   </button>
                 </div>
               </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!crmApi || !taskTitle.trim()) {
+                    return;
+                  }
+                  void crmApi
+                    .createLeadTask(selected.id, {
+                      title: taskTitle.trim(),
+                      due_date: taskDue || null,
+                      priority: taskPriority,
+                    })
+                    .then(() => {
+                      setTaskTitle("");
+                      setTaskDue("");
+                      setTaskPriority("normal");
+                      return loadTasks();
+                    })
+                    .catch((err) =>
+                      setError(parseApiError(err, "Не удалось добавить задачу")),
+                    );
+                }}
+                className="space-y-2 border-t border-border pt-3"
+              >
+                <p className="text-xs font-medium text-text">Задачи лида</p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={taskTitle}
+                    onChange={(event) => setTaskTitle(event.target.value)}
+                    placeholder="Звонок / квалификация"
+                    className="min-w-[10rem] flex-1 rounded-lg border border-border bg-cream px-2 py-1.5 text-sm"
+                    required
+                  />
+                  <input
+                    type="date"
+                    value={taskDue}
+                    onChange={(event) => setTaskDue(event.target.value)}
+                    className="rounded-lg border border-border bg-cream px-2 py-1.5 text-sm"
+                  />
+                  <select
+                    value={taskPriority}
+                    onChange={(event) => setTaskPriority(event.target.value)}
+                    className="rounded-lg border border-border bg-cream px-2 py-1.5 text-sm"
+                  >
+                    <option value="low">низкий</option>
+                    <option value="normal">обычный</option>
+                    <option value="high">высокий</option>
+                    <option value="urgent">срочный</option>
+                  </select>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+                  >
+                    Добавить
+                  </button>
+                </div>
+                <ul className="space-y-1">
+                  {tasks.map((task) => (
+                    <li
+                      key={task.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={task.is_done}
+                        onChange={() =>
+                          void crmApi
+                            ?.patchLeadTask(selected.id, task.id, {
+                              is_done: !task.is_done,
+                            })
+                            .then(() => loadTasks())
+                        }
+                      />
+                      <span
+                        className={
+                          task.is_done
+                            ? "text-text-muted line-through"
+                            : "text-text"
+                        }
+                      >
+                        {task.title}
+                      </span>
+                      <span className="text-[10px] text-text-muted">
+                        {task.priority}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </form>
 
               {selected.status !== "converted" ? (
                 <button

@@ -14,6 +14,7 @@ from crm.models import (
     Deal,
     DealTask,
     Lead,
+    LeadTask,
     Organization,
     OrganizationMembership,
     OrganizationTag,
@@ -759,6 +760,8 @@ class DealMoveSerializer(serializers.Serializer):
 
 class DealTaskSerializer(serializers.ModelSerializer):
     assignee_email = serializers.SerializerMethodField()
+    checklist_done = serializers.SerializerMethodField()
+    checklist_total = serializers.SerializerMethodField()
 
     class Meta:
         model = DealTask
@@ -768,6 +771,12 @@ class DealTaskSerializer(serializers.ModelSerializer):
             "title",
             "due_date",
             "is_done",
+            "priority",
+            "board_status",
+            "checklist",
+            "checklist_done",
+            "checklist_total",
+            "repeat",
             "assignee",
             "assignee_email",
             "remind_before_days",
@@ -780,6 +789,14 @@ class DealTaskSerializer(serializers.ModelSerializer):
     def get_assignee_email(self, obj):
         return obj.assignee.email if obj.assignee_id else None
 
+    def get_checklist_done(self, obj):
+        items = obj.checklist or []
+        return sum(1 for item in items if isinstance(item, dict) and item.get("done"))
+
+    def get_checklist_total(self, obj):
+        items = obj.checklist or []
+        return sum(1 for item in items if isinstance(item, dict) and item.get("text"))
+
 
 class DealTaskWriteSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255, required=False)
@@ -788,6 +805,60 @@ class DealTaskWriteSerializer(serializers.Serializer):
     assignee_id = serializers.IntegerField(required=False, allow_null=True)
     remind_before_days = serializers.IntegerField(required=False, min_value=0)
     notes = serializers.CharField(required=False, allow_blank=True, default="")
+    priority = serializers.ChoiceField(
+        choices=[c.value for c in DealTask.Priority], required=False
+    )
+    board_status = serializers.ChoiceField(
+        choices=[c.value for c in DealTask.BoardStatus], required=False
+    )
+    checklist = serializers.JSONField(required=False)
+    repeat = serializers.ChoiceField(
+        choices=[c.value for c in DealTask.Repeat], required=False
+    )
+
+
+class LeadTaskSerializer(serializers.ModelSerializer):
+    assignee_email = serializers.SerializerMethodField()
+    checklist_done = serializers.SerializerMethodField()
+    checklist_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeadTask
+        fields = [
+            "id",
+            "lead",
+            "title",
+            "due_date",
+            "is_done",
+            "priority",
+            "board_status",
+            "checklist",
+            "checklist_done",
+            "checklist_total",
+            "repeat",
+            "assignee",
+            "assignee_email",
+            "remind_before_days",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_assignee_email(self, obj):
+        return obj.assignee.email if obj.assignee_id else None
+
+    def get_checklist_done(self, obj):
+        items = obj.checklist or []
+        return sum(1 for item in items if isinstance(item, dict) and item.get("done"))
+
+    def get_checklist_total(self, obj):
+        items = obj.checklist or []
+        return sum(1 for item in items if isinstance(item, dict) and item.get("text"))
+
+
+class LeadTaskWriteSerializer(DealTaskWriteSerializer):
+    pass
 
 
 class LeadSerializer(serializers.ModelSerializer):

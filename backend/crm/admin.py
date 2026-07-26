@@ -11,6 +11,7 @@ from crm.models import (
     DealTask,
     Lead,
     LeadAssignmentState,
+    LeadTask,
     Organization,
     OrganizationMembership,
     OrganizationTag,
@@ -39,6 +40,7 @@ admin.site.register(PipelineStage)
 admin.site.register(Deal)
 admin.site.register(DealTask)
 admin.site.register(Lead)
+admin.site.register(LeadTask)
 admin.site.register(LeadAssignmentState)
 admin.site.register(AutomationRule)
 admin.site.register(AutomationRun)

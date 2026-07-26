@@ -41,6 +41,7 @@
 | 2026-07-25 | **CRM calendar sync** — events + Outlook/Google push; staging smoke 0.12 |
 | 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
 | 2026-07-26 | Релиз **v0.13.0** — P8g, CRM calendar sync, chat UX, staging smoke 0.12 |
+| 2026-07-26 | **CRM tasks UX (1f)** — priority/checklist/repeat, LeadTask, `/crm-tasks` Kanban |
 
 ---
 
@@ -180,7 +181,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 1c | Лиды: импорт, распределение, дедуп, score | **✓ P6d** | — |
 | 1d | Контакты: phone/email/соцсети/мессенджеры | **✓ P6b** | — |
 | 1e | Календарь CRM + Google/Outlook | **✓ MVP** — CRM events на `/calendar` + односторонний push sync Outlook/Google (Settings); ICS milestones | **Later:** 2-way sync, conflict resolution |
-| 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **Частично** — DealTask + reminders; My Tasks / Kanban не унифицированы с CRM | **P6 backlog** — CRM task board / checklist / repeat |
+| 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **✓** — DealTask + LeadTask + `/crm-tasks` board | — |
 | 2 | Автоматизация (BPM / n8n-like) | **✓ P6e** (+ **P8** BPMN/DMN/CMMN для сложных процессов) | — |
 | 3 | AI CRM-помощник | **✓ P6f** — insights, draft email/КП, summary, suggest tasks (OpenAI / Ollama / heuristics) | — |
 | 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g** — IMAP + Telegram → Activity | **Later:** WA / Instagram / VK / telephony connectors |
@@ -196,7 +197,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 MVP + SSO** — 2FA, sessions, IP, Microsoft SSO (Google login временно off); chat E2E | Backup/encryption hardening later |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
-**Итог по ядру CRM (P6a–P6i + calendar sync):** MVP закрыт. Открытый CRM-бэклог: **1f** (богатые CRM-задачи), **6** (финансы CRM), **9** (расширение ролей), **10** (клиентские коннекторы), **1e later** (2-way calendar).
+**Итог по ядру CRM (P6a–P6i + calendar sync + tasks UX):** MVP закрыт. Открытый CRM-бэклог: **6** (финансы CRM), **9** (расширение ролей), **10** (клиентские коннекторы), **1e later** (2-way calendar).
 
 ### Уже переиспользуем (не строить заново)
 
@@ -225,7 +226,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 ### CRM backlog (после P6i)
 
-- [ ] **CRM tasks UX** — чек-листы, repeat, priority, единый Kanban Deal/Lead tasks (**1f**). **M**
+- [x] **CRM tasks UX** — чек-листы, repeat, priority, единый Kanban Deal/Lead tasks (**1f**). **M**
 - [ ] **CRM finance deep** — P&L по клиенту/сделке, AP, cashflow forecast UI (**6**). **M–L**
 - [ ] **CRM roles expand** — accounting / marketing поверх `crm_role` (**9**). **S**
 - [ ] **Connectors on demand** — Stripe, 1С, WhatsApp, SMS (**10**). **по запросу**

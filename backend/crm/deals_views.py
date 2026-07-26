@@ -20,6 +20,7 @@ from crm.serializers import (
 from crm.automation import apply_deal_move, build_deal_context, run_automations
 from crm.models import AutomationRule
 from crm.services import ensure_default_pipeline
+from crm.task_helpers import apply_task_fields, normalize_checklist
 from projects.models import Project
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 from workspaces.models import WorkspaceMember
@@ -350,10 +351,23 @@ class DealTaskListCreateView(WorkspaceMixin, APIView):
             title=data["title"],
             due_date=data.get("due_date"),
             is_done=data.get("is_done", False),
+            priority=data.get("priority", DealTask.Priority.NORMAL),
+            board_status=(
+                DealTask.BoardStatus.DONE
+                if data.get("is_done")
+                else data.get("board_status", DealTask.BoardStatus.TODO)
+            ),
+            checklist=normalize_checklist(
+                request.data.get("checklist", data.get("checklist"))
+            ),
+            repeat=data.get("repeat", DealTask.Repeat.NONE),
             assignee=assignee,
             remind_before_days=data.get("remind_before_days", 1),
             notes=data.get("notes", ""),
         )
+        if task.is_done:
+            task.board_status = DealTask.BoardStatus.DONE
+            task.save(update_fields=["board_status"])
         return Response(
             DealTaskSerializer(task).data, status=status.HTTP_201_CREATED
         )
@@ -377,21 +391,11 @@ class DealTaskDetailView(WorkspaceMixin, APIView):
         )
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        if "title" in request.data:
-            task.title = data["title"]
-        if "due_date" in request.data:
-            task.due_date = data.get("due_date")
-        if "is_done" in data:
-            task.is_done = data["is_done"]
-        if "remind_before_days" in data:
-            task.remind_before_days = data["remind_before_days"]
-        if "notes" in data:
-            task.notes = data["notes"]
         if "assignee_id" in request.data:
             task.assignee = _resolve_owner(
                 self.get_workspace(), data.get("assignee_id")
             )
-        task.save()
+        apply_task_fields(task, data, request_data=request.data)
         return Response(DealTaskSerializer(task).data)
 
     def delete(self, request, deal_id, task_id):

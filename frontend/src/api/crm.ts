@@ -263,14 +263,72 @@ export type CrmDealForecast = {
   lost_amount: number;
 };
 
+export type CrmTaskPriority = "low" | "normal" | "high" | "urgent";
+export type CrmTaskBoardStatus = "todo" | "doing" | "done";
+export type CrmTaskRepeat = "none" | "daily" | "weekly" | "monthly";
+
+export type CrmChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
 export type CrmDealTask = {
   id: number;
   deal: number;
   title: string;
   due_date: string | null;
   is_done: boolean;
+  priority: CrmTaskPriority;
+  board_status: CrmTaskBoardStatus;
+  checklist: CrmChecklistItem[];
+  checklist_done?: number;
+  checklist_total?: number;
+  repeat: CrmTaskRepeat;
   assignee: number | null;
   assignee_email: string | null;
+  remind_before_days: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmLeadTask = {
+  id: number;
+  lead: number;
+  title: string;
+  due_date: string | null;
+  is_done: boolean;
+  priority: CrmTaskPriority;
+  board_status: CrmTaskBoardStatus;
+  checklist: CrmChecklistItem[];
+  checklist_done?: number;
+  checklist_total?: number;
+  repeat: CrmTaskRepeat;
+  assignee: number | null;
+  assignee_email: string | null;
+  remind_before_days: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmBoardTask = {
+  kind: "deal" | "lead";
+  id: number;
+  title: string;
+  due_date: string | null;
+  is_done: boolean;
+  priority: CrmTaskPriority;
+  board_status: CrmTaskBoardStatus;
+  checklist: CrmChecklistItem[];
+  repeat: CrmTaskRepeat;
+  assignee: number | null;
+  assignee_email: string | null;
+  deal_id: number | null;
+  deal_title: string | null;
+  lead_id: number | null;
+  lead_name: string | null;
   remind_before_days: number;
   notes: string;
   created_at: string;
@@ -628,6 +686,52 @@ export function createCrmApi() {
     deleteDealTask: (dealId: number, taskId: number) =>
       request<void>(`/crm/deals/${dealId}/tasks/${taskId}/`, {
         method: "DELETE",
+      }),
+
+    listLeadTasks: (leadId: number) =>
+      request<CrmLeadTask[]>(`/crm/leads/${leadId}/tasks/`, {}),
+    createLeadTask: (leadId: number, body: Record<string, unknown>) =>
+      request<CrmLeadTask>(`/crm/leads/${leadId}/tasks/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchLeadTask: (
+      leadId: number,
+      taskId: number,
+      body: Record<string, unknown>,
+    ) =>
+      request<CrmLeadTask>(`/crm/leads/${leadId}/tasks/${taskId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteLeadTask: (leadId: number, taskId: number) =>
+      request<void>(`/crm/leads/${leadId}/tasks/${taskId}/`, {
+        method: "DELETE",
+      }),
+
+    listCrmTaskBoard: (params?: {
+      board_status?: string;
+      kind?: "deal" | "lead";
+      include_done?: boolean;
+    }) => {
+      const query = new URLSearchParams();
+      if (params?.board_status) query.set("board_status", params.board_status);
+      if (params?.kind) query.set("kind", params.kind);
+      if (params?.include_done) query.set("include_done", "1");
+      const suffix = query.toString() ? `?${query}` : "";
+      return request<{ results: CrmBoardTask[]; count: number }>(
+        `/crm/tasks/board/${suffix}`,
+        {},
+      );
+    },
+    moveCrmBoardTask: (
+      kind: "deal" | "lead",
+      taskId: number,
+      board_status: CrmTaskBoardStatus,
+    ) =>
+      request<CrmBoardTask>(`/crm/tasks/board/${kind}/${taskId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ board_status }),
       }),
 
     listAutomations: () => request<CrmAutomationRule[]>("/crm/automations/", {}),

@@ -15,6 +15,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **CRM tasks UX (1f)** — priority / checklist / repeat on DealTask; LeadTask; unified Kanban board `GET/PATCH /api/crm/tasks/board/`; page `/crm-tasks`
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.

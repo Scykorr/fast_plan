@@ -164,6 +164,9 @@ export function DealsPage() {
   });
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDue, setTaskDue] = useState("");
+  const [taskPriority, setTaskPriority] = useState("normal");
+  const [taskRepeat, setTaskRepeat] = useState("none");
+  const [taskChecklist, setTaskChecklist] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -423,16 +426,33 @@ export function DealsPage() {
         body: {
           title: taskTitle.trim(),
           due_date: taskDue || null,
+          priority: taskPriority,
+          repeat: taskRepeat,
+          checklist: taskChecklist
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((text) => ({ text, done: false })),
         },
         label: `Задача сделки: ${taskTitle.trim()}`,
         execute: () =>
           crmApi.createDealTask(selected.id, {
             title: taskTitle.trim(),
             due_date: taskDue || null,
+            priority: taskPriority,
+            repeat: taskRepeat,
+            checklist: taskChecklist
+              .split("\n")
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((text) => ({ text, done: false })),
           }),
       });
       setTaskTitle("");
       setTaskDue("");
+      setTaskPriority("normal");
+      setTaskRepeat("none");
+      setTaskChecklist("");
       if (result.queued) {
         setError("Нет сети — задача сохранена в офлайн-очереди.");
         return;
@@ -643,33 +663,68 @@ export function DealsPage() {
 
           <form
             onSubmit={(event) => void createTask(event)}
-            className="mt-4 flex flex-wrap items-end gap-2 border-t border-border pt-3"
+            className="mt-4 space-y-2 border-t border-border pt-3"
           >
-            <div className="min-w-[12rem] flex-1">
-              <label className="text-xs text-text-muted">Задача по сделке</label>
-              <input
-                value={taskTitle}
-                onChange={(event) => setTaskTitle(event.target.value)}
-                className="mt-0.5 w-full rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
-                placeholder="Follow-up / КП / звонок"
-                required
-              />
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[12rem] flex-1">
+                <label className="text-xs text-text-muted">Задача по сделке</label>
+                <input
+                  value={taskTitle}
+                  onChange={(event) => setTaskTitle(event.target.value)}
+                  className="mt-0.5 w-full rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
+                  placeholder="Follow-up / КП / звонок"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted">Срок</label>
+                <input
+                  type="date"
+                  value={taskDue}
+                  onChange={(event) => setTaskDue(event.target.value)}
+                  className="mt-0.5 rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted">Приоритет</label>
+                <select
+                  value={taskPriority}
+                  onChange={(event) => setTaskPriority(event.target.value)}
+                  className="mt-0.5 rounded-lg border border-border bg-cream px-2 py-1.5 text-sm"
+                >
+                  <option value="low">низкий</option>
+                  <option value="normal">обычный</option>
+                  <option value="high">высокий</option>
+                  <option value="urgent">срочный</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-text-muted">Повтор</label>
+                <select
+                  value={taskRepeat}
+                  onChange={(event) => setTaskRepeat(event.target.value)}
+                  className="mt-0.5 rounded-lg border border-border bg-cream px-2 py-1.5 text-sm"
+                >
+                  <option value="none">нет</option>
+                  <option value="daily">ежедневно</option>
+                  <option value="weekly">еженедельно</option>
+                  <option value="monthly">ежемесячно</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+              >
+                Добавить
+              </button>
             </div>
-            <div>
-              <label className="text-xs text-text-muted">Срок</label>
-              <input
-                type="date"
-                value={taskDue}
-                onChange={(event) => setTaskDue(event.target.value)}
-                className="mt-0.5 rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
-              />
-            </div>
-            <button
-              type="submit"
-              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
-            >
-              Добавить
-            </button>
+            <textarea
+              value={taskChecklist}
+              onChange={(event) => setTaskChecklist(event.target.value)}
+              rows={2}
+              placeholder="Чек-лист (по строке на пункт)"
+              className="w-full rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
+            />
           </form>
 
           <ul className="mt-3 space-y-2">
@@ -679,24 +734,38 @@ export function DealsPage() {
               tasks.map((task) => (
                 <li
                   key={task.id}
-                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                  className="rounded-lg border border-border px-3 py-2 text-sm"
                 >
-                  <input
-                    type="checkbox"
-                    checked={task.is_done}
-                    onChange={() => void toggleTask(task)}
-                  />
-                  <span
-                    className={
-                      task.is_done ? "text-text-muted line-through" : "text-text"
-                    }
-                  >
-                    {task.title}
-                  </span>
-                  {task.due_date && (
-                    <span className="ml-auto text-xs text-text-muted">
-                      до {task.due_date}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={task.is_done}
+                      onChange={() => void toggleTask(task)}
+                    />
+                    <span
+                      className={
+                        task.is_done ? "text-text-muted line-through" : "text-text"
+                      }
+                    >
+                      {task.title}
                     </span>
+                    <span className="rounded bg-cream px-1.5 py-0.5 text-[10px] text-text-muted">
+                      {task.priority}
+                    </span>
+                    {task.repeat !== "none" && (
+                      <span className="text-[10px] text-text-muted">{task.repeat}</span>
+                    )}
+                    {task.due_date && (
+                      <span className="ml-auto text-xs text-text-muted">
+                        до {task.due_date}
+                      </span>
+                    )}
+                  </div>
+                  {(task.checklist_total ?? task.checklist?.length ?? 0) > 0 && (
+                    <p className="mt-1 text-[11px] text-text-muted">
+                      Чек-лист: {task.checklist_done ?? 0}/
+                      {task.checklist_total ?? task.checklist.length}
+                    </p>
                   )}
                 </li>
               ))

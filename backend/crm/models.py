@@ -576,10 +576,37 @@ class Deal(models.Model):
 
 
 class DealTask(models.Model):
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        NORMAL = "normal", "Normal"
+        HIGH = "high", "High"
+        URGENT = "urgent", "Urgent"
+
+    class BoardStatus(models.TextChoices):
+        TODO = "todo", "To do"
+        DOING = "doing", "Doing"
+        DONE = "done", "Done"
+
+    class Repeat(models.TextChoices):
+        NONE = "none", "None"
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="tasks")
     title = models.CharField(max_length=255)
     due_date = models.DateField(null=True, blank=True)
     is_done = models.BooleanField(default=False)
+    priority = models.CharField(
+        max_length=10, choices=Priority.choices, default=Priority.NORMAL
+    )
+    board_status = models.CharField(
+        max_length=10, choices=BoardStatus.choices, default=BoardStatus.TODO
+    )
+    checklist = models.JSONField(default=list, blank=True)
+    repeat = models.CharField(
+        max_length=10, choices=Repeat.choices, default=Repeat.NONE
+    )
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -668,6 +695,57 @@ class Lead(models.Model):
 
     def __str__(self):
         return self.full_name
+
+
+class LeadTask(models.Model):
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        NORMAL = "normal", "Normal"
+        HIGH = "high", "High"
+        URGENT = "urgent", "Urgent"
+
+    class BoardStatus(models.TextChoices):
+        TODO = "todo", "To do"
+        DOING = "doing", "Doing"
+        DONE = "done", "Done"
+
+    class Repeat(models.TextChoices):
+        NONE = "none", "None"
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="tasks")
+    title = models.CharField(max_length=255)
+    due_date = models.DateField(null=True, blank=True)
+    is_done = models.BooleanField(default=False)
+    priority = models.CharField(
+        max_length=10, choices=Priority.choices, default=Priority.NORMAL
+    )
+    board_status = models.CharField(
+        max_length=10, choices=BoardStatus.choices, default=BoardStatus.TODO
+    )
+    checklist = models.JSONField(default=list, blank=True)
+    repeat = models.CharField(
+        max_length=10, choices=Repeat.choices, default=Repeat.NONE
+    )
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_lead_tasks",
+    )
+    remind_before_days = models.PositiveSmallIntegerField(default=1)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["is_done", "due_date", "id"]
+
+    def __str__(self):
+        return self.title
 
 
 class LeadAssignmentState(models.Model):

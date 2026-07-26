@@ -7,6 +7,7 @@ from crm import (
     commerce_views,
     deals_views,
     leads_views,
+    tasks_views,
     views,
 )
 
@@ -115,6 +116,12 @@ urlpatterns = [
         deals_views.DealTaskDetailView.as_view(),
         name="crm-deal-task-detail",
     ),
+    path("crm/tasks/board/", tasks_views.CrmTaskBoardView.as_view(), name="crm-task-board"),
+    path(
+        "crm/tasks/board/<str:kind>/<int:task_id>/",
+        tasks_views.CrmTaskBoardMoveView.as_view(),
+        name="crm-task-board-move",
+    ),
     path("crm/leads/", leads_views.LeadListCreateView.as_view(), name="crm-leads"),
     path(
         "crm/leads/import/",
@@ -135,6 +142,16 @@ urlpatterns = [
         "crm/leads/<int:lead_id>/convert/",
         leads_views.LeadConvertView.as_view(),
         name="crm-lead-convert",
+    ),
+    path(
+        "crm/leads/<int:lead_id>/tasks/",
+        tasks_views.LeadTaskListCreateView.as_view(),
+        name="crm-lead-tasks",
+    ),
+    path(
+        "crm/leads/<int:lead_id>/tasks/<int:task_id>/",
+        tasks_views.LeadTaskDetailView.as_view(),
+        name="crm-lead-task-detail",
     ),
     path(
         "crm/automations/",
