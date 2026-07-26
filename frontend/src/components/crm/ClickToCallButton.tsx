@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 
-import { parseApiError } from "../api/errors";
-import { useCrmApi } from "../hooks/useCrmApi";
+import { parseApiError } from "../../api/errors";
+import type { CrmIntegrationConnector } from "../../api/crm";
+import { useCrmApi } from "../../hooks/useCrmApi";
 
 type Props = {
   phone?: string | null;
@@ -36,7 +37,8 @@ export function ClickToCallButton({
       if (!connectorId) {
         const connectors = await crmApi.listConnectors();
         const tel = connectors.find(
-          (row) => row.provider === "telephony" && row.is_active !== false,
+          (row: CrmIntegrationConnector) =>
+            row.provider === "telephony" && row.is_active !== false,
         );
         if (!tel) {
           throw new Error(
