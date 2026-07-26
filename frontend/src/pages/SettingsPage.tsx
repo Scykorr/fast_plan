@@ -520,6 +520,8 @@ export function SettingsPage() {
                     <option value="sales_lead">sales_lead</option>
                     <option value="sales">sales</option>
                     <option value="support">support</option>
+                    <option value="accounting">accounting</option>
+                    <option value="marketing">marketing</option>
                   </select>
                 ) : (
                   member.crm_role && (

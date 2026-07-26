@@ -241,6 +241,12 @@ urlpatterns = [
         name="crm-document-payments",
     ),
     path("crm/ar-ap/", commerce_views.CrmArApView.as_view(), name="crm-ar-ap"),
+    path("crm/finance/pnl/", commerce_views.CrmPnlView.as_view(), name="crm-finance-pnl"),
+    path(
+        "crm/cashflow-forecast/",
+        commerce_views.CrmCashflowForecastView.as_view(),
+        name="crm-cashflow-forecast",
+    ),
     path(
         "crm/analytics/",
         commerce_views.CrmAnalyticsView.as_view(),

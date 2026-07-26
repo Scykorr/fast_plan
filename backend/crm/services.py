@@ -264,7 +264,11 @@ def sales_assignee_candidates(workspace):
         .select_related("user")
         .order_by("user_id")
     )
-    preferred = [m for m in members if m.crm_role in ("sales", "sales_lead")]
+    preferred = [
+        m
+        for m in members
+        if m.crm_role in ("sales", "sales_lead", "marketing")
+    ]
     pool = preferred or members
     return [m.user for m in pool]
 

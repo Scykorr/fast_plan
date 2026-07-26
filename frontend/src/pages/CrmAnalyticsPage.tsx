@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { parseApiError } from "../api/errors";
-import type { CrmAnalytics } from "../api/crm";
+import type { CrmAnalytics, CrmPnl } from "../api/crm";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useLocale } from "../context/LocaleContext";
@@ -12,6 +12,7 @@ export function CrmAnalyticsPage() {
   const { formatMoney } = useLocale();
   const { workspaceEpoch } = useWorkspace();
   const [data, setData] = useState<CrmAnalytics | null>(null);
+  const [pnl, setPnl] = useState<CrmPnl | null>(null);
   const [reports, setReports] = useState<
     Array<{ id: number; name: string; query: Record<string, unknown> }>
   >([]);
@@ -23,12 +24,14 @@ export function CrmAnalyticsPage() {
     if (!crmApi) return;
     setLoading(true);
     try {
-      const [analytics, saved] = await Promise.all([
+      const [analytics, saved, pnlRow] = await Promise.all([
         crmApi.getAnalytics(),
         crmApi.listSavedReports(),
+        crmApi.getPnl(),
       ]);
       setData(analytics);
       setReports(saved);
+      setPnl(pnlRow);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить аналитику"));
     } finally {
@@ -59,7 +62,7 @@ export function CrmAnalyticsPage() {
       <div>
         <h1 className="text-2xl font-bold text-text">CRM аналитика</h1>
         <p className="mt-1 text-sm text-text-muted">
-          Конверсия, средний чек, продажи по менеджерам, источники
+          Конверсия, средний чек, P&amp;L по клиенту/сделке, источники
         </p>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
@@ -67,6 +70,55 @@ export function CrmAnalyticsPage() {
         <p className="text-sm text-text-muted">Загрузка…</p>
       ) : (
         <>
+          {pnl && (
+            <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
+              <h2 className="text-sm font-semibold text-text">P&amp;L по клиентам и сделкам</h2>
+              <p className="text-sm text-text">
+                Итого: +{formatMoney(pnl.income_total)} / −
+                {formatMoney(pnl.expense_total)} ={" "}
+                <strong>{formatMoney(pnl.profit)}</strong>
+              </p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <ul className="space-y-1 text-sm">
+                  <li className="text-xs uppercase text-text-muted">Клиенты</li>
+                  {pnl.by_organization.length === 0 ? (
+                    <li className="text-text-muted">Нет проводок с организацией</li>
+                  ) : (
+                    pnl.by_organization.map((row) => (
+                      <li
+                        key={row.organization_id}
+                        className="flex justify-between gap-2 border-b border-border/50 py-1"
+                      >
+                        <span>{row.organization_name}</span>
+                        <span className="text-text-muted">
+                          {formatMoney(row.profit)}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <ul className="space-y-1 text-sm">
+                  <li className="text-xs uppercase text-text-muted">Сделки</li>
+                  {pnl.by_deal.length === 0 ? (
+                    <li className="text-text-muted">Нет проводок со сделкой</li>
+                  ) : (
+                    pnl.by_deal.map((row) => (
+                      <li
+                        key={row.deal_id}
+                        className="flex justify-between gap-2 border-b border-border/50 py-1"
+                      >
+                        <span>{row.deal_title}</span>
+                        <span className="text-text-muted">
+                          {formatMoney(row.profit)}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </section>
+          )}
+
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {

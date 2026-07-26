@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { parseApiError } from "../api/errors";
-import type { CrmChannelConnection, CrmDocument } from "../api/crm";
+import type {
+  CrmCashflowForecast,
+  CrmChannelConnection,
+  CrmDocument,
+  CrmPnl,
+} from "../api/crm";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useLocale } from "../context/LocaleContext";
@@ -16,6 +21,8 @@ export function CrmCommercePage() {
   const [arAp, setArAp] = useState<Awaited<
     ReturnType<NonNullable<typeof crmApi>["getArAp"]>
   > | null>(null);
+  const [cashflow, setCashflow] = useState<CrmCashflowForecast | null>(null);
+  const [pnl, setPnl] = useState<CrmPnl | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [docForm, setDocForm] = useState({
@@ -24,6 +31,7 @@ export function CrmCommercePage() {
     amount: "",
     number: "",
     body: "",
+    due_date: "",
   });
   const [imapForm, setImapForm] = useState({
     name: "IMAP inbox",
@@ -41,14 +49,18 @@ export function CrmCommercePage() {
   const load = useCallback(async () => {
     if (!crmApi) return;
     try {
-      const [ch, docs, ar] = await Promise.all([
+      const [ch, docs, ar, cf, pnlRow] = await Promise.all([
         crmApi.listChannels(),
         crmApi.listDocuments(),
         crmApi.getArAp(),
+        crmApi.getCashflowForecast(90),
+        crmApi.getPnl(),
       ]);
       setChannels(ch);
       setDocuments(docs);
       setArAp(ar);
+      setCashflow(cf);
+      setPnl(pnlRow);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить коммерцию/каналы"));
     }
@@ -68,9 +80,19 @@ export function CrmCommercePage() {
         number: docForm.number,
         amount: docForm.amount || 0,
         body: docForm.body,
-        status: "draft",
+        due_date: docForm.due_date || null,
+        status: docForm.doc_type === "bill" || docForm.doc_type === "invoice"
+          ? "sent"
+          : "draft",
       });
-      setDocForm({ ...docForm, title: "", amount: "", number: "", body: "" });
+      setDocForm({
+        doc_type: docForm.doc_type,
+        title: "",
+        amount: "",
+        number: "",
+        body: "",
+        due_date: "",
+      });
       setMessage("Документ создан");
       await load();
     } catch (err) {
@@ -125,19 +147,81 @@ export function CrmCommercePage() {
       <div>
         <h1 className="text-2xl font-bold text-text">Коммерция и омниканал</h1>
         <p className="mt-1 text-sm text-text-muted">
-          КП/счета/договоры → PDF, оплаты, AR; IMAP и Telegram → Activity
+          КП/счета/счета поставщиков → PDF, оплаты, AR/AP, cashflow; IMAP и Telegram →
+          Activity
         </p>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
       {message && <p className="text-sm text-secondary">{message}</p>}
 
       {arAp && (
-        <section className="rounded-xl border border-border bg-surface p-4">
-          <h2 className="text-sm font-semibold text-text">AR lite</h2>
-          <p className="mt-2 text-sm text-text">
-            Открытая дебиторка: {formatMoney(arAp.ar_open_amount)} ({arAp.ar_open_count}{" "}
-            счетов) · оплачено: {formatMoney(arAp.invoices_paid_amount)}
+        <section className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="text-sm font-semibold text-text">Дебиторка (AR)</h2>
+            <p className="mt-2 text-sm text-text">
+              Открыто: {formatMoney(arAp.ar_open_amount)} ({arAp.ar_open_count}{" "}
+              счетов) · оплачено: {formatMoney(arAp.invoices_paid_amount)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="text-sm font-semibold text-text">Кредиторка (AP)</h2>
+            <p className="mt-2 text-sm text-text">
+              Открыто: {formatMoney(arAp.ap_open_amount)} ({arAp.ap_open_count}{" "}
+              счетов поставщиков) · оплачено:{" "}
+              {formatMoney(arAp.bills_paid_amount)}
+            </p>
+            <p className="mt-1 text-xs text-text-muted">
+              Expense ledger (org/deal): {formatMoney(arAp.expense_ledger_amount)}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {cashflow && (
+        <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-text">
+            Cashflow forecast ({cashflow.horizon_days}д)
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {cashflow.buckets.map((bucket) => (
+              <div
+                key={bucket.label}
+                className="rounded-lg border border-border bg-cream/40 px-3 py-2 text-sm"
+              >
+                <p className="font-medium text-text">{bucket.label}</p>
+                <p className="text-xs text-text-muted">
+                  +{formatMoney(bucket.inflow)} / −{formatMoney(bucket.outflow)}
+                </p>
+                <p className="text-xs text-text-muted">
+                  сделки: {formatMoney(bucket.deal_forecast)}
+                </p>
+                <p className="mt-1 font-semibold text-text">
+                  net {formatMoney(bucket.net)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pnl && (
+        <section className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <h2 className="text-sm font-semibold text-text">P&amp;L (Finance ledger)</h2>
+          <p className="text-sm text-text">
+            Доход {formatMoney(pnl.income_total)} · расход{" "}
+            {formatMoney(pnl.expense_total)} · прибыль{" "}
+            <span className="font-semibold">{formatMoney(pnl.profit)}</span>
           </p>
+          {pnl.by_organization.length > 0 && (
+            <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-text-muted">
+              {pnl.by_organization.slice(0, 8).map((row) => (
+                <li key={row.organization_id}>
+                  {row.organization_name}: +{formatMoney(row.income)} / −
+                  {formatMoney(row.expense)} = {formatMoney(row.profit)}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 
@@ -150,7 +234,8 @@ export function CrmCommercePage() {
             className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
           >
             <option value="quote">КП</option>
-            <option value="invoice">Счёт</option>
+            <option value="invoice">Счёт (AR)</option>
+            <option value="bill">Счёт поставщика (AP)</option>
             <option value="contract">Договор</option>
           </select>
           <input
@@ -171,6 +256,13 @@ export function CrmCommercePage() {
             onChange={(e) => setDocForm({ ...docForm, number: e.target.value })}
             placeholder="Номер"
             className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          />
+          <input
+            type="date"
+            value={docForm.due_date}
+            onChange={(e) => setDocForm({ ...docForm, due_date: e.target.value })}
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            title="Срок"
           />
           <input
             value={docForm.body}

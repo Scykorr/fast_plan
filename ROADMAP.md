@@ -42,6 +42,7 @@
 | 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
 | 2026-07-26 | Релиз **v0.13.0** — P8g, CRM calendar sync, chat UX, staging smoke 0.12 |
 | 2026-07-26 | **CRM tasks UX (1f)** — priority/checklist/repeat, LeadTask, `/crm-tasks` Kanban |
+| 2026-07-26 | **CRM finance deep (6)** + **roles expand (9)** — AP/P&L/cashflow; accounting/marketing |
 
 ---
 
@@ -186,10 +187,10 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 3 | AI CRM-помощник | **✓ P6f** — insights, draft email/КП, summary, suggest tasks (OpenAI / Ollama / heuristics) | — |
 | 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g** — IMAP + Telegram → Activity | **Later:** WA / Instagram / VK / telephony connectors |
 | 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** — Quote/Invoice/Contract PDF + payments + AR lite | Склад/SKU — out of scope без запроса |
-| 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **Частично** — AR lite (P6h) + Finance income/expense / FX | **P6 backlog** — P&L CRM, AP, cashflow forecast UI |
+| 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **✓** — AR/AP + P&L + cashflow UI | — |
 | 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h** — PDF templates | Акт — later при запросе |
 | 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **✓ P6i** — dashboard + saved reports | — |
-| 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **Частично** — `crm_role`: sales_lead / sales / support | **P6 backlog** — accounting / marketing roles |
+| 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **✓** — `crm_role` + accounting/marketing | workspace owner = admin |
 | 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **Частично** — Calendar OAuth sync, IMAP/TG, webhooks, API tokens, Microsoft SSO | **По запросу:** Stripe / 1С / WA / SMS / telephony |
 | 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **Частично** — REST + JWT + webhooks + API tokens + OAuth SSO/calendar | GraphQL / SDK — вне MVP |
 | 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **Сильно** — themes, PWA, search, DnD; CRM pages shipped | Hotkeys / saved CRM filters — polish |
@@ -197,7 +198,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 MVP + SSO** — 2FA, sessions, IP, Microsoft SSO (Google login временно off); chat E2E | Backup/encryption hardening later |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
-**Итог по ядру CRM (P6a–P6i + calendar sync + tasks UX):** MVP закрыт. Открытый CRM-бэклог: **6** (финансы CRM), **9** (расширение ролей), **10** (клиентские коннекторы), **1e later** (2-way calendar).
+**Итог по ядру CRM (P6a–P6i + calendar + tasks + finance deep + roles):** MVP закрыт. Открытый CRM-бэклог: **10** (клиентские коннекторы), **1e later** (2-way calendar).
 
 ### Уже переиспользуем (не строить заново)
 
@@ -227,8 +228,8 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 ### CRM backlog (после P6i)
 
 - [x] **CRM tasks UX** — чек-листы, repeat, priority, единый Kanban Deal/Lead tasks (**1f**). **M**
-- [ ] **CRM finance deep** — P&L по клиенту/сделке, AP, cashflow forecast UI (**6**). **M–L**
-- [ ] **CRM roles expand** — accounting / marketing поверх `crm_role` (**9**). **S**
+- [x] **CRM finance deep** — P&L по клиенту/сделке, AP, cashflow forecast UI (**6**). **M–L**
+- [x] **CRM roles expand** — accounting / marketing поверх `crm_role` (**9**). **S**
 - [ ] **Connectors on demand** — Stripe, 1С, WhatsApp, SMS (**10**). **по запросу**
 - [ ] **Calendar 2-way** — pull + conflict policy (**1e later**). **M**
 

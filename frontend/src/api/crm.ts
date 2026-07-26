@@ -172,6 +172,66 @@ export type CrmArAp = {
     due_date: string | null;
     status: string;
     organization_name: string | null;
+    deal_id?: number | null;
+  }>;
+  ap_open_amount: number;
+  ap_open_count: number;
+  bills_paid_amount: number;
+  bills_total_count: number;
+  expense_ledger_amount: number;
+  open_bills: Array<{
+    id: number;
+    number: string;
+    title: string;
+    amount: number;
+    due_date: string | null;
+    status: string;
+    organization_name: string | null;
+    deal_id?: number | null;
+  }>;
+};
+
+export type CrmPnl = {
+  organization_id: number | null;
+  deal_id: number | null;
+  income_total: number;
+  expense_total: number;
+  profit: number;
+  by_organization: Array<{
+    organization_id: number;
+    organization_name: string;
+    income: number;
+    expense: number;
+    profit: number;
+  }>;
+  by_deal: Array<{
+    deal_id: number;
+    deal_title: string;
+    income: number;
+    expense: number;
+    profit: number;
+  }>;
+};
+
+export type CrmCashflowForecast = {
+  as_of: string;
+  horizon_days: number;
+  buckets: Array<{
+    label: string;
+    days: number;
+    inflow: number;
+    outflow: number;
+    deal_forecast: number;
+    net: number;
+  }>;
+  schedule: Array<{
+    kind: string;
+    source: string;
+    id: number;
+    title: string;
+    amount: number;
+    due_date: string | null;
+    organization_name: string | null;
   }>;
 };
 
@@ -874,6 +934,19 @@ export function createCrmApi() {
         body: JSON.stringify(body),
       }),
     getArAp: () => request<CrmArAp>("/crm/ar-ap/", {}),
+    getPnl: (params?: { organization_id?: number; deal_id?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.organization_id) {
+        query.set("organization_id", String(params.organization_id));
+      }
+      if (params?.deal_id) {
+        query.set("deal_id", String(params.deal_id));
+      }
+      const suffix = query.toString() ? `?${query}` : "";
+      return request<CrmPnl>(`/crm/finance/pnl/${suffix}`, {});
+    },
+    getCashflowForecast: (days = 90) =>
+      request<CrmCashflowForecast>(`/crm/cashflow-forecast/?days=${days}`, {}),
     getAnalytics: () => request<CrmAnalytics>("/crm/analytics/", {}),
     listSavedReports: () =>
       request<Array<{ id: number; name: string; query: Record<string, unknown> }>>(

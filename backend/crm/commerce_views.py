@@ -11,7 +11,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from crm.analytics import build_ar_ap_summary, build_crm_analytics
+from crm.analytics import (
+    build_ar_ap_summary,
+    build_cashflow_forecast,
+    build_crm_analytics,
+    build_crm_pnl,
+)
 from crm.channels import ingest_telegram_webhook, sync_connection
 from crm.commerce_pdf import render_crm_document_pdf
 from crm.models import (
@@ -279,14 +284,42 @@ class CrmDocumentPaymentListCreateView(WorkspaceMixin, APIView):
         paid_at = request.data.get("paid_at") or timezone.localdate().isoformat()
         if amount in (None, ""):
             raise ValidationError({"amount": "Required."})
+        from datetime import date as date_cls
+
+        from finance.models import Transaction
+
+        if isinstance(paid_at, str):
+            paid_date = date_cls.fromisoformat(paid_at)
+        else:
+            paid_date = paid_at
+        tx_type = Transaction.TransactionType.INCOME
+        if doc.doc_type == CrmDocument.DocType.BILL:
+            tx_type = Transaction.TransactionType.EXPENSE
+        tx = Transaction.objects.create(
+            workspace=doc.workspace,
+            organization=doc.organization,
+            deal=doc.deal,
+            project=doc.project,
+            title=f"CRM {doc.doc_type} #{doc.number or doc.id}: {doc.title}",
+            amount=amount,
+            transaction_type=tx_type,
+            category="crm_payment",
+            transaction_date=paid_date,
+            notes=request.data.get("notes") or "",
+        )
         payment = CrmDocumentPayment.objects.create(
             document=doc,
             amount=amount,
             paid_at=paid_at,
             notes=request.data.get("notes") or "",
+            finance_transaction=tx,
         )
         paid_sum = sum((p.amount for p in doc.payments.all()), start=Decimal("0"))
-        if doc.doc_type == CrmDocument.DocType.INVOICE and paid_sum >= doc.amount:
+        if (
+            doc.doc_type
+            in (CrmDocument.DocType.INVOICE, CrmDocument.DocType.BILL)
+            and paid_sum >= doc.amount
+        ):
             doc.status = CrmDocument.Status.PAID
             doc.save(update_fields=["status", "updated_at"])
         return Response(
@@ -299,6 +332,35 @@ class CrmArApView(WorkspaceMixin, APIView):
 
     def get(self, request):
         return Response(build_ar_ap_summary(self.get_workspace()))
+
+
+class CrmPnlView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        org_id = request.query_params.get("organization_id")
+        deal_id = request.query_params.get("deal_id")
+        return Response(
+            build_crm_pnl(
+                self.get_workspace(),
+                organization_id=int(org_id) if org_id else None,
+                deal_id=int(deal_id) if deal_id else None,
+            )
+        )
+
+
+class CrmCashflowForecastView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        days = request.query_params.get("days") or 90
+        try:
+            days_int = int(days)
+        except (TypeError, ValueError):
+            days_int = 90
+        return Response(
+            build_cashflow_forecast(self.get_workspace(), horizon_days=days_int)
+        )
 
 
 class CrmAnalyticsView(WorkspaceMixin, APIView):

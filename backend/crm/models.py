@@ -881,6 +881,7 @@ class CrmDocument(models.Model):
         QUOTE = "quote", "Quote / КП"
         INVOICE = "invoice", "Invoice"
         CONTRACT = "contract", "Contract"
+        BILL = "bill", "Vendor bill / AP"
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -961,6 +962,13 @@ class CrmDocument(models.Model):
     def is_open_ar(self) -> bool:
         return (
             self.doc_type == self.DocType.INVOICE
+            and self.status in (self.Status.SENT, self.Status.ACCEPTED)
+        )
+
+    @property
+    def is_open_ap(self) -> bool:
+        return (
+            self.doc_type == self.DocType.BILL
             and self.status in (self.Status.SENT, self.Status.ACCEPTED)
         )
 

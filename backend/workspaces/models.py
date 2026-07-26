@@ -45,6 +45,8 @@ class WorkspaceMember(models.Model):
         SALES_LEAD = "sales_lead", "Sales lead"
         SALES = "sales", "Sales"
         SUPPORT = "support", "Support"
+        ACCOUNTING = "accounting", "Accounting"
+        MARKETING = "marketing", "Marketing"
 
     workspace = models.ForeignKey(
         Workspace,
