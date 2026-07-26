@@ -68,7 +68,8 @@ docker compose --profile ai up -d ollama ollama-init backend
 - [ ] `/crm-commerce` → telephony connector: `pbx=asterisk` (ARI) или `pbx=mango` (api_key+salt+extension); webhook CDR → Activity call
 - [ ] Mango: в ЛК указать URL webhook; подпись `sign` обязательна при заданном `api_salt`
 - [ ] Asterisk: проксировать AMI/ARI события на `/api/crm/connectors/webhooks/telephony/<token>/` (не только CDR)
-- [ ] Click-to-call: Person/Deal «Позвонить» при наличии telephony-коннектора
+- [ ] Click-to-call: Person/Deal/Lead «Позвонить» при наличии telephony-коннектора
+- [ ] Asterisk live ARI: `docker compose --profile telephony up -d ari-bridge` или `run_ari_bridge`
 - [ ] `/processes` — вкладки DMN / Метрики·Mining / CMMN; `/process-tasks` inbox
 - [ ] Settings → Outlook/Google Calendar OAuth (нужны `OAUTH_*` + redirect URI `…/api/crm/calendar/oauth/{provider}/callback/`)
 

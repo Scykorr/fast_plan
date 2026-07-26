@@ -70,6 +70,8 @@ CONNECTOR_CATALOG = [
             "ari_password",
             "endpoint",
             "context",
+            "ari_app",
+            "ari_subscribe_all",
             "from_number",
             "dial_url",
             "webhook_secret",
@@ -77,6 +79,7 @@ CONNECTOR_CATALOG = [
         "supports_sync": False,
         "supports_webhook": True,
         "supports_send": True,
+        "supports_ari_bridge": True,
         "pbx_backends": ["asterisk", "mango", "generic"],
     },
 ]
@@ -879,6 +882,7 @@ def dial_telephony(
     note: str = "",
     person_id: int | None = None,
     deal_id: int | None = None,
+    lead_id: int | None = None,
 ) -> dict:
     config = connector.config or {}
     if not to:
@@ -897,6 +901,9 @@ def dial_telephony(
         deal = Deal.objects.filter(workspace=connector.workspace, pk=deal_id).first()
         if deal and person is None and deal.person_id:
             person = deal.person
+    body = note or f"Outbound dial via {pbx}"
+    if lead_id:
+        body = f"{body}; lead_id={lead_id}".strip("; ")
     ensure_activity(
         connector.workspace,
         kind=Activity.Kind.CALL,
@@ -904,7 +911,7 @@ def dial_telephony(
         direction=Activity.Direction.OUTBOUND,
         external_id=external_id,
         subject=f"Call to {to}",
-        body=note or f"Outbound dial via {pbx}",
+        body=body,
         person=person,
         deal=deal,
         organization=deal.organization if deal else None,
@@ -922,6 +929,7 @@ def dial_telephony(
         "dialed": True,
         "provider": "telephony",
         "external_id": external_id,
+        "lead_id": lead_id,
         **remote,
     }
 
@@ -936,5 +944,13 @@ def sync_connector(connector: IntegrationConnector) -> dict:
     if connector.provider == IntegrationConnector.Provider.SMS:
         return {"created": 0, "provider": "sms", "hint": "Use webhook or send"}
     if connector.provider == IntegrationConnector.Provider.TELEPHONY:
-        return {"created": 0, "provider": "telephony", "hint": "Use webhook or dial"}
+        from crm.ari_bridge import bridge_status
+
+        status = bridge_status(connector)
+        return {
+            "created": 0,
+            "provider": "telephony",
+            "hint": "Use webhook, dial, or run_ari_bridge for live ARI events",
+            "ari_bridge": status,
+        }
     raise ValueError(f"Unknown provider: {connector.provider}")

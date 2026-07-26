@@ -19,6 +19,13 @@
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
 
+## [0.14.2] — 2026-07-26
+
+### Added
+
+- **Click-to-call on Lead** — «Позвонить» on `/leads`; dial records `lead_id` in Activity body
+- **Live Asterisk ARI WebSocket bridge** — `python manage.py run_ari_bridge` (+ docker compose profile `telephony`); `GET /api/crm/connectors/<id>/ari-bridge/` status; ingest ARI events into telephony Activities
+
 ## [0.14.1] — 2026-07-26
 
 ### Added

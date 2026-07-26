@@ -50,6 +50,7 @@ export function CrmCommercePage() {
     ari_base_url: "",
     ari_user: "",
     ari_password: "",
+    ari_app: "fast-plan",
     endpoint: "",
     context: "from-internal",
     pending_json: "",
@@ -134,6 +135,7 @@ export function CrmCommercePage() {
       if (connectorForm.ari_password) config.ari_password = connectorForm.ari_password;
       if (connectorForm.endpoint) config.endpoint = connectorForm.endpoint;
       if (connectorForm.context) config.context = connectorForm.context;
+      if (connectorForm.ari_app) config.ari_app = connectorForm.ari_app;
     }
     if (connectorForm.provider === "onec" && connectorForm.pending_json.trim()) {
       try {
@@ -697,6 +699,17 @@ export function CrmCommercePage() {
                     className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
                   />
                   <input
+                    value={connectorForm.ari_app}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        ari_app: e.target.value,
+                      })
+                    }
+                    placeholder="ari_app (Stasis)"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
                     value={connectorForm.context}
                     onChange={(e) =>
                       setConnectorForm({
@@ -872,6 +885,26 @@ export function CrmCommercePage() {
                       }
                     >
                       Dial
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-border px-2 py-1 text-xs"
+                      onClick={() =>
+                        void crmApi
+                          ?.getConnectorAriBridge(item.id)
+                          .then((res) => {
+                            setMessage(
+                              res.ready
+                                ? `ARI bridge ready · ${res.command}`
+                                : `ARI bridge: ${res.detail || res.hint || "not ready"}`,
+                            );
+                          })
+                          .catch((err) =>
+                            setError(parseApiError(err, "ARI bridge status failed")),
+                          )
+                      }
+                    >
+                      ARI bridge status
                     </button>
                   </div>
                 )}

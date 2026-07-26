@@ -148,6 +148,7 @@ class ConnectorSendView(WorkspaceMixin, APIView):
             note = (request.data.get("note") or request.data.get("body") or "").strip()
             person_id = request.data.get("person_id")
             deal_id = request.data.get("deal_id")
+            lead_id = request.data.get("lead_id")
             try:
                 result = dial_telephony(
                     row,
@@ -155,6 +156,7 @@ class ConnectorSendView(WorkspaceMixin, APIView):
                     note=note,
                     person_id=int(person_id) if person_id else None,
                     deal_id=int(deal_id) if deal_id else None,
+                    lead_id=int(lead_id) if lead_id else None,
                 )
             except Exception as exc:  # noqa: BLE001
                 raise ValidationError({"detail": str(exc)}) from exc
@@ -162,6 +164,25 @@ class ConnectorSendView(WorkspaceMixin, APIView):
         raise ValidationError(
             {"detail": "Send is only supported for SMS and telephony connectors."}
         )
+
+
+class ConnectorAriBridgeView(WorkspaceMixin, APIView):
+    """Status + config check for live Asterisk ARI WebSocket bridge."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, connector_id):
+        from crm.ari_bridge import bridge_status
+
+        row = get_object_or_404(
+            IntegrationConnector.objects.filter(workspace=self.get_workspace()),
+            pk=connector_id,
+        )
+        if row.provider != IntegrationConnector.Provider.TELEPHONY:
+            raise ValidationError(
+                {"detail": "ARI bridge is only for telephony connectors."}
+            )
+        return Response({"ok": True, "connector_id": row.id, **bridge_status(row)})
 
 
 class ConnectorWebhookView(APIView):

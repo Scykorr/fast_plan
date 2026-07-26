@@ -40,6 +40,7 @@
 | 2026-07-23 | Релиз **v0.12.0** — SSO Microsoft, P8 UX, P7 Mobile/Security в changelog |
 | 2026-07-25 | **CRM calendar sync** — events + Outlook/Google push; staging smoke 0.12 |
 | 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
+| 2026-07-26 | Релиз **v0.14.2** — Lead click-to-call, live ARI WebSocket bridge |
 | 2026-07-26 | Релиз **v0.14.1** — Mango sign, Asterisk AMI/ARI ingest, click-to-call Person/Deal |
 | 2026-07-26 | Релиз **v0.14.0** — calendar 2-way, telephony Asterisk/Mango, CRM connectors/finance/roles/tasks |
 | 2026-07-26 | **Calendar 2-way + telephony** — pull/conflict policy; PBX connector → Activity |

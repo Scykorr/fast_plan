@@ -8,6 +8,7 @@ type Props = {
   phone?: string | null;
   personId?: number | null;
   dealId?: number | null;
+  leadId?: number | null;
   note?: string;
   className?: string;
   onDone?: (detail: string) => void;
@@ -20,6 +21,7 @@ export function ClickToCallButton({
   phone,
   personId,
   dealId,
+  leadId,
   note,
   className,
   onDone,
@@ -53,6 +55,7 @@ export function ClickToCallButton({
         note: note || undefined,
         person_id: personId ?? undefined,
         deal_id: dealId ?? undefined,
+        lead_id: leadId ?? undefined,
       });
       onDone?.(
         result.remote
@@ -65,7 +68,7 @@ export function ClickToCallButton({
     } finally {
       setBusy(false);
     }
-  }, [crmApi, trimmed, note, personId, dealId, onDone, onError]);
+  }, [crmApi, trimmed, note, personId, dealId, leadId, onDone, onError]);
 
   if (!trimmed) return null;
 

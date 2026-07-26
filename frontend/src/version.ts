@@ -1,2 +1,2 @@
 /** Product version — keep in sync with root VERSION and CHANGELOG.md */
-export const APP_VERSION = "0.14.1";
+export const APP_VERSION = "0.14.2";

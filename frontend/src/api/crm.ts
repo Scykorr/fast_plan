@@ -964,6 +964,7 @@ export function createCrmApi() {
         note?: string;
         person_id?: number;
         deal_id?: number;
+        lead_id?: number;
       },
     ) =>
       request<{ ok: boolean; dialed?: boolean; remote?: boolean; pbx?: string }>(
@@ -973,6 +974,15 @@ export function createCrmApi() {
           body: JSON.stringify(body),
         },
       ),
+    getConnectorAriBridge: (id: number) =>
+      request<{
+        ok: boolean;
+        ready?: boolean;
+        command?: string;
+        hint?: string;
+        detail?: string;
+        ws_url?: string;
+      }>(`/crm/connectors/${id}/ari-bridge/`, {}),
 
     listDocuments: (params: { doc_type?: string; status?: string } = {}) => {
       const qs = new URLSearchParams();

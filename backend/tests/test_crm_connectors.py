@@ -456,3 +456,80 @@ def test_mango_webhook_sign_verification(authenticated_client, workspace):
         external_id="tel:signed-1",
         direction=Activity.Direction.INBOUND,
     ).exists()
+
+def test_ari_bridge_status_and_message_ingest(authenticated_client, workspace):
+    from crm.ari_bridge import ari_events_ws_url, process_ari_message
+
+    tel = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="ARI",
+        webhook_token="tok-bridge",
+        config={
+            "pbx": "asterisk",
+            "ari_base_url": "http://pbx.local:8088/ari",
+            "ari_user": "ari",
+            "ari_password": "secret",
+            "ari_app": "fast-plan",
+        },
+    )
+    status = authenticated_client.get(f"/api/crm/connectors/{tel.id}/ari-bridge/")
+    assert status.status_code == 200
+    assert status.data["ready"] is True
+    assert "run_ari_bridge" in status.data["command"]
+    assert "api_key=***" in status.data["ws_url"]
+
+    url = ari_events_ws_url(tel.config)
+    assert url.startswith("ws://pbx.local:8088/ari/events?")
+    assert "app=fast-plan" in url
+
+    result = process_ari_message(
+        tel,
+        json.dumps(
+            {
+                "type": "ChannelDestroyed",
+                "channel": {
+                    "id": "ws-chan-1",
+                    "name": "PJSIP/100-0000000a",
+                    "state": "Down",
+                    "caller": {"number": "79001110000"},
+                    "connected": {"number": "79002220000"},
+                    "dialplan": {"context": "from-internal", "exten": "79002220000"},
+                },
+                "cause_txt": "Normal Clearing",
+            }
+        ),
+    )
+    assert result["created"] == 1
+    assert Activity.objects.filter(external_id="tel:ws-chan-1").exists()
+
+
+def test_lead_click_to_call_records_lead_id(authenticated_client, workspace):
+    from crm.models import Lead
+
+    lead = Lead.objects.create(
+        workspace=workspace,
+        full_name="Lead Call",
+        phone="+79003334455",
+        source="website",
+    )
+    tel = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="PBX",
+        webhook_token="tok-lead",
+        config={"pbx": "generic"},
+    )
+    dialed = authenticated_client.post(
+        f"/api/crm/connectors/{tel.id}/send/",
+        {"to": "+79003334455", "note": "from lead", "lead_id": lead.id},
+        format="json",
+    )
+    assert dialed.status_code == 200
+    assert dialed.data["lead_id"] == lead.id
+    activity = Activity.objects.get(
+        workspace=workspace,
+        channel=Activity.Channel.TELEPHONY,
+        direction=Activity.Direction.OUTBOUND,
+    )
+    assert f"lead_id={lead.id}" in activity.body

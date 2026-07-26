@@ -242,6 +242,11 @@ urlpatterns = [
         name="crm-connector-send",
     ),
     path(
+        "crm/connectors/<int:connector_id>/ari-bridge/",
+        connectors_views.ConnectorAriBridgeView.as_view(),
+        name="crm-connector-ari-bridge",
+    ),
+    path(
         "crm/connectors/webhooks/<str:provider>/<str:token>/",
         connectors_views.ConnectorWebhookView.as_view(),
         name="crm-connector-webhook",

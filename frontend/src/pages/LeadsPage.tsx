@@ -6,6 +6,7 @@ import { parseApiError } from "../api/errors";
 import type { CrmLead, CrmLeadStatus, CrmLeadTask } from "../api/crm";
 import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { ClickToCallButton } from "../components/crm/ClickToCallButton";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
@@ -365,7 +366,18 @@ export function LeadsPage() {
               </p>
               <div className="space-y-1 text-sm text-text-muted">
                 {selected.email && <p>Email: {selected.email}</p>}
-                {selected.phone && <p>Телефон: {selected.phone}</p>}
+                {selected.phone && (
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span>Телефон: {selected.phone}</span>
+                    <ClickToCallButton
+                      phone={selected.phone}
+                      leadId={selected.id}
+                      note={`CRM lead #${selected.id} ${selected.full_name}`}
+                      onDone={(detail) => setMessage(detail)}
+                      onError={(msg) => setError(msg)}
+                    />
+                  </p>
+                )}
                 {selected.company_name && <p>Компания: {selected.company_name}</p>}
                 {selected.source && <p>Источник: {selected.source}</p>}
               </div>
