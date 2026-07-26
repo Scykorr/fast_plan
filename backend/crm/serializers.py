@@ -1036,6 +1036,8 @@ class IntegrationConnectorSerializer(serializers.ModelSerializer):
             "password",
             "access_token",
             "api_key",
+            "api_salt",
+            "ari_password",
             "webhook_secret",
             "bot_token",
         ):

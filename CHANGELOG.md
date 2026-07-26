@@ -15,18 +15,21 @@
 
 ## [Unreleased]
 
-### Added
-
-- **Calendar 2-way (1e)** — pull + push sync for Outlook/Google; `conflict_policy` (ours/theirs/manual); `CalendarSyncConflict` queue + resolve API; Settings UI Sync both / Pull / conflict resolve
-- **Telephony connector (10)** — PBX webhook → `Activity(kind=call, channel=telephony)`; outbound dial stub via connector send; UI on `/crm-commerce`
-- **CRM connectors (10)** — Stripe / 1C / WhatsApp / SMS (`IntegrationConnector`), catalog + CRUD + sync/send, public webhooks `/api/crm/connectors/webhooks/<provider>/<token>/`; UI on `/crm-commerce`
-- **CRM finance deep (6)** — AP bills (`doc_type=bill`), extended AR/AP summary, P&L by org/deal (`GET /api/crm/finance/pnl/`), cashflow forecast (`GET /api/crm/cashflow-forecast/`); payments create linked `finance.Transaction`
-- **CRM roles expand (9)** — `crm_role`: `accounting`, `marketing` (+ Settings UI); marketing in lead assignee pool
-- **CRM tasks UX (1f)** — priority / checklist / repeat on DealTask; LeadTask; unified Kanban board `GET/PATCH /api/crm/tasks/board/`; page `/crm-tasks`
-
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+
+## [0.14.0] — 2026-07-26
+
+### Added
+
+- **Calendar 2-way (1e)** — pull + push sync for Outlook/Google; `conflict_policy` (ours/theirs/manual); `CalendarSyncConflict` queue + resolve API; Settings UI Sync both / Pull / conflict resolve
+- **Telephony / PBX (10)** — webhook → `Activity(kind=call)`; outbound dial via **Asterisk ARI**, **Mango Office** VPBX callback, or generic `dial_url`; UI on `/crm-commerce`
+- **CRM connectors (10)** — Stripe / 1C / WhatsApp / SMS (`IntegrationConnector`), catalog + CRUD + sync/send, public webhooks `/api/crm/connectors/webhooks/<provider>/<token>/`
+- **CRM finance deep (6)** — AP bills (`doc_type=bill`), extended AR/AP summary, P&L by org/deal (`GET /api/crm/finance/pnl/`), cashflow forecast (`GET /api/crm/cashflow-forecast/`); payments create linked `finance.Transaction`
+- **CRM roles expand (9)** — `crm_role`: `accounting`, `marketing` (+ Settings UI); marketing in lead assignee pool
+- **CRM tasks UX (1f)** — priority / checklist / repeat on DealTask; LeadTask; unified Kanban board `GET/PATCH /api/crm/tasks/board/`; page `/crm-tasks`
+- **Staging smoke 0.14** — calendar providers/connections/conflicts + connectors catalog (telephony)
 
 ## [0.13.0] — 2026-07-26
 

@@ -901,7 +901,7 @@ class IntegrationConnector(models.Model):
     # onec: {base_url, login, password, pending_documents: [...]}
     # whatsapp: {access_token, phone_number_id, verify_token, webhook_secret}
     # sms: {provider, api_key, from_number, webhook_secret}
-    # telephony: {provider, api_key, from_number, dial_url, webhook_secret}
+    # telephony: {pbx: asterisk|mango|generic, ari_*|api_key+api_salt+extension|dial_url, webhook_secret}
     config = models.JSONField(default=dict, blank=True)
     webhook_token = models.CharField(max_length=64, blank=True, default="")
     last_synced_at = models.DateTimeField(null=True, blank=True)

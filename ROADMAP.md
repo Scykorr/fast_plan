@@ -40,6 +40,7 @@
 | 2026-07-23 | Релиз **v0.12.0** — SSO Microsoft, P8 UX, P7 Mobile/Security в changelog |
 | 2026-07-25 | **CRM calendar sync** — events + Outlook/Google push; staging smoke 0.12 |
 | 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
+| 2026-07-26 | Релиз **v0.14.0** — calendar 2-way, telephony Asterisk/Mango, CRM connectors/finance/roles/tasks |
 | 2026-07-26 | **Calendar 2-way + telephony** — pull/conflict policy; PBX connector → Activity |
 | 2026-07-26 | Релиз **v0.13.0** — P8g, CRM calendar sync, chat UX, staging smoke 0.12 |
 | 2026-07-26 | **CRM tasks UX (1f)** — priority/checklist/repeat, LeadTask, `/crm-tasks` Kanban |

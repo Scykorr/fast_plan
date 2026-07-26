@@ -43,7 +43,15 @@ export function CrmCommercePage() {
     access_token: "",
     verify_token: "",
     api_key: "",
+    api_salt: "",
     from_number: "",
+    pbx: "generic",
+    extension: "",
+    ari_base_url: "",
+    ari_user: "",
+    ari_password: "",
+    endpoint: "",
+    context: "from-internal",
     pending_json: "",
   });
   const [smsTo, setSmsTo] = useState("");
@@ -111,9 +119,21 @@ export function CrmCommercePage() {
       if (connectorForm.access_token) config.access_token = connectorForm.access_token;
       if (connectorForm.verify_token) config.verify_token = connectorForm.verify_token;
     }
-    if (connectorForm.provider === "sms" || connectorForm.provider === "telephony") {
+    if (connectorForm.provider === "sms") {
       if (connectorForm.api_key) config.api_key = connectorForm.api_key;
       if (connectorForm.from_number) config.from_number = connectorForm.from_number;
+    }
+    if (connectorForm.provider === "telephony") {
+      config.pbx = connectorForm.pbx || "generic";
+      if (connectorForm.api_key) config.api_key = connectorForm.api_key;
+      if (connectorForm.api_salt) config.api_salt = connectorForm.api_salt;
+      if (connectorForm.extension) config.extension = connectorForm.extension;
+      if (connectorForm.from_number) config.from_number = connectorForm.from_number;
+      if (connectorForm.ari_base_url) config.ari_base_url = connectorForm.ari_base_url;
+      if (connectorForm.ari_user) config.ari_user = connectorForm.ari_user;
+      if (connectorForm.ari_password) config.ari_password = connectorForm.ari_password;
+      if (connectorForm.endpoint) config.endpoint = connectorForm.endpoint;
+      if (connectorForm.context) config.context = connectorForm.context;
     }
     if (connectorForm.provider === "onec" && connectorForm.pending_json.trim()) {
       try {
@@ -555,8 +575,7 @@ export function CrmCommercePage() {
               />
             </>
           )}
-          {(connectorForm.provider === "sms" ||
-            connectorForm.provider === "telephony") && (
+          {connectorForm.provider === "sms" && (
             <>
               <input
                 value={connectorForm.api_key}
@@ -577,6 +596,132 @@ export function CrmCommercePage() {
                 placeholder="from_number"
                 className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
               />
+            </>
+          )}
+          {connectorForm.provider === "telephony" && (
+            <>
+              <select
+                value={connectorForm.pbx}
+                onChange={(e) =>
+                  setConnectorForm({ ...connectorForm, pbx: e.target.value })
+                }
+                className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+              >
+                <option value="generic">generic (dial_url)</option>
+                <option value="asterisk">Asterisk ARI</option>
+                <option value="mango">Mango Office</option>
+              </select>
+              {connectorForm.pbx === "mango" && (
+                <>
+                  <input
+                    value={connectorForm.api_key}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        api_key: e.target.value,
+                      })
+                    }
+                    placeholder="vpbx_api_key"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={connectorForm.api_salt}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        api_salt: e.target.value,
+                      })
+                    }
+                    placeholder="vpbx_api_salt"
+                    type="password"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={connectorForm.extension}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        extension: e.target.value,
+                      })
+                    }
+                    placeholder="extension (внутр.)"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                </>
+              )}
+              {connectorForm.pbx === "asterisk" && (
+                <>
+                  <input
+                    value={connectorForm.ari_base_url}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        ari_base_url: e.target.value,
+                      })
+                    }
+                    placeholder="ari_base_url (…/ari)"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
+                  />
+                  <input
+                    value={connectorForm.ari_user}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        ari_user: e.target.value,
+                      })
+                    }
+                    placeholder="ari_user"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={connectorForm.ari_password}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        ari_password: e.target.value,
+                      })
+                    }
+                    placeholder="ari_password"
+                    type="password"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={connectorForm.endpoint}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        endpoint: e.target.value,
+                      })
+                    }
+                    placeholder="endpoint (PJSIP/100)"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={connectorForm.context}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        context: e.target.value,
+                      })
+                    }
+                    placeholder="context"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                </>
+              )}
+              {connectorForm.pbx === "generic" && (
+                <input
+                  value={connectorForm.from_number}
+                  onChange={(e) =>
+                    setConnectorForm({
+                      ...connectorForm,
+                      from_number: e.target.value,
+                    })
+                  }
+                  placeholder="from_number (опц.)"
+                  className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                />
+              )}
             </>
           )}
           {connectorForm.provider === "onec" && (

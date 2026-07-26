@@ -1,5 +1,7 @@
 """On-demand CRM connectors (Stripe / 1C / WhatsApp / SMS / telephony)."""
 
+import json
+
 from crm.models import Activity, CrmDocument, IntegrationConnector
 from finance.models import Transaction
 
@@ -197,3 +199,103 @@ def test_telephony_webhook_and_dial(authenticated_client, workspace):
         channel=Activity.Channel.TELEPHONY,
         direction=Activity.Direction.OUTBOUND,
     ).exists()
+
+
+def test_telephony_mango_and_asterisk_dial(authenticated_client, workspace, monkeypatch):
+    from crm import connectors as connectors_mod
+
+    mango = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="Mango",
+        webhook_token="tok-mango",
+        config={
+            "pbx": "mango",
+            "api_key": "key1",
+            "api_salt": "salt1",
+            "extension": "101",
+        },
+    )
+    calls = {}
+
+    def fake_form(url, *, fields, headers=None):
+        calls["mango"] = {"url": url, "fields": fields}
+        return {"result": 1000}
+
+    monkeypatch.setattr(connectors_mod, "_http_form", fake_form)
+    mango_dial = authenticated_client.post(
+        f"/api/crm/connectors/{mango.id}/send/",
+        {"to": "+79001112233"},
+        format="json",
+    )
+    assert mango_dial.status_code == 200
+    assert mango_dial.data["remote"] is True
+    assert mango_dial.data["pbx"] == "mango"
+    assert "commands/callback" in calls["mango"]["url"]
+    assert calls["mango"]["fields"]["vpbx_api_key"] == "key1"
+    assert calls["mango"]["fields"]["sign"]
+
+    mango_event = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-mango/",
+        {
+            "json": json.dumps(
+                {
+                    "call_id": "m-99",
+                    "call_state": "Connected",
+                    "from": {"number": "79001112233"},
+                    "to": {"extension": "101"},
+                    "location": "abonent",
+                }
+            )
+        },
+        format="json",
+    )
+    assert mango_event.status_code == 200
+    assert Activity.objects.filter(external_id="tel:m-99").exists()
+
+    ari = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="Asterisk",
+        webhook_token="tok-ari",
+        config={
+            "pbx": "asterisk",
+            "ari_base_url": "http://pbx.local:8088/ari",
+            "ari_user": "ari",
+            "ari_password": "secret",
+            "endpoint": "PJSIP/100",
+            "context": "from-internal",
+        },
+    )
+
+    def fake_json(url, *, headers=None, data=None, method=None):
+        calls["ari"] = {"url": url, "headers": headers, "method": method}
+        return {"id": "chan-1"}
+
+    monkeypatch.setattr(connectors_mod, "_http_json", fake_json)
+    ari_dial = authenticated_client.post(
+        f"/api/crm/connectors/{ari.id}/send/",
+        {"to": "79005554433"},
+        format="json",
+    )
+    assert ari_dial.status_code == 200
+    assert ari_dial.data["pbx"] == "asterisk"
+    assert ari_dial.data["channel_id"] == "chan-1"
+    assert "/channels?" in calls["ari"]["url"]
+    assert "endpoint=PJSIP%2F100" in calls["ari"]["url"]
+    assert calls["ari"]["headers"]["Authorization"].startswith("Basic ")
+
+    cdr = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-ari/",
+        {
+            "uniqueid": "1730000.1",
+            "src": "100",
+            "dst": "79005554433",
+            "disposition": "ANSWERED",
+            "billsec": 12,
+            "direction": "outbound",
+        },
+        format="json",
+    )
+    assert cdr.status_code == 200
+    assert Activity.objects.filter(external_id="tel:1730000.1").exists()

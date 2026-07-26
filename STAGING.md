@@ -53,10 +53,21 @@ docker compose --profile ai up -d ollama ollama-init backend
 - [ ] `GET /api/process/metrics|mining|decisions|cases|packs/` → 200
 - [ ] `GET /api/calendar/crm/?year=&month=` → 200 (CRM-события на календаре)
 
-Ручная проверка UI:
+### Calendar 2-way + Telephony (0.14 smoke)
 
+Автоматически в smoke (auth):
+
+- [ ] `GET /api/crm/calendar/providers/` → `{ microsoft, google }`
+- [ ] `GET /api/crm/calendar/connections/` → массив (поля `conflict_policy`, `open_conflicts`)
+- [ ] `GET /api/crm/calendar/conflicts/` → массив
+- [ ] `GET /api/crm/connectors/catalog/` содержит `telephony`
+
+Ручная проверка:
+
+- [ ] Settings → Calendar: Sync both / Pull, политика конфликтов ours/theirs/manual, resolve конфликтов
+- [ ] `/crm-commerce` → telephony connector: `pbx=asterisk` (ARI) или `pbx=mango` (api_key+salt+extension); webhook CDR → Activity call
 - [ ] `/processes` — вкладки DMN / Метрики·Mining / CMMN; `/process-tasks` inbox
-- [ ] Settings → Outlook/Google Calendar sync (нужны `OAUTH_*` + redirect URI `…/api/crm/calendar/oauth/{provider}/callback/`)
+- [ ] Settings → Outlook/Google Calendar OAuth (нужны `OAUTH_*` + redirect URI `…/api/crm/calendar/oauth/{provider}/callback/`)
 
 - [ ] `GET /api/health/` → `{ "status": "ok", "version": "…" }` совпадает с `VERSION`
 - [ ] `GET /api/health/?extended=1` → `checks.database` = `ok`

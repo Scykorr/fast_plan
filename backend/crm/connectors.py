@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import secrets
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone as dt_timezone
 from decimal import Decimal
@@ -58,8 +60,16 @@ CONNECTOR_CATALOG = [
         "provider": "telephony",
         "label": "Telephony / PBX",
         "config_keys": [
-            "provider",
+            "pbx",
             "api_key",
+            "api_salt",
+            "extension",
+            "line_number",
+            "ari_base_url",
+            "ari_user",
+            "ari_password",
+            "endpoint",
+            "context",
             "from_number",
             "dial_url",
             "webhook_secret",
@@ -67,6 +77,7 @@ CONNECTOR_CATALOG = [
         "supports_sync": False,
         "supports_webhook": True,
         "supports_send": True,
+        "pbx_backends": ["asterisk", "mango", "generic"],
     },
 ]
 
@@ -75,16 +86,46 @@ def new_webhook_token() -> str:
     return secrets.token_urlsafe(24)
 
 
-def _http_json(url: str, *, headers: dict | None = None, data: dict | None = None):
+def _http_json(
+    url: str,
+    *,
+    headers: dict | None = None,
+    data: dict | None = None,
+    method: str | None = None,
+):
     body = None
     req_headers = {"Accept": "application/json", **(headers or {})}
     if data is not None:
         body = json.dumps(data).encode("utf-8")
         req_headers["Content-Type"] = "application/json"
-    req = urllib.request.Request(url, data=body, headers=req_headers, method="GET" if data is None else "POST")
+    verb = method or ("GET" if data is None else "POST")
+    req = urllib.request.Request(url, data=body, headers=req_headers, method=verb)
     with urllib.request.urlopen(req, timeout=20) as resp:
         raw = resp.read().decode("utf-8")
         return json.loads(raw) if raw else {}
+
+
+def _http_form(url: str, *, fields: dict, headers: dict | None = None) -> dict | str:
+    body = urllib.parse.urlencode(fields).encode("utf-8")
+    req_headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/x-www-form-urlencoded",
+        **(headers or {}),
+    }
+    req = urllib.request.Request(url, data=body, headers=req_headers, method="POST")
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        raw = resp.read().decode("utf-8")
+        if not raw:
+            return {}
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return raw
+
+
+def _basic_auth(user: str, password: str) -> str:
+    token = base64.b64encode(f"{user}:{password}".encode()).decode()
+    return f"Basic {token}"
 
 
 def ensure_activity(
@@ -384,26 +425,94 @@ def send_sms(connector: IntegrationConnector, *, to: str, body: str) -> dict:
     return {"sent": True, "provider": "sms", "remote": False, "queued_locally": True}
 
 
-def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> dict:
-    """Ingest PBX/telephony CDR or call event → Activity(kind=call)."""
+def _party_number(value) -> str:
+    if isinstance(value, dict):
+        return str(
+            value.get("number")
+            or value.get("extension")
+            or value.get("phone")
+            or value.get("endpoint")
+            or ""
+        )
+    return str(value or "")
+
+
+def normalize_telephony_payload(payload: dict) -> dict:
+    """Normalize generic / Asterisk CDR / Mango Office call events."""
+    data = dict(payload or {})
+    # Mango often posts form fields: json + vpbx_api_key + sign
+    raw_json = data.get("json")
+    if isinstance(raw_json, str) and raw_json.strip().startswith(("{", "[")):
+        try:
+            nested = json.loads(raw_json)
+            if isinstance(nested, dict):
+                data = {**data, **nested}
+        except json.JSONDecodeError:
+            pass
+
     call_id = str(
-        payload.get("call_id")
-        or payload.get("CallSid")
-        or payload.get("id")
-        or payload.get("uuid")
+        data.get("call_id")
+        or data.get("entry_id")
+        or data.get("uniqueid")
+        or data.get("linkedid")
+        or data.get("CallSid")
+        or data.get("id")
+        or data.get("uuid")
+        or data.get("channel")
         or ""
     )
-    direction_raw = str(
-        payload.get("direction") or payload.get("Direction") or "inbound"
-    ).lower()
+    from_phone = _party_number(
+        data.get("from") or data.get("From") or data.get("caller") or data.get("src")
+    )
+    to_phone = _party_number(
+        data.get("to") or data.get("To") or data.get("callee") or data.get("dst")
+    )
+    status = str(
+        data.get("status")
+        or data.get("call_state")
+        or data.get("CallStatus")
+        or data.get("disposition")
+        or ""
+    )
+    duration = (
+        data.get("duration")
+        or data.get("Duration")
+        or data.get("billsec")
+        or data.get("talk_time")
+        or ""
+    )
+    direction_raw = str(data.get("direction") or data.get("Direction") or "").lower()
+    location = str(data.get("location") or "").lower()
+    if not direction_raw:
+        if location in ("abonent",) and from_phone and not to_phone:
+            direction_raw = "outbound"
+        elif data.get("dst") and data.get("src"):
+            direction_raw = "inbound"
+        else:
+            direction_raw = "inbound"
+    return {
+        "call_id": call_id,
+        "from": from_phone,
+        "to": to_phone,
+        "status": status,
+        "duration": duration,
+        "direction": direction_raw,
+    }
+
+
+def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> dict:
+    """Ingest PBX/telephony CDR or call event → Activity(kind=call)."""
+    norm = normalize_telephony_payload(payload if isinstance(payload, dict) else {})
+    call_id = norm["call_id"]
+    direction_raw = norm["direction"]
     if direction_raw in ("out", "outbound", "outgoing"):
         direction = Activity.Direction.OUTBOUND
     else:
         direction = Activity.Direction.INBOUND
-    from_phone = str(payload.get("from") or payload.get("From") or payload.get("caller") or "")
-    to_phone = str(payload.get("to") or payload.get("To") or payload.get("callee") or "")
-    status = str(payload.get("status") or payload.get("CallStatus") or payload.get("disposition") or "")
-    duration = payload.get("duration") or payload.get("Duration") or ""
+    from_phone = norm["from"]
+    to_phone = norm["to"]
+    status = norm["status"]
+    duration = norm["duration"]
     peer = from_phone if direction == Activity.Direction.INBOUND else to_phone
     if not call_id:
         call_id = f"{from_phone}:{to_phone}:{hash(status) & 0xFFFFFFFF}"
@@ -428,12 +537,100 @@ def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> 
     return {"created": 1 if activity else 0, "provider": "telephony", "call_id": call_id}
 
 
-def dial_telephony(connector: IntegrationConnector, *, to: str, note: str = "") -> dict:
-    config = connector.config or {}
+def _dial_asterisk_ari(config: dict, *, to: str, note: str = "") -> dict:
+    base = (config.get("ari_base_url") or "").rstrip("/")
+    user = config.get("ari_user") or ""
+    password = config.get("ari_password") or config.get("api_key") or ""
+    endpoint = config.get("endpoint") or ""
+    context = config.get("context") or "from-internal"
+    if not base or not user or not password or not endpoint:
+        raise ValueError(
+            "Asterisk dial requires ari_base_url, ari_user, ari_password (or api_key), endpoint"
+        )
+    # Click-to-call: ring agent endpoint, then dial destination via dialplan.
+    params = urllib.parse.urlencode(
+        {
+            "endpoint": endpoint,
+            "extension": to,
+            "context": context,
+            "priority": "1",
+            "callerId": config.get("from_number") or endpoint,
+            "timeout": str(config.get("timeout") or 30),
+        }
+    )
+    url = f"{base}/channels?{params}"
+    result = _http_json(
+        url,
+        headers={"Authorization": _basic_auth(user, password)},
+        method="POST",
+    )
+    channel_id = str((result or {}).get("id") or "")
+    return {
+        "remote": True,
+        "pbx": "asterisk",
+        "channel_id": channel_id,
+        "note": note,
+    }
+
+
+def _dial_mango(config: dict, *, to: str, note: str = "") -> dict:
+    api_key = config.get("api_key") or ""
+    api_salt = config.get("api_salt") or ""
+    extension = str(config.get("extension") or config.get("from_number") or "")
+    if not api_key or not api_salt or not extension:
+        raise ValueError("Mango dial requires api_key, api_salt, and extension")
+    base = (config.get("base_url") or "https://app.mango-office.ru/vpbx").rstrip("/")
+    command_id = f"fp-{secrets.token_hex(8)}"
+    digits = "".join(ch for ch in to if ch.isdigit())
+    payload = {
+        "command_id": command_id,
+        "from": {"extension": extension},
+        "to_number": digits or to,
+    }
+    if config.get("line_number"):
+        payload["line_number"] = config["line_number"]
+    if note:
+        payload["command_id"] = f"{command_id}:{note[:40]}"
+    json_body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    sign = hashlib.sha256(f"{api_key}{json_body}{api_salt}".encode("utf-8")).hexdigest()
+    result = _http_form(
+        f"{base}/commands/callback",
+        fields={
+            "vpbx_api_key": api_key,
+            "sign": sign,
+            "json": json_body,
+        },
+    )
+    return {
+        "remote": True,
+        "pbx": "mango",
+        "command_id": command_id,
+        "result": result,
+    }
+
+
+def _dial_generic(config: dict, *, to: str, note: str = "") -> dict:
+    endpoint = config.get("dial_url") or ""
     api_key = config.get("api_key") or ""
     from_number = config.get("from_number") or ""
+    if not endpoint:
+        return {"remote": False, "queued_locally": True, "pbx": "generic"}
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    _http_json(
+        endpoint,
+        headers=headers,
+        data={"to": to, "from": from_number, "note": note},
+    )
+    return {"remote": True, "pbx": "generic"}
+
+
+def dial_telephony(connector: IntegrationConnector, *, to: str, note: str = "") -> dict:
+    config = connector.config or {}
     if not to:
         raise ValueError("to is required")
+    pbx = str(config.get("pbx") or config.get("provider") or "generic").strip().lower()
     external_id = f"tel:out:{secrets.token_hex(8)}"
     ensure_activity(
         connector.workspace,
@@ -442,26 +639,23 @@ def dial_telephony(connector: IntegrationConnector, *, to: str, note: str = "") 
         direction=Activity.Direction.OUTBOUND,
         external_id=external_id,
         subject=f"Call to {to}",
-        body=note or f"Outbound dial from {from_number or 'PBX'}",
+        body=note or f"Outbound dial via {pbx}",
         person=find_person_by_phone(connector.workspace, to),
     )
-    endpoint = config.get("dial_url")
-    if endpoint and api_key:
-        try:
-            _http_json(
-                endpoint,
-                headers={"Authorization": f"Bearer {api_key}"},
-                data={"to": to, "from": from_number, "note": note},
-            )
-            return {"dialed": True, "provider": "telephony", "remote": True, "external_id": external_id}
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
-            raise RuntimeError(f"Telephony dial failed: {exc}") from exc
+    try:
+        if pbx in ("asterisk", "ari"):
+            remote = _dial_asterisk_ari(config, to=to, note=note)
+        elif pbx in ("mango", "mango_office", "vpbx"):
+            remote = _dial_mango(config, to=to, note=note)
+        else:
+            remote = _dial_generic(config, to=to, note=note)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
+        raise RuntimeError(f"Telephony dial failed: {exc}") from exc
     return {
         "dialed": True,
         "provider": "telephony",
-        "remote": False,
-        "queued_locally": True,
         "external_id": external_id,
+        **remote,
     }
 
 

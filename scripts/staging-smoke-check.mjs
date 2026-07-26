@@ -300,6 +300,29 @@ async function checkAuthSmoke() {
       name: "crm calendar events",
       ok: (b) => Array.isArray(b),
     },
+    {
+      path: "/api/crm/calendar/providers/",
+      name: "crm calendar providers",
+      ok: (b) =>
+        typeof b?.microsoft === "boolean" && typeof b?.google === "boolean",
+    },
+    {
+      path: "/api/crm/calendar/connections/",
+      name: "crm calendar connections",
+      ok: (b) => Array.isArray(b),
+    },
+    {
+      path: "/api/crm/calendar/conflicts/",
+      name: "crm calendar conflicts",
+      ok: (b) => Array.isArray(b),
+    },
+    {
+      path: "/api/crm/connectors/catalog/",
+      name: "crm connectors catalog",
+      ok: (b) =>
+        Array.isArray(b?.providers) &&
+        b.providers.some((row) => row?.provider === "telephony"),
+    },
   ];
   for (const check of processGets) {
     const res = await fetchJson(check.path, { headers });
