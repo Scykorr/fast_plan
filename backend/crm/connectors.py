@@ -1,4 +1,4 @@
-"""On-demand CRM connectors: Stripe, 1C, WhatsApp, SMS."""
+"""On-demand CRM connectors: Stripe, 1C, WhatsApp, SMS, telephony."""
 
 from __future__ import annotations
 
@@ -50,6 +50,20 @@ CONNECTOR_CATALOG = [
         "provider": "sms",
         "label": "SMS",
         "config_keys": ["provider", "api_key", "from_number", "webhook_secret"],
+        "supports_sync": False,
+        "supports_webhook": True,
+        "supports_send": True,
+    },
+    {
+        "provider": "telephony",
+        "label": "Telephony / PBX",
+        "config_keys": [
+            "provider",
+            "api_key",
+            "from_number",
+            "dial_url",
+            "webhook_secret",
+        ],
         "supports_sync": False,
         "supports_webhook": True,
         "supports_send": True,
@@ -370,6 +384,87 @@ def send_sms(connector: IntegrationConnector, *, to: str, body: str) -> dict:
     return {"sent": True, "provider": "sms", "remote": False, "queued_locally": True}
 
 
+def ingest_telephony_webhook(connector: IntegrationConnector, payload: dict) -> dict:
+    """Ingest PBX/telephony CDR or call event → Activity(kind=call)."""
+    call_id = str(
+        payload.get("call_id")
+        or payload.get("CallSid")
+        or payload.get("id")
+        or payload.get("uuid")
+        or ""
+    )
+    direction_raw = str(
+        payload.get("direction") or payload.get("Direction") or "inbound"
+    ).lower()
+    if direction_raw in ("out", "outbound", "outgoing"):
+        direction = Activity.Direction.OUTBOUND
+    else:
+        direction = Activity.Direction.INBOUND
+    from_phone = str(payload.get("from") or payload.get("From") or payload.get("caller") or "")
+    to_phone = str(payload.get("to") or payload.get("To") or payload.get("callee") or "")
+    status = str(payload.get("status") or payload.get("CallStatus") or payload.get("disposition") or "")
+    duration = payload.get("duration") or payload.get("Duration") or ""
+    peer = from_phone if direction == Activity.Direction.INBOUND else to_phone
+    if not call_id:
+        call_id = f"{from_phone}:{to_phone}:{hash(status) & 0xFFFFFFFF}"
+    body_parts = [
+        f"from={from_phone}" if from_phone else "",
+        f"to={to_phone}" if to_phone else "",
+        f"status={status}" if status else "",
+        f"duration={duration}s" if duration != "" else "",
+    ]
+    body = "; ".join(p for p in body_parts if p)
+    person = find_person_by_phone(connector.workspace, peer) if peer else None
+    activity = ensure_activity(
+        connector.workspace,
+        kind=Activity.Kind.CALL,
+        channel=Activity.Channel.TELEPHONY,
+        direction=direction,
+        external_id=f"tel:{call_id}",
+        subject=f"Call {direction} {peer or call_id}",
+        body=body,
+        person=person,
+    )
+    return {"created": 1 if activity else 0, "provider": "telephony", "call_id": call_id}
+
+
+def dial_telephony(connector: IntegrationConnector, *, to: str, note: str = "") -> dict:
+    config = connector.config or {}
+    api_key = config.get("api_key") or ""
+    from_number = config.get("from_number") or ""
+    if not to:
+        raise ValueError("to is required")
+    external_id = f"tel:out:{secrets.token_hex(8)}"
+    ensure_activity(
+        connector.workspace,
+        kind=Activity.Kind.CALL,
+        channel=Activity.Channel.TELEPHONY,
+        direction=Activity.Direction.OUTBOUND,
+        external_id=external_id,
+        subject=f"Call to {to}",
+        body=note or f"Outbound dial from {from_number or 'PBX'}",
+        person=find_person_by_phone(connector.workspace, to),
+    )
+    endpoint = config.get("dial_url")
+    if endpoint and api_key:
+        try:
+            _http_json(
+                endpoint,
+                headers={"Authorization": f"Bearer {api_key}"},
+                data={"to": to, "from": from_number, "note": note},
+            )
+            return {"dialed": True, "provider": "telephony", "remote": True, "external_id": external_id}
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+            raise RuntimeError(f"Telephony dial failed: {exc}") from exc
+    return {
+        "dialed": True,
+        "provider": "telephony",
+        "remote": False,
+        "queued_locally": True,
+        "external_id": external_id,
+    }
+
+
 def sync_connector(connector: IntegrationConnector) -> dict:
     if connector.provider == IntegrationConnector.Provider.STRIPE:
         return sync_stripe(connector)
@@ -379,4 +474,6 @@ def sync_connector(connector: IntegrationConnector) -> dict:
         return {"created": 0, "provider": "whatsapp", "hint": "Use webhook"}
     if connector.provider == IntegrationConnector.Provider.SMS:
         return {"created": 0, "provider": "sms", "hint": "Use webhook or send"}
+    if connector.provider == IntegrationConnector.Provider.TELEPHONY:
+        return {"created": 0, "provider": "telephony", "hint": "Use webhook or dial"}
     raise ValueError(f"Unknown provider: {connector.provider}")

@@ -378,6 +378,8 @@ class Activity(models.Model):
         SMS = "sms", "SMS"
         STRIPE = "stripe", "Stripe"
         ONEC = "onec", "1C"
+        CALENDAR = "calendar", "External calendar"
+        TELEPHONY = "telephony", "Telephony"
         OTHER = "other", "Other"
 
     class Direction(models.TextChoices):
@@ -885,6 +887,7 @@ class IntegrationConnector(models.Model):
         ONEC = "onec", "1C"
         WHATSAPP = "whatsapp", "WhatsApp"
         SMS = "sms", "SMS"
+        TELEPHONY = "telephony", "Telephony / PBX"
 
     workspace = models.ForeignKey(
         "workspaces.Workspace",
@@ -898,6 +901,7 @@ class IntegrationConnector(models.Model):
     # onec: {base_url, login, password, pending_documents: [...]}
     # whatsapp: {access_token, phone_number_id, verify_token, webhook_secret}
     # sms: {provider, api_key, from_number, webhook_secret}
+    # telephony: {provider, api_key, from_number, dial_url, webhook_secret}
     config = models.JSONField(default=dict, blank=True)
     webhook_token = models.CharField(max_length=64, blank=True, default="")
     last_synced_at = models.DateTimeField(null=True, blank=True)
@@ -1070,11 +1074,16 @@ class CrmSavedReport(models.Model):
 
 
 class CalendarConnection(models.Model):
-    """OAuth connection for pushing CRM events to Google or Outlook calendars."""
+    """OAuth connection for two-way CRM ↔ Google / Outlook calendar sync."""
 
     class Provider(models.TextChoices):
         MICROSOFT = "microsoft", "Outlook / Microsoft 365"
         GOOGLE = "google", "Google Calendar"
+
+    class ConflictPolicy(models.TextChoices):
+        OURS = "ours", "Prefer Fast Plan (push wins)"
+        THEIRS = "theirs", "Prefer external calendar"
+        MANUAL = "manual", "Queue conflicts for manual resolve"
 
     workspace = models.ForeignKey(
         "workspaces.Workspace",
@@ -1097,6 +1106,11 @@ class CalendarConnection(models.Model):
         help_text="Outlook calendar id or Google calendar id (empty = primary)",
     )
     scopes = models.TextField(blank=True, default="")
+    conflict_policy = models.CharField(
+        max_length=10,
+        choices=ConflictPolicy.choices,
+        default=ConflictPolicy.OURS,
+    )
     last_synced_at = models.DateTimeField(null=True, blank=True)
     last_error = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1126,6 +1140,14 @@ class CalendarEventLink(models.Model):
     source_type = models.CharField(max_length=40)
     source_id = models.CharField(max_length=64)
     external_event_id = models.CharField(max_length=255)
+    external_etag = models.CharField(max_length=255, blank=True, default="")
+    external_updated_at = models.DateTimeField(null=True, blank=True)
+    direction = models.CharField(
+        max_length=10,
+        blank=True,
+        default="push",
+        help_text="push | pull",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -1135,4 +1157,44 @@ class CalendarEventLink(models.Model):
                 fields=["connection", "source_type", "source_id"],
                 name="uniq_calendar_event_link",
             )
+        ]
+
+
+class CalendarSyncConflict(models.Model):
+    """Queued conflict when conflict_policy=manual."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        RESOLVED_OURS = "resolved_ours", "Resolved: ours"
+        RESOLVED_THEIRS = "resolved_theirs", "Resolved: theirs"
+        DISMISSED = "dismissed", "Dismissed"
+
+    connection = models.ForeignKey(
+        CalendarConnection,
+        on_delete=models.CASCADE,
+        related_name="conflicts",
+    )
+    link = models.ForeignKey(
+        CalendarEventLink,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conflicts",
+    )
+    external_event_id = models.CharField(max_length=255)
+    local_title = models.CharField(max_length=255, blank=True, default="")
+    external_title = models.CharField(max_length=255, blank=True, default="")
+    local_start = models.DateTimeField(null=True, blank=True)
+    external_start = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.OPEN
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["connection", "status"]),
         ]

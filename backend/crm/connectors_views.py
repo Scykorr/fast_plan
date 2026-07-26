@@ -1,4 +1,4 @@
-"""API for on-demand CRM connectors (Stripe / 1C / WhatsApp / SMS)."""
+"""API for on-demand CRM connectors (Stripe / 1C / WhatsApp / SMS / telephony)."""
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -10,9 +10,11 @@ from rest_framework.views import APIView
 
 from crm.connectors import (
     CONNECTOR_CATALOG,
+    dial_telephony,
     ingest_onec_documents,
     ingest_sms_webhook,
     ingest_stripe_event,
+    ingest_telephony_webhook,
     ingest_whatsapp_webhook,
     new_webhook_token,
     send_sms,
@@ -133,15 +135,25 @@ class ConnectorSendView(WorkspaceMixin, APIView):
             IntegrationConnector.objects.filter(workspace=self.get_workspace()),
             pk=connector_id,
         )
-        if row.provider != IntegrationConnector.Provider.SMS:
-            raise ValidationError({"detail": "Send is only supported for SMS connectors."})
-        to = (request.data.get("to") or "").strip()
-        body = (request.data.get("body") or "").strip()
-        try:
-            result = send_sms(row, to=to, body=body)
-        except Exception as exc:  # noqa: BLE001
-            raise ValidationError({"detail": str(exc)}) from exc
-        return Response({"ok": True, **result})
+        if row.provider == IntegrationConnector.Provider.SMS:
+            to = (request.data.get("to") or "").strip()
+            body = (request.data.get("body") or "").strip()
+            try:
+                result = send_sms(row, to=to, body=body)
+            except Exception as exc:  # noqa: BLE001
+                raise ValidationError({"detail": str(exc)}) from exc
+            return Response({"ok": True, **result})
+        if row.provider == IntegrationConnector.Provider.TELEPHONY:
+            to = (request.data.get("to") or "").strip()
+            note = (request.data.get("note") or request.data.get("body") or "").strip()
+            try:
+                result = dial_telephony(row, to=to, note=note)
+            except Exception as exc:  # noqa: BLE001
+                raise ValidationError({"detail": str(exc)}) from exc
+            return Response({"ok": True, **result})
+        raise ValidationError(
+            {"detail": "Send is only supported for SMS and telephony connectors."}
+        )
 
 
 class ConnectorWebhookView(APIView):
@@ -195,6 +207,10 @@ class ConnectorWebhookView(APIView):
                 )
             elif provider == IntegrationConnector.Provider.SMS:
                 result = ingest_sms_webhook(
+                    row, payload if isinstance(payload, dict) else {}
+                )
+            elif provider == IntegrationConnector.Provider.TELEPHONY:
+                result = ingest_telephony_webhook(
                     row, payload if isinstance(payload, dict) else {}
                 )
             else:

@@ -956,6 +956,11 @@ export function createCrmApi() {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    sendConnectorDial: (id: number, body: { to: string; note?: string }) =>
+      request<{ ok: boolean; dialed?: boolean }>(`/crm/connectors/${id}/send/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
 
     listDocuments: (params: { doc_type?: string; status?: string } = {}) => {
       const qs = new URLSearchParams();

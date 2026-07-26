@@ -21,10 +21,26 @@ from crm.calendar_sync import (
     MS_SCOPES,
     _http_json,
     provider_configured,
+    resolve_conflict,
     sync_connection,
 )
-from crm.models import CalendarConnection
+from crm.models import CalendarConnection, CalendarSyncConflict
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
+
+
+def _serialize_connection(c: CalendarConnection) -> dict:
+    return {
+        "id": c.id,
+        "provider": c.provider,
+        "last_synced_at": c.last_synced_at,
+        "last_error": c.last_error,
+        "external_calendar_id": c.external_calendar_id,
+        "configured": bool(c.refresh_token),
+        "conflict_policy": c.conflict_policy,
+        "open_conflicts": CalendarSyncConflict.objects.filter(
+            connection=c, status=CalendarSyncConflict.Status.OPEN
+        ).count(),
+    }
 
 
 def _parse_year_month(request):
@@ -65,19 +81,7 @@ class CalendarConnectionListView(WorkspaceMixin, APIView):
         rows = CalendarConnection.objects.filter(
             workspace=self.get_workspace(), user=request.user
         )
-        return Response(
-            [
-                {
-                    "id": c.id,
-                    "provider": c.provider,
-                    "last_synced_at": c.last_synced_at,
-                    "last_error": c.last_error,
-                    "external_calendar_id": c.external_calendar_id,
-                    "configured": bool(c.refresh_token),
-                }
-                for c in rows
-            ]
-        )
+        return Response([_serialize_connection(c) for c in rows])
 
 
 class CalendarProvidersView(WorkspaceMixin, APIView):
@@ -238,13 +242,36 @@ class CalendarConnectionSyncView(WorkspaceMixin, APIView):
         ).first()
         if connection is None:
             return Response({"detail": "Not found"}, status=404)
-        result = sync_connection(connection)
+        direction = (request.data.get("direction") or "both").strip().lower()
+        if direction not in ("push", "pull", "both"):
+            return Response({"detail": "direction must be push, pull, or both"}, status=400)
+        result = sync_connection(connection, direction=direction)
         status_code = 200 if result.get("ok") else 400
         return Response(result, status=status_code)
 
 
 class CalendarConnectionDeleteView(WorkspaceMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def patch(self, request, pk):
+        connection = CalendarConnection.objects.filter(
+            workspace=self.get_workspace(), user=request.user, pk=pk
+        ).first()
+        if connection is None:
+            return Response({"detail": "Not found"}, status=404)
+        policy = (request.data.get("conflict_policy") or "").strip().lower()
+        if policy not in {
+            CalendarConnection.ConflictPolicy.OURS,
+            CalendarConnection.ConflictPolicy.THEIRS,
+            CalendarConnection.ConflictPolicy.MANUAL,
+        }:
+            return Response(
+                {"detail": "conflict_policy must be ours, theirs, or manual"},
+                status=400,
+            )
+        connection.conflict_policy = policy
+        connection.save(update_fields=["conflict_policy", "updated_at"])
+        return Response(_serialize_connection(connection))
 
     def delete(self, request, pk):
         deleted, _ = CalendarConnection.objects.filter(
@@ -253,3 +280,62 @@ class CalendarConnectionDeleteView(WorkspaceMixin, APIView):
         if not deleted:
             return Response({"detail": "Not found"}, status=404)
         return Response({"detail": "Disconnected"})
+
+
+class CalendarConflictListView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        qs = CalendarSyncConflict.objects.filter(
+            connection__workspace=self.get_workspace(),
+            connection__user=request.user,
+            status=CalendarSyncConflict.Status.OPEN,
+        ).select_related("connection", "link")
+        return Response(
+            [
+                {
+                    "id": c.id,
+                    "connection_id": c.connection_id,
+                    "provider": c.connection.provider,
+                    "external_event_id": c.external_event_id,
+                    "local_title": c.local_title,
+                    "external_title": c.external_title,
+                    "local_start": c.local_start,
+                    "external_start": c.external_start,
+                    "created_at": c.created_at,
+                }
+                for c in qs[:100]
+            ]
+        )
+
+
+class CalendarConflictResolveView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, pk):
+        conflict = (
+            CalendarSyncConflict.objects.filter(
+                pk=pk,
+                connection__workspace=self.get_workspace(),
+                connection__user=request.user,
+            )
+            .select_related("connection", "link")
+            .first()
+        )
+        if conflict is None:
+            return Response({"detail": "Not found"}, status=404)
+        choice = (request.data.get("choice") or "").strip().lower()
+        if choice not in ("ours", "theirs", "dismiss"):
+            return Response({"detail": "choice must be ours, theirs, or dismiss"}, status=400)
+        try:
+            resolved = resolve_conflict(conflict, choice=choice)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(
+            {
+                "id": resolved.id,
+                "status": resolved.status,
+                "resolved_at": resolved.resolved_at,
+                "choice": choice,
+            }
+        )

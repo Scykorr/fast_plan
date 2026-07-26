@@ -319,6 +319,16 @@ urlpatterns = [
         name="crm-calendar-disconnect",
     ),
     path(
+        "crm/calendar/conflicts/",
+        calendar_views.CalendarConflictListView.as_view(),
+        name="crm-calendar-conflicts",
+    ),
+    path(
+        "crm/calendar/conflicts/<int:pk>/resolve/",
+        calendar_views.CalendarConflictResolveView.as_view(),
+        name="crm-calendar-conflict-resolve",
+    ),
+    path(
         "crm/calendar/oauth/<str:provider>/",
         calendar_views.CalendarOAuthStartView.as_view(),
         name="crm-calendar-oauth-start",

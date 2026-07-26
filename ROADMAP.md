@@ -40,6 +40,7 @@
 | 2026-07-23 | Релиз **v0.12.0** — SSO Microsoft, P8 UX, P7 Mobile/Security в changelog |
 | 2026-07-25 | **CRM calendar sync** — events + Outlook/Google push; staging smoke 0.12 |
 | 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
+| 2026-07-26 | **Calendar 2-way + telephony** — pull/conflict policy; PBX connector → Activity |
 | 2026-07-26 | Релиз **v0.13.0** — P8g, CRM calendar sync, chat UX, staging smoke 0.12 |
 | 2026-07-26 | **CRM tasks UX (1f)** — priority/checklist/repeat, LeadTask, `/crm-tasks` Kanban |
 | 2026-07-26 | **CRM finance deep (6)** + **roles expand (9)** — AP/P&L/cashflow; accounting/marketing |
@@ -121,7 +122,7 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 1. **CRM backlog** — tasks UX (1f), finance deep (6), roles expand (9).
 2. **MS Project XML import** — при появлении подтверждённого формата/образца.
 3. 1С / Stripe / WA-коннекторы — по запросу клиентов.
-4. Двусторонний calendar sync / conflict resolution — later.
+4. ~~Двусторонний calendar sync / conflict resolution~~ — done.
 5. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
 
 ~~Ранее закрыто:~~ P5 чаты · Redis SSE · P6 CRM (a–i + calendar sync MVP) · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · staging smoke 0.12.
@@ -182,24 +183,24 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 1b | Сделки: воронка Kanban, стадии, %, сумма, прогноз, задачи, reminders | **✓ P6c** | — |
 | 1c | Лиды: импорт, распределение, дедуп, score | **✓ P6d** | — |
 | 1d | Контакты: phone/email/соцсети/мессенджеры | **✓ P6b** | — |
-| 1e | Календарь CRM + Google/Outlook | **✓ MVP** — CRM events на `/calendar` + односторонний push sync Outlook/Google (Settings); ICS milestones | **Later:** 2-way sync, conflict resolution |
+| 1e | Календарь CRM + Google/Outlook | **✓** — CRM events + 2-way sync Outlook/Google (push/pull, conflict policy) | — |
 | 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **✓** — DealTask + LeadTask + `/crm-tasks` board | — |
 | 2 | Автоматизация (BPM / n8n-like) | **✓ P6e** (+ **P8** BPMN/DMN/CMMN для сложных процессов) | — |
 | 3 | AI CRM-помощник | **✓ P6f** — insights, draft email/КП, summary, suggest tasks (OpenAI / Ollama / heuristics) | — |
-| 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g** — IMAP + Telegram → Activity | **Later:** WA / Instagram / VK / telephony connectors |
+| 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g** — IMAP + Telegram → Activity; WA/SMS/telephony connectors | Instagram / VK — later |
 | 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** — Quote/Invoice/Contract PDF + payments + AR lite | Склад/SKU — out of scope без запроса |
 | 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **✓** — AR/AP + P&L + cashflow UI | — |
 | 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h** — PDF templates | Акт — later при запросе |
 | 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **✓ P6i** — dashboard + saved reports | — |
 | 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **✓** — `crm_role` + accounting/marketing | workspace owner = admin |
-| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **✓** — Calendar OAuth, IMAP/TG, Stripe/1C/WA/SMS connectors | telephony — later |
+| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **✓** — Calendar OAuth 2-way, IMAP/TG, Stripe/1C/WA/SMS/telephony connectors | — |
 | 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **Частично** — REST + JWT + webhooks + API tokens + OAuth SSO/calendar | GraphQL / SDK — вне MVP |
 | 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **Сильно** — themes, PWA, search, DnD; CRM pages shipped | Hotkeys / saved CRM filters — polish |
 | 13 | Collab: comments @, notify, chat, audit, co-edit | **Сильно** — comments, mentions, SSE, chats, audit; CRM comments/files ✓ | Co-edit docs — out of scope |
 | 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 MVP + SSO** — 2FA, sessions, IP, Microsoft SSO (Google login временно off); chat E2E | Backup/encryption hardening later |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
-**Итог по ядру CRM (P6a–P6i + calendar + tasks + finance + roles + connectors):** MVP закрыт. Открытый CRM-бэклог: **1e later** (2-way calendar), telephony.
+**Итог по ядру CRM (P6a–P6i + calendar 2-way + tasks + finance + roles + connectors + telephony):** MVP закрыт.
 
 ### Уже переиспользуем (не строить заново)
 
@@ -231,8 +232,8 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 - [x] **CRM tasks UX** — чек-листы, repeat, priority, единый Kanban Deal/Lead tasks (**1f**). **M**
 - [x] **CRM finance deep** — P&L по клиенту/сделке, AP, cashflow forecast UI (**6**). **M–L**
 - [x] **CRM roles expand** — accounting / marketing поверх `crm_role` (**9**). **S**
-- [x] **Connectors on demand** — Stripe, 1С, WhatsApp, SMS (**10**). **по запросу**
-- [ ] **Calendar 2-way** — pull + conflict policy (**1e later**). **M**
+- [x] **Connectors on demand** — Stripe, 1С, WhatsApp, SMS, telephony (**10**). **по запросу**
+- [x] **Calendar 2-way** — pull + conflict policy (**1e**). **M**
 
 ### P6a — критерии (архив)
 
@@ -323,7 +324,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 1. **CRM backlog** из матрицы: tasks UX (1f) → finance deep (6) → roles (9).
 2. Клиентские коннекторы (1С / Stripe / WA) — по запросу.
-3. Calendar 2-way sync — после adoption одностороннего push.
+3. ~~Calendar 2-way sync~~ — done (pull + conflict policy).
 4. MS Project XML import — при наличии образца.
 
 ---

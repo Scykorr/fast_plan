@@ -18,6 +18,7 @@ const CONNECTOR_PROVIDERS = [
   { value: "onec", label: "1С" },
   { value: "whatsapp", label: "WhatsApp" },
   { value: "sms", label: "SMS" },
+  { value: "telephony", label: "Telephony / PBX" },
 ] as const;
 
 export function CrmCommercePage() {
@@ -47,6 +48,8 @@ export function CrmCommercePage() {
   });
   const [smsTo, setSmsTo] = useState("");
   const [smsBody, setSmsBody] = useState("");
+  const [dialTo, setDialTo] = useState("");
+  const [dialNote, setDialNote] = useState("");
   const [docForm, setDocForm] = useState({
     doc_type: "quote",
     title: "",
@@ -108,7 +111,7 @@ export function CrmCommercePage() {
       if (connectorForm.access_token) config.access_token = connectorForm.access_token;
       if (connectorForm.verify_token) config.verify_token = connectorForm.verify_token;
     }
-    if (connectorForm.provider === "sms") {
+    if (connectorForm.provider === "sms" || connectorForm.provider === "telephony") {
       if (connectorForm.api_key) config.api_key = connectorForm.api_key;
       if (connectorForm.from_number) config.from_number = connectorForm.from_number;
     }
@@ -476,7 +479,7 @@ export function CrmCommercePage() {
 
       <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
         <h2 className="text-sm font-semibold text-text">
-          Коннекторы (Stripe / 1С / WhatsApp / SMS)
+          Коннекторы (Stripe / 1С / WhatsApp / SMS / Telephony)
         </h2>
         <form
           onSubmit={(e) => void createConnector(e)}
@@ -552,7 +555,8 @@ export function CrmCommercePage() {
               />
             </>
           )}
-          {connectorForm.provider === "sms" && (
+          {(connectorForm.provider === "sms" ||
+            connectorForm.provider === "telephony") && (
             <>
               <input
                 value={connectorForm.api_key}
@@ -687,6 +691,42 @@ export function CrmCommercePage() {
                       }
                     >
                       Send SMS
+                    </button>
+                  </div>
+                )}
+                {item.provider === "telephony" && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <input
+                      value={dialTo}
+                      onChange={(e) => setDialTo(e.target.value)}
+                      placeholder="to"
+                      className="rounded border border-border bg-cream px-2 py-1 text-xs"
+                    />
+                    <input
+                      value={dialNote}
+                      onChange={(e) => setDialNote(e.target.value)}
+                      placeholder="заметка к звонку"
+                      className="min-w-[10rem] flex-1 rounded border border-border bg-cream px-2 py-1 text-xs"
+                    />
+                    <button
+                      type="button"
+                      className="rounded border border-border px-2 py-1 text-xs"
+                      onClick={() =>
+                        void crmApi
+                          ?.sendConnectorDial(item.id, {
+                            to: dialTo,
+                            note: dialNote,
+                          })
+                          .then(() => {
+                            setMessage("Звонок записан");
+                            setDialNote("");
+                          })
+                          .catch((err) =>
+                            setError(parseApiError(err, "Dial не выполнен")),
+                          )
+                      }
+                    >
+                      Dial
                     </button>
                   </div>
                 )}

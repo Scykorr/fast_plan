@@ -1,6 +1,4 @@
-"""On-demand CRM connectors (Stripe / 1C / WhatsApp / SMS)."""
-
-import pytest
+"""On-demand CRM connectors (Stripe / 1C / WhatsApp / SMS / telephony)."""
 
 from crm.models import Activity, CrmDocument, IntegrationConnector
 from finance.models import Transaction
@@ -10,7 +8,7 @@ def test_connector_catalog_and_crud(authenticated_client):
     catalog = authenticated_client.get("/api/crm/connectors/catalog/")
     assert catalog.status_code == 200
     providers = {row["provider"] for row in catalog.data["providers"]}
-    assert providers == {"stripe", "onec", "whatsapp", "sms"}
+    assert providers == {"stripe", "onec", "whatsapp", "sms", "telephony"}
 
     created = authenticated_client.post(
         "/api/crm/connectors/",
@@ -56,14 +54,14 @@ def test_onec_sync_from_pending_documents(authenticated_client, workspace):
 
 
 def test_stripe_whatsapp_sms_webhooks(authenticated_client, workspace):
-    stripe = IntegrationConnector.objects.create(
+    IntegrationConnector.objects.create(
         workspace=workspace,
         provider=IntegrationConnector.Provider.STRIPE,
         name="Stripe",
         webhook_token="tok-stripe",
         config={"webhook_secret": "s3cret"},
     )
-    wa = IntegrationConnector.objects.create(
+    IntegrationConnector.objects.create(
         workspace=workspace,
         provider=IntegrationConnector.Provider.WHATSAPP,
         name="WA",
@@ -153,5 +151,49 @@ def test_stripe_whatsapp_sms_webhooks(authenticated_client, workspace):
     assert Activity.objects.filter(
         workspace=workspace,
         channel=Activity.Channel.SMS,
+        direction=Activity.Direction.OUTBOUND,
+    ).exists()
+
+
+def test_telephony_webhook_and_dial(authenticated_client, workspace):
+    tel = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="PBX",
+        webhook_token="tok-tel",
+        config={"from_number": "+74951111111"},
+    )
+    inbound = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-tel/",
+        {
+            "call_id": "c-1",
+            "direction": "inbound",
+            "from": "+79001112233",
+            "to": "+74951111111",
+            "status": "answered",
+            "duration": 42,
+        },
+        format="json",
+    )
+    assert inbound.status_code == 200
+    assert inbound.data["created"] == 1
+    assert Activity.objects.filter(
+        workspace=workspace,
+        kind=Activity.Kind.CALL,
+        channel=Activity.Channel.TELEPHONY,
+        external_id="tel:c-1",
+        direction=Activity.Direction.INBOUND,
+    ).exists()
+
+    dialed = authenticated_client.post(
+        f"/api/crm/connectors/{tel.id}/send/",
+        {"to": "+79001112233", "note": "follow-up"},
+        format="json",
+    )
+    assert dialed.status_code == 200
+    assert dialed.data["dialed"] is True
+    assert Activity.objects.filter(
+        workspace=workspace,
+        channel=Activity.Channel.TELEPHONY,
         direction=Activity.Direction.OUTBOUND,
     ).exists()
