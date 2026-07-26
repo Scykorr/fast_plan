@@ -5,6 +5,7 @@ from crm import (
     automation_views,
     calendar_views,
     commerce_views,
+    connectors_views,
     deals_views,
     leads_views,
     tasks_views,
@@ -214,6 +215,36 @@ urlpatterns = [
         "crm/channels/<int:connection_id>/sync/",
         commerce_views.ChannelConnectionSyncView.as_view(),
         name="crm-channel-sync",
+    ),
+    path(
+        "crm/connectors/catalog/",
+        connectors_views.ConnectorCatalogView.as_view(),
+        name="crm-connector-catalog",
+    ),
+    path(
+        "crm/connectors/",
+        connectors_views.ConnectorListCreateView.as_view(),
+        name="crm-connectors",
+    ),
+    path(
+        "crm/connectors/<int:connector_id>/",
+        connectors_views.ConnectorDetailView.as_view(),
+        name="crm-connector-detail",
+    ),
+    path(
+        "crm/connectors/<int:connector_id>/sync/",
+        connectors_views.ConnectorSyncView.as_view(),
+        name="crm-connector-sync",
+    ),
+    path(
+        "crm/connectors/<int:connector_id>/send/",
+        connectors_views.ConnectorSendView.as_view(),
+        name="crm-connector-send",
+    ),
+    path(
+        "crm/connectors/webhooks/<str:provider>/<str:token>/",
+        connectors_views.ConnectorWebhookView.as_view(),
+        name="crm-connector-webhook",
     ),
     path(
         "crm/channels/telegram/<str:secret>/",

@@ -1,0 +1,157 @@
+"""On-demand CRM connectors (Stripe / 1C / WhatsApp / SMS)."""
+
+import pytest
+
+from crm.models import Activity, CrmDocument, IntegrationConnector
+from finance.models import Transaction
+
+
+def test_connector_catalog_and_crud(authenticated_client):
+    catalog = authenticated_client.get("/api/crm/connectors/catalog/")
+    assert catalog.status_code == 200
+    providers = {row["provider"] for row in catalog.data["providers"]}
+    assert providers == {"stripe", "onec", "whatsapp", "sms"}
+
+    created = authenticated_client.post(
+        "/api/crm/connectors/",
+        {
+            "provider": "sms",
+            "name": "Twilio-ish",
+            "config": {"webhook_secret": "sec", "from_number": "+1000"},
+        },
+        format="json",
+    )
+    assert created.status_code == 201
+    assert created.data["webhook_token"]
+    assert created.data["config_public"]["webhook_secret"] == "***"
+    assert "/api/crm/connectors/webhooks/sms/" in created.data["webhook_path"]
+
+
+def test_onec_sync_from_pending_documents(authenticated_client, workspace):
+    connector = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.ONEC,
+        name="1C main",
+        webhook_token="tok-onec",
+        config={
+            "pending_documents": [
+                {
+                    "id": "1C-100",
+                    "title": "Счёт из 1С",
+                    "amount": "2500.00",
+                    "doc_type": "invoice",
+                }
+            ]
+        },
+    )
+    synced = authenticated_client.post(f"/api/crm/connectors/{connector.id}/sync/")
+    assert synced.status_code == 200
+    assert synced.data["created"] == 1
+    assert CrmDocument.objects.filter(workspace=workspace, number="1C-100").exists()
+    assert Activity.objects.filter(
+        workspace=workspace, channel=Activity.Channel.ONEC
+    ).exists()
+    connector.refresh_from_db()
+    assert connector.config.get("pending_documents") == []
+
+
+def test_stripe_whatsapp_sms_webhooks(authenticated_client, workspace):
+    stripe = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.STRIPE,
+        name="Stripe",
+        webhook_token="tok-stripe",
+        config={"webhook_secret": "s3cret"},
+    )
+    wa = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.WHATSAPP,
+        name="WA",
+        webhook_token="tok-wa",
+        config={"verify_token": "verify-me", "webhook_secret": ""},
+    )
+    sms = IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.SMS,
+        name="SMS",
+        webhook_token="tok-sms",
+        config={},
+    )
+
+    bad = authenticated_client.post(
+        "/api/crm/connectors/webhooks/stripe/tok-stripe/",
+        {"type": "charge.succeeded", "data": {"object": {"id": "ch_1", "amount": 5000}}},
+        format="json",
+    )
+    assert bad.status_code == 403
+
+    ok = authenticated_client.post(
+        "/api/crm/connectors/webhooks/stripe/tok-stripe/?secret=s3cret",
+        {
+            "type": "charge.succeeded",
+            "data": {"object": {"id": "ch_1", "amount": 5000}},
+        },
+        format="json",
+    )
+    assert ok.status_code == 200
+    assert ok.data["created"] == 1
+    assert Transaction.objects.filter(workspace=workspace, category="stripe").exists()
+
+    verify = authenticated_client.get(
+        "/api/crm/connectors/webhooks/whatsapp/tok-wa/"
+        "?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=12345"
+    )
+    assert verify.status_code == 200
+    assert verify.content == b"12345"
+
+    wa_msg = authenticated_client.post(
+        "/api/crm/connectors/webhooks/whatsapp/tok-wa/",
+        {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [
+                                    {
+                                        "id": "wamid.1",
+                                        "from": "79001234567",
+                                        "text": {"body": "hello"},
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        format="json",
+    )
+    assert wa_msg.status_code == 200
+    assert wa_msg.data["created"] == 1
+    assert Activity.objects.filter(
+        workspace=workspace, channel=Activity.Channel.WHATSAPP, external_id="wa:wamid.1"
+    ).exists()
+
+    sms_msg = authenticated_client.post(
+        "/api/crm/connectors/webhooks/sms/tok-sms/",
+        {"id": "SM1", "from": "+79001112233", "body": "ping"},
+        format="json",
+    )
+    assert sms_msg.status_code == 200
+    assert Activity.objects.filter(
+        workspace=workspace, channel=Activity.Channel.SMS, external_id="sms:SM1"
+    ).exists()
+
+    sent = authenticated_client.post(
+        f"/api/crm/connectors/{sms.id}/send/",
+        {"to": "+79001112233", "body": "pong"},
+        format="json",
+    )
+    assert sent.status_code == 200
+    assert sent.data["sent"] is True
+    assert Activity.objects.filter(
+        workspace=workspace,
+        channel=Activity.Channel.SMS,
+        direction=Activity.Direction.OUTBOUND,
+    ).exists()

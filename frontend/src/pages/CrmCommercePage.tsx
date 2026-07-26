@@ -5,6 +5,7 @@ import type {
   CrmCashflowForecast,
   CrmChannelConnection,
   CrmDocument,
+  CrmIntegrationConnector,
   CrmPnl,
 } from "../api/crm";
 import { ErrorMessage } from "../components/ErrorMessage";
@@ -12,11 +13,19 @@ import { useCrmApi } from "../hooks/useCrmApi";
 import { useLocale } from "../context/LocaleContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 
+const CONNECTOR_PROVIDERS = [
+  { value: "stripe", label: "Stripe" },
+  { value: "onec", label: "1С" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "sms", label: "SMS" },
+] as const;
+
 export function CrmCommercePage() {
   const crmApi = useCrmApi();
   const { formatMoney } = useLocale();
   const { workspaceEpoch } = useWorkspace();
   const [channels, setChannels] = useState<CrmChannelConnection[]>([]);
+  const [connectors, setConnectors] = useState<CrmIntegrationConnector[]>([]);
   const [documents, setDocuments] = useState<CrmDocument[]>([]);
   const [arAp, setArAp] = useState<Awaited<
     ReturnType<NonNullable<typeof crmApi>["getArAp"]>
@@ -25,6 +34,19 @@ export function CrmCommercePage() {
   const [pnl, setPnl] = useState<CrmPnl | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [connectorForm, setConnectorForm] = useState({
+    provider: "stripe",
+    name: "",
+    webhook_secret: "",
+    secret_key: "",
+    access_token: "",
+    verify_token: "",
+    api_key: "",
+    from_number: "",
+    pending_json: "",
+  });
+  const [smsTo, setSmsTo] = useState("");
+  const [smsBody, setSmsBody] = useState("");
   const [docForm, setDocForm] = useState({
     doc_type: "quote",
     title: "",
@@ -49,18 +71,20 @@ export function CrmCommercePage() {
   const load = useCallback(async () => {
     if (!crmApi) return;
     try {
-      const [ch, docs, ar, cf, pnlRow] = await Promise.all([
+      const [ch, docs, ar, cf, pnlRow, cons] = await Promise.all([
         crmApi.listChannels(),
         crmApi.listDocuments(),
         crmApi.getArAp(),
         crmApi.getCashflowForecast(90),
         crmApi.getPnl(),
+        crmApi.listConnectors(),
       ]);
       setChannels(ch);
       setDocuments(docs);
       setArAp(ar);
       setCashflow(cf);
       setPnl(pnlRow);
+      setConnectors(cons);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить коммерцию/каналы"));
     }
@@ -69,6 +93,56 @@ export function CrmCommercePage() {
   useEffect(() => {
     void load();
   }, [load, workspaceEpoch]);
+
+  const createConnector = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!crmApi || !connectorForm.name.trim()) return;
+    const config: Record<string, unknown> = {};
+    if (connectorForm.webhook_secret) {
+      config.webhook_secret = connectorForm.webhook_secret;
+    }
+    if (connectorForm.provider === "stripe" && connectorForm.secret_key) {
+      config.secret_key = connectorForm.secret_key;
+    }
+    if (connectorForm.provider === "whatsapp") {
+      if (connectorForm.access_token) config.access_token = connectorForm.access_token;
+      if (connectorForm.verify_token) config.verify_token = connectorForm.verify_token;
+    }
+    if (connectorForm.provider === "sms") {
+      if (connectorForm.api_key) config.api_key = connectorForm.api_key;
+      if (connectorForm.from_number) config.from_number = connectorForm.from_number;
+    }
+    if (connectorForm.provider === "onec" && connectorForm.pending_json.trim()) {
+      try {
+        config.pending_documents = JSON.parse(connectorForm.pending_json);
+      } catch {
+        setError("pending_documents: невалидный JSON");
+        return;
+      }
+    }
+    try {
+      await crmApi.createConnector({
+        provider: connectorForm.provider,
+        name: connectorForm.name.trim(),
+        config,
+      });
+      setConnectorForm({
+        ...connectorForm,
+        name: "",
+        webhook_secret: "",
+        secret_key: "",
+        access_token: "",
+        verify_token: "",
+        api_key: "",
+        from_number: "",
+        pending_json: "",
+      });
+      setMessage("Коннектор создан");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать коннектор"));
+    }
+  };
 
   const createDoc = async (event: FormEvent) => {
     event.preventDefault();
@@ -398,6 +472,228 @@ export function CrmCommercePage() {
             </button>
           </form>
         </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-text">
+          Коннекторы (Stripe / 1С / WhatsApp / SMS)
+        </h2>
+        <form
+          onSubmit={(e) => void createConnector(e)}
+          className="grid gap-2 sm:grid-cols-3"
+        >
+          <select
+            value={connectorForm.provider}
+            onChange={(e) =>
+              setConnectorForm({ ...connectorForm, provider: e.target.value })
+            }
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          >
+            {CONNECTOR_PROVIDERS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+          <input
+            value={connectorForm.name}
+            onChange={(e) =>
+              setConnectorForm({ ...connectorForm, name: e.target.value })
+            }
+            placeholder="Название"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            required
+          />
+          <input
+            value={connectorForm.webhook_secret}
+            onChange={(e) =>
+              setConnectorForm({
+                ...connectorForm,
+                webhook_secret: e.target.value,
+              })
+            }
+            placeholder="webhook_secret (опц.)"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          />
+          {connectorForm.provider === "stripe" && (
+            <input
+              value={connectorForm.secret_key}
+              onChange={(e) =>
+                setConnectorForm({ ...connectorForm, secret_key: e.target.value })
+              }
+              placeholder="secret_key"
+              type="password"
+              className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
+            />
+          )}
+          {connectorForm.provider === "whatsapp" && (
+            <>
+              <input
+                value={connectorForm.access_token}
+                onChange={(e) =>
+                  setConnectorForm({
+                    ...connectorForm,
+                    access_token: e.target.value,
+                  })
+                }
+                placeholder="access_token"
+                className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+              />
+              <input
+                value={connectorForm.verify_token}
+                onChange={(e) =>
+                  setConnectorForm({
+                    ...connectorForm,
+                    verify_token: e.target.value,
+                  })
+                }
+                placeholder="verify_token"
+                className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+              />
+            </>
+          )}
+          {connectorForm.provider === "sms" && (
+            <>
+              <input
+                value={connectorForm.api_key}
+                onChange={(e) =>
+                  setConnectorForm({ ...connectorForm, api_key: e.target.value })
+                }
+                placeholder="api_key"
+                className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+              />
+              <input
+                value={connectorForm.from_number}
+                onChange={(e) =>
+                  setConnectorForm({
+                    ...connectorForm,
+                    from_number: e.target.value,
+                  })
+                }
+                placeholder="from_number"
+                className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+              />
+            </>
+          )}
+          {connectorForm.provider === "onec" && (
+            <textarea
+              value={connectorForm.pending_json}
+              onChange={(e) =>
+                setConnectorForm({
+                  ...connectorForm,
+                  pending_json: e.target.value,
+                })
+              }
+              placeholder='pending_documents JSON: [{"id":"1","title":"Счёт","amount":"100"}]'
+              rows={2}
+              className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-3"
+            />
+          )}
+          <button
+            type="submit"
+            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+          >
+            Добавить коннектор
+          </button>
+        </form>
+
+        <ul className="space-y-2">
+          {connectors.length === 0 ? (
+            <li className="text-sm text-text-muted">Коннекторов пока нет</li>
+          ) : (
+            connectors.map((item) => (
+              <li
+                key={item.id}
+                className="rounded-lg border border-border px-3 py-2 text-sm space-y-1"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-text">
+                      {item.provider} · {item.name}
+                    </p>
+                    <p className="text-xs text-text-muted break-all">
+                      webhook: {item.webhook_path}
+                    </p>
+                    {item.last_error ? (
+                      <p className="text-xs text-danger">{item.last_error}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(item.provider === "stripe" || item.provider === "onec") && (
+                      <button
+                        type="button"
+                        className="rounded border border-border px-2 py-1 text-xs"
+                        onClick={() =>
+                          void crmApi
+                            ?.syncConnector(item.id)
+                            .then((res) => {
+                              setMessage(`Sync ${item.provider}: +${res.created ?? 0}`);
+                              return load();
+                            })
+                            .catch((err) =>
+                              setError(parseApiError(err, "Sync не удался")),
+                            )
+                        }
+                      >
+                        Sync
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="rounded border border-border px-2 py-1 text-xs text-text-muted"
+                      onClick={() =>
+                        void crmApi
+                          ?.deleteConnector(item.id)
+                          .then(load)
+                          .catch((err) =>
+                            setError(parseApiError(err, "Удаление не удалось")),
+                          )
+                      }
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </div>
+                {item.provider === "sms" && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <input
+                      value={smsTo}
+                      onChange={(e) => setSmsTo(e.target.value)}
+                      placeholder="to"
+                      className="rounded border border-border bg-cream px-2 py-1 text-xs"
+                    />
+                    <input
+                      value={smsBody}
+                      onChange={(e) => setSmsBody(e.target.value)}
+                      placeholder="текст SMS"
+                      className="min-w-[10rem] flex-1 rounded border border-border bg-cream px-2 py-1 text-xs"
+                    />
+                    <button
+                      type="button"
+                      className="rounded border border-border px-2 py-1 text-xs"
+                      onClick={() =>
+                        void crmApi
+                          ?.sendConnectorSms(item.id, {
+                            to: smsTo,
+                            body: smsBody,
+                          })
+                          .then(() => {
+                            setMessage("SMS записано");
+                            setSmsBody("");
+                          })
+                          .catch((err) =>
+                            setError(parseApiError(err, "SMS не отправлено")),
+                          )
+                      }
+                    >
+                      Send SMS
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))
+          )}
+        </ul>
       </section>
 
       <section className="rounded-xl border border-border bg-surface p-4">

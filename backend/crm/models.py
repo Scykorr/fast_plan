@@ -362,15 +362,22 @@ class Activity(models.Model):
         MEETING = "meeting", "Meeting"
         EMAIL = "email", "Email"
         TELEGRAM = "telegram", "Telegram"
+        WHATSAPP = "whatsapp", "WhatsApp"
+        SMS = "sms", "SMS"
         NOTE = "note", "Note"
         INVOICE = "invoice", "Invoice"
         ORDER = "order", "Order"
+        PAYMENT = "payment", "Payment"
         OTHER = "other", "Other"
 
     class Channel(models.TextChoices):
         MANUAL = "manual", "Manual"
         EMAIL = "email", "Email"
         TELEGRAM = "telegram", "Telegram"
+        WHATSAPP = "whatsapp", "WhatsApp"
+        SMS = "sms", "SMS"
+        STRIPE = "stripe", "Stripe"
+        ONEC = "onec", "1C"
         OTHER = "other", "Other"
 
     class Direction(models.TextChoices):
@@ -865,6 +872,45 @@ class ChannelConnection(models.Model):
 
     class Meta:
         ordering = ["name", "id"]
+
+    def __str__(self):
+        return f"{self.provider}:{self.name}"
+
+
+class IntegrationConnector(models.Model):
+    """On-demand CRM integrations: Stripe, 1C, WhatsApp, SMS."""
+
+    class Provider(models.TextChoices):
+        STRIPE = "stripe", "Stripe"
+        ONEC = "onec", "1C"
+        WHATSAPP = "whatsapp", "WhatsApp"
+        SMS = "sms", "SMS"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_integration_connectors",
+    )
+    provider = models.CharField(max_length=20, choices=Provider.choices)
+    name = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True)
+    # stripe: {secret_key, webhook_secret}
+    # onec: {base_url, login, password, pending_documents: [...]}
+    # whatsapp: {access_token, phone_number_id, verify_token, webhook_secret}
+    # sms: {provider, api_key, from_number, webhook_secret}
+    config = models.JSONField(default=dict, blank=True)
+    webhook_token = models.CharField(max_length=64, blank=True, default="")
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["provider", "name", "id"]
+        indexes = [
+            models.Index(fields=["workspace", "provider", "is_active"]),
+            models.Index(fields=["webhook_token"]),
+        ]
 
     def __str__(self):
         return f"{self.provider}:{self.name}"

@@ -99,6 +99,29 @@ export type CrmChannelConnection = {
   updated_at: string;
 };
 
+export type CrmIntegrationConnector = {
+  id: number;
+  provider: "stripe" | "onec" | "whatsapp" | "sms" | string;
+  name: string;
+  is_active: boolean;
+  config_public: Record<string, unknown>;
+  webhook_token: string;
+  webhook_path: string;
+  last_synced_at: string | null;
+  last_error: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmConnectorCatalogItem = {
+  provider: string;
+  label: string;
+  config_keys: string[];
+  supports_sync: boolean;
+  supports_webhook: boolean;
+  supports_send?: boolean;
+};
+
 export type CrmDocument = {
   id: number;
   doc_type: "quote" | "invoice" | "contract" | string;
@@ -903,6 +926,36 @@ export function createCrmApi() {
         `/crm/channels/${id}/sync/`,
         { method: "POST", body: "{}" },
       ),
+
+    listConnectorCatalog: () =>
+      request<{ providers: CrmConnectorCatalogItem[] }>(
+        "/crm/connectors/catalog/",
+        {},
+      ),
+    listConnectors: () =>
+      request<CrmIntegrationConnector[]>("/crm/connectors/", {}),
+    createConnector: (body: Record<string, unknown>) =>
+      request<CrmIntegrationConnector>("/crm/connectors/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchConnector: (id: number, body: Record<string, unknown>) =>
+      request<CrmIntegrationConnector>(`/crm/connectors/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteConnector: (id: number) =>
+      request<void>(`/crm/connectors/${id}/`, { method: "DELETE" }),
+    syncConnector: (id: number) =>
+      request<{ ok: boolean; created?: number; connector: CrmIntegrationConnector }>(
+        `/crm/connectors/${id}/sync/`,
+        { method: "POST", body: "{}" },
+      ),
+    sendConnectorSms: (id: number, body: { to: string; body: string }) =>
+      request<{ ok: boolean; sent: boolean }>(`/crm/connectors/${id}/send/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
 
     listDocuments: (params: { doc_type?: string; status?: string } = {}) => {
       const qs = new URLSearchParams();

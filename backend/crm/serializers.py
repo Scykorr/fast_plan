@@ -13,6 +13,7 @@ from crm.models import (
     CrmSavedReport,
     Deal,
     DealTask,
+    IntegrationConnector,
     Lead,
     LeadTask,
     Organization,
@@ -993,6 +994,65 @@ class ChannelConnectionWriteSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         # Create requires provider + name (partial updates skip).
+        if not self.partial:
+            if not attrs.get("provider"):
+                raise serializers.ValidationError({"provider": "Required."})
+            if not attrs.get("name"):
+                raise serializers.ValidationError({"name": "Required."})
+        return attrs
+
+
+class IntegrationConnectorSerializer(serializers.ModelSerializer):
+    webhook_path = serializers.SerializerMethodField()
+    config_public = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IntegrationConnector
+        fields = [
+            "id",
+            "provider",
+            "name",
+            "is_active",
+            "config_public",
+            "webhook_token",
+            "webhook_path",
+            "last_synced_at",
+            "last_error",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_webhook_path(self, obj):
+        if not obj.webhook_token:
+            return ""
+        return f"/api/crm/connectors/webhooks/{obj.provider}/{obj.webhook_token}/"
+
+    def get_config_public(self, obj):
+        """Hide secrets in API responses."""
+        config = dict(obj.config or {})
+        for key in (
+            "secret_key",
+            "password",
+            "access_token",
+            "api_key",
+            "webhook_secret",
+            "bot_token",
+        ):
+            if config.get(key):
+                config[key] = "***"
+        return config
+
+
+class IntegrationConnectorWriteSerializer(serializers.Serializer):
+    provider = serializers.ChoiceField(
+        choices=IntegrationConnector.Provider.choices, required=False
+    )
+    name = serializers.CharField(max_length=120, required=False)
+    is_active = serializers.BooleanField(required=False)
+    config = serializers.DictField(required=False)
+
+    def validate(self, attrs):
         if not self.partial:
             if not attrs.get("provider"):
                 raise serializers.ValidationError({"provider": "Required."})

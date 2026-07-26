@@ -17,6 +17,7 @@
 
 ### Added
 
+- **CRM connectors (10)** — Stripe / 1C / WhatsApp / SMS (`IntegrationConnector`), catalog + CRUD + sync/send, public webhooks `/api/crm/connectors/webhooks/<provider>/<token>/`; UI on `/crm-commerce`
 - **CRM finance deep (6)** — AP bills (`doc_type=bill`), extended AR/AP summary, P&L by org/deal (`GET /api/crm/finance/pnl/`), cashflow forecast (`GET /api/crm/cashflow-forecast/`); payments create linked `finance.Transaction`
 - **CRM roles expand (9)** — `crm_role`: `accounting`, `marketing` (+ Settings UI); marketing in lead assignee pool
 - **CRM tasks UX (1f)** — priority / checklist / repeat on DealTask; LeadTask; unified Kanban board `GET/PATCH /api/crm/tasks/board/`; page `/crm-tasks`
