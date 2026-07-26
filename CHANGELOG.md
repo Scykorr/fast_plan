@@ -15,6 +15,12 @@
 
 ## [Unreleased]
 
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
+
+## [0.13.0] — 2026-07-26
+
 ### Fixed
 
 - **Chat** — emoji/GIF reaction picker via portal (no overflow clip), scrollable list; compact horizontal layout (messages + composer side-by-side on wide screens); guest chat matches the same layout
@@ -31,10 +37,6 @@
 - **Process UX** — per-task notes, approve/reject on inbox; link processes ↔ tasks
 - **SSO** — вход через Google временно отключён; остаётся Microsoft OAuth
 - **ROADMAP CRM matrix** — статусы 15 блоков сверены (P6a–P6i + calendar sync ✓); явный CRM backlog (1f/6/9/10)
-
-### Planned
-
-См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
 
 ## [0.12.0] — 2026-07-23
 
