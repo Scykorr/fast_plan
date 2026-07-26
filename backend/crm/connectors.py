@@ -182,6 +182,53 @@ def verify_webhook_secret(connector: IntegrationConnector, request) -> bool:
     return secrets.compare_digest(str(got), str(expected))
 
 
+def _request_payload_dict(request) -> dict:
+    data = request.data
+    if hasattr(data, "dict"):
+        # QueryDict → flat dict (last value wins)
+        return {key: data.get(key) for key in data.keys()}
+    if isinstance(data, dict):
+        return dict(data)
+    return {}
+
+
+def verify_mango_sign(connector: IntegrationConnector, payload: dict) -> bool:
+    """Validate Mango Office VPBX notification signature when api_salt is configured."""
+    config = connector.config or {}
+    api_key = str(config.get("api_key") or "")
+    api_salt = str(config.get("api_salt") or "")
+    if not api_salt:
+        return True
+    if not api_key:
+        return False
+    got_key = str(payload.get("vpbx_api_key") or payload.get("api_key") or "")
+    raw_json = payload.get("json")
+    if not isinstance(raw_json, str):
+        # Some senders wrap the event body without a separate json field.
+        body = {k: v for k, v in payload.items() if k not in ("sign", "vpbx_api_key", "api_key")}
+        raw_json = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
+    got_sign = str(payload.get("sign") or "").lower()
+    if not got_sign:
+        return False
+    if got_key and not secrets.compare_digest(got_key, api_key):
+        return False
+    expected = hashlib.sha256(f"{api_key}{raw_json}{api_salt}".encode("utf-8")).hexdigest()
+    return secrets.compare_digest(got_sign, expected)
+
+
+def verify_connector_webhook(connector: IntegrationConnector, request) -> bool:
+    """Provider-aware webhook auth (shared secret and/or Mango sign)."""
+    if not verify_webhook_secret(connector, request):
+        return False
+    if connector.provider != IntegrationConnector.Provider.TELEPHONY:
+        return True
+    config = connector.config or {}
+    pbx = str(config.get("pbx") or config.get("provider") or "").strip().lower()
+    if pbx in ("mango", "mango_office", "vpbx") or config.get("api_salt"):
+        return verify_mango_sign(connector, _request_payload_dict(request))
+    return True
+
+
 def sync_stripe(connector: IntegrationConnector) -> dict:
     secret = (connector.config or {}).get("secret_key") or ""
     if not secret:
@@ -483,6 +530,15 @@ def normalize_telephony_payload(payload: dict) -> dict:
     )
     direction_raw = str(data.get("direction") or data.get("Direction") or "").lower()
     location = str(data.get("location") or "").lower()
+    from_obj = data.get("from")
+    to_obj = data.get("to")
+    if not direction_raw and isinstance(from_obj, dict) and isinstance(to_obj, dict):
+        if from_obj.get("extension") and to_obj.get("number") and not to_obj.get("extension"):
+            direction_raw = "outbound"
+        elif from_obj.get("number") and to_obj.get("extension"):
+            direction_raw = "inbound"
+        elif from_obj.get("extension") and to_obj.get("number"):
+            direction_raw = "outbound"
     if not direction_raw:
         if location in ("abonent",) and from_phone and not to_phone:
             direction_raw = "outbound"

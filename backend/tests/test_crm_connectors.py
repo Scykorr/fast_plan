@@ -1,5 +1,6 @@
 """On-demand CRM connectors (Stripe / 1C / WhatsApp / SMS / telephony)."""
 
+import hashlib
 import json
 
 from crm.models import Activity, CrmDocument, IntegrationConnector
@@ -235,19 +236,18 @@ def test_telephony_mango_and_asterisk_dial(authenticated_client, workspace, monk
     assert calls["mango"]["fields"]["vpbx_api_key"] == "key1"
     assert calls["mango"]["fields"]["sign"]
 
+    event = {
+        "call_id": "m-99",
+        "call_state": "Connected",
+        "from": {"number": "79001112233"},
+        "to": {"extension": "101"},
+        "location": "abonent",
+    }
+    raw_json = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+    sign = __import__("hashlib").sha256(f"key1{raw_json}salt1".encode()).hexdigest()
     mango_event = authenticated_client.post(
         "/api/crm/connectors/webhooks/telephony/tok-mango/",
-        {
-            "json": json.dumps(
-                {
-                    "call_id": "m-99",
-                    "call_state": "Connected",
-                    "from": {"number": "79001112233"},
-                    "to": {"extension": "101"},
-                    "location": "abonent",
-                }
-            )
-        },
+        {"vpbx_api_key": "key1", "json": raw_json, "sign": sign},
         format="json",
     )
     assert mango_event.status_code == 200
@@ -299,3 +299,45 @@ def test_telephony_mango_and_asterisk_dial(authenticated_client, workspace, monk
     )
     assert cdr.status_code == 200
     assert Activity.objects.filter(external_id="tel:1730000.1").exists()
+
+
+def test_mango_webhook_sign_verification(authenticated_client, workspace):
+    import hashlib
+
+    api_key = "key1"
+    api_salt = "salt1"
+    IntegrationConnector.objects.create(
+        workspace=workspace,
+        provider=IntegrationConnector.Provider.TELEPHONY,
+        name="Mango signed",
+        webhook_token="tok-mango-sign",
+        config={"pbx": "mango", "api_key": api_key, "api_salt": api_salt, "extension": "101"},
+    )
+    event = {
+        "call_id": "signed-1",
+        "call_state": "Connected",
+        "from": {"number": "79001112233"},
+        "to": {"extension": "101"},
+    }
+    raw_json = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+    sign = hashlib.sha256(f"{api_key}{raw_json}{api_salt}".encode()).hexdigest()
+
+    bad = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-mango-sign/",
+        {"vpbx_api_key": api_key, "json": raw_json, "sign": "deadbeef"},
+        format="json",
+    )
+    assert bad.status_code == 403
+
+    ok = authenticated_client.post(
+        "/api/crm/connectors/webhooks/telephony/tok-mango-sign/",
+        {"vpbx_api_key": api_key, "json": raw_json, "sign": sign},
+        format="json",
+    )
+    assert ok.status_code == 200
+    assert ok.data["created"] == 1
+    assert Activity.objects.filter(
+        workspace=workspace,
+        external_id="tel:signed-1",
+        direction=Activity.Direction.INBOUND,
+    ).exists()

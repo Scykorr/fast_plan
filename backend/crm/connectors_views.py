@@ -19,7 +19,7 @@ from crm.connectors import (
     new_webhook_token,
     send_sms,
     sync_connector,
-    verify_webhook_secret,
+    verify_connector_webhook,
 )
 from crm.models import IntegrationConnector
 from crm.serializers import (
@@ -192,7 +192,7 @@ class ConnectorWebhookView(APIView):
         )
         if row is None:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        if not verify_webhook_secret(row, request):
+        if not verify_connector_webhook(row, request):
             return Response({"detail": "Invalid secret"}, status=status.HTTP_403_FORBIDDEN)
 
         payload = request.data

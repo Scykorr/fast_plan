@@ -66,7 +66,7 @@ docker compose --profile ai up -d ollama ollama-init backend
 
 - [ ] Settings → Calendar: Sync both / Pull, политика конфликтов ours/theirs/manual, resolve конфликтов
 - [ ] `/crm-commerce` → telephony connector: `pbx=asterisk` (ARI) или `pbx=mango` (api_key+salt+extension); webhook CDR → Activity call
-- [ ] `/processes` — вкладки DMN / Метрики·Mining / CMMN; `/process-tasks` inbox
+- [ ] Mango: в ЛК указать URL webhook; подпись `sign` обязательна при заданном `api_salt`- [ ] `/processes` — вкладки DMN / Метрики·Mining / CMMN; `/process-tasks` inbox
 - [ ] Settings → Outlook/Google Calendar OAuth (нужны `OAUTH_*` + redirect URI `…/api/crm/calendar/oauth/{provider}/callback/`)
 
 - [ ] `GET /api/health/` → `{ "status": "ok", "version": "…" }` совпадает с `VERSION`

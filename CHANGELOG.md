@@ -15,6 +15,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Mango VPBX webhook sign** — verify `sha256(api_key + json + api_salt)` on telephony webhooks when `pbx=mango`; clearer inbound/outbound from Mango `from`/`to` parties
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.
