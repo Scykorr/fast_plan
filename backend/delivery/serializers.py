@@ -22,10 +22,16 @@ from delivery.models import (
 class DeliverySettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliverySettings
-        fields = ["agent_ops_enabled", "github_webhook_secret", "updated_at"]
+        fields = [
+            "agent_ops_enabled",
+            "github_webhook_secret",
+            "github_api_token",
+            "updated_at",
+        ]
         read_only_fields = ["updated_at"]
         extra_kwargs = {
             "github_webhook_secret": {"write_only": True, "required": False},
+            "github_api_token": {"write_only": True, "required": False},
         }
 
 

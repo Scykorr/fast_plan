@@ -109,6 +109,21 @@ urlpatterns = [
         views.TaskPrSnippetView.as_view(),
         name="delivery-task-pr-snippet",
     ),
+    path(
+        "delivery/tasks/<int:task_id>/attach-pr/",
+        views.TaskPrAttachView.as_view(),
+        name="delivery-task-attach-pr",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/meaning-changes/",
+        views.MeaningChangeListView.as_view(),
+        name="delivery-task-meaning-changes",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/meaning-changes/<int:request_id>/review/",
+        views.MeaningChangeReviewView.as_view(),
+        name="delivery-task-meaning-review",
+    ),
     path("delivery/queue/", views.AgentQueueView.as_view(), name="delivery-queue"),
     path(
         "delivery/webhooks/github/",

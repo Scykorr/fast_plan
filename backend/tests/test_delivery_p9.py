@@ -10,6 +10,8 @@ from delivery.models import (
     DeliverySettings,
     DeliveryTask,
     TaskDependency,
+    TaskGitHubReview,
+    TaskMeaningChangeRequest,
 )
 
 User = get_user_model()
@@ -357,6 +359,122 @@ def test_github_webhook_updates_task_and_reviews(workspace, enable_ops):
     task.refresh_from_db()
     assert task.github_pr_state == "open"
     assert "Please fix tests" in task.github_review_notes
+    assert TaskGitHubReview.objects.filter(task=task).exists()
+    review_row = TaskGitHubReview.objects.get(task=task)
+    assert review_row.state == TaskGitHubReview.State.CHANGES_REQUESTED
+
+
+@pytest.mark.django_db
+def test_github_webhook_autolink_by_branch(workspace, enable_ops):
+    task = DeliveryTask.objects.create(
+        workspace=workspace,
+        title="Branch task",
+        github_repo="org/repo",
+        github_branch="feat/auto",
+        github_pr_number=None,
+        **{k: v for k, v in READY_FIELDS.items() if k != "title"},
+    )
+    client = APIClient()
+    resp = client.post(
+        "/api/delivery/webhooks/github/",
+        {
+            "action": "opened",
+            "pull_request": {
+                "number": 99,
+                "state": "open",
+                "html_url": "https://github.com/org/repo/pull/99",
+                "head": {"ref": "feat/auto", "sha": "def456"},
+            },
+            "repository": {"full_name": "org/repo"},
+        },
+        format="json",
+        HTTP_X_GITHUB_EVENT="pull_request",
+    )
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.data["updated"] == 1
+    task.refresh_from_db()
+    assert task.github_pr_number == 99
+    assert task.github_pr_url.endswith("/99")
+
+
+@pytest.mark.django_db
+def test_agent_meaning_change_requires_owner_approve(
+    authenticated_client, workspace, enable_ops, user
+):
+    AgentProfile.objects.create(
+        workspace=workspace,
+        user=user,
+        role="backend",
+        actor_type=AgentProfile.ActorType.AGENT,
+        display_name="BE Agent",
+    )
+    create = authenticated_client.post(
+        "/api/delivery/tasks/", READY_FIELDS, format="json"
+    )
+    task_id = create.data["id"]
+    patched = authenticated_client.patch(
+        f"/api/delivery/tasks/{task_id}/",
+        {"title": "Hacked title", "business_outcome": "new outcome"},
+        format="json",
+    )
+    assert patched.status_code == status.HTTP_200_OK
+    assert patched.data["title"] == READY_FIELDS["title"]
+    assert patched.data["meaning_change_pending"] is True
+    req_id = patched.data["meaning_change_request_id"]
+    assert TaskMeaningChangeRequest.objects.filter(
+        pk=req_id, status="pending"
+    ).exists()
+
+    AgentProfile.objects.filter(user=user).update(role="owner")
+    approved = authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/meaning-changes/{req_id}/review/",
+        {"decision": "approve"},
+        format="json",
+    )
+    assert approved.status_code == status.HTTP_200_OK
+    assert approved.data["status"] == "approved"
+    assert approved.data["task"]["title"] == "Hacked title"
+    assert approved.data["task"]["business_outcome"] == "new outcome"
+
+
+@pytest.mark.django_db
+def test_create_project_from_agent_ops(authenticated_client, enable_ops, workspace):
+    from projects.models import Project
+
+    resp = authenticated_client.post(
+        "/api/delivery/projects/",
+        {
+            "name": "New Ops Project",
+            "description": "from agent ops",
+            "repo_url": "https://github.com/org/new",
+            "docs_url": "https://example.com/docs",
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_201_CREATED
+    assert Project.objects.filter(
+        workspace=workspace, name="New Ops Project"
+    ).exists()
+    assert resp.data["repo_url"].endswith("/new")
+    assert resp.data["project_name"] == "New Ops Project"
+
+
+@pytest.mark.django_db
+def test_attach_pr_requires_token(authenticated_client, enable_ops, workspace):
+    create = authenticated_client.post(
+        "/api/delivery/tasks/",
+        {
+            **READY_FIELDS,
+            "github_repo": "org/repo",
+            "github_pr_number": 7,
+        },
+        format="json",
+    )
+    task_id = create.data["id"]
+    missing = authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/attach-pr/", {}, format="json"
+    )
+    assert missing.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.django_db

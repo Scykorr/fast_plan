@@ -93,6 +93,8 @@ export type DeliveryTask = {
   version: number;
   open_blockers_count: number;
   ready_missing: string[];
+  meaning_change_request_id?: number;
+  meaning_change_pending?: boolean;
   dependencies?: Array<{
     id: number;
     depends_on: number;
@@ -102,8 +104,11 @@ export type DeliveryTask = {
   blockers?: Array<{
     id: number;
     title: string;
-    is_open: boolean;
+    detail?: string;
+    is_open?: boolean;
     needs_owner_decision: boolean;
+    resolved_at?: string | null;
+    cancelled_at?: string | null;
   }>;
   handoffs?: Array<{
     id: number;
@@ -113,6 +118,18 @@ export type DeliveryTask = {
   }>;
   created_at: string;
   updated_at: string;
+};
+
+export type MeaningChangeRequest = {
+  id: number;
+  status: "pending" | "approved" | "rejected";
+  proposed_fields: Record<string, unknown>;
+  note: string;
+  requested_by: number | null;
+  reviewed_by: number | null;
+  review_note: string;
+  created_at: string;
+  reviewed_at: string | null;
 };
 
 export type DeliveryOverview = {
@@ -162,7 +179,7 @@ export type DeliveryTaskWrite = Partial<{
   github_checks_url: string;
   github_checks_status: string;
   github_review_notes: string;
-  confirm_meaning_change?: boolean;
+  meaning_note?: string;
 }>;
 
 function qs(params?: Record<string, string | number | boolean | undefined>) {
@@ -317,11 +334,30 @@ export function createDeliveryApi() {
         }>
       >("/delivery/projects/"),
     upsertProjectMeta: (data: {
-      project: number;
+      project?: number;
+      name?: string;
+      description?: string;
       repo_url?: string;
       docs_url?: string;
     }) =>
       request("/delivery/projects/", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    listMeaningChanges: (taskId: number) =>
+      request<MeaningChangeRequest[]>(
+        `/delivery/tasks/${taskId}/meaning-changes/`,
+      ),
+    reviewMeaningChange: (
+      taskId: number,
+      requestId: number,
+      data: { decision: "approve" | "reject"; note?: string },
+    ) =>
+      request<{
+        id: number;
+        status: string;
+        task?: DeliveryTask;
+      }>(`/delivery/tasks/${taskId}/meaning-changes/${requestId}/review/`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -384,6 +420,20 @@ export function createDeliveryApi() {
       request<{ markdown: string; task_id: number }>(
         `/delivery/tasks/${taskId}/pr-snippet/`,
       ),
+    attachPr: (
+      taskId: number,
+      data?: { repo?: string; pr_number?: number },
+    ) =>
+      request<{
+        ok: boolean;
+        skipped: boolean;
+        pr_url?: string;
+        detail?: string;
+        task?: DeliveryTask;
+      }>(`/delivery/tasks/${taskId}/attach-pr/`, {
+        method: "POST",
+        body: JSON.stringify(data || {}),
+      }),
     queue: (params?: { role?: string; status?: string }) =>
       request<DeliveryTask[]>(`/delivery/queue/${qs(params)}`),
   };

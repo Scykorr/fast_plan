@@ -583,5 +583,16 @@ def build_task_timeline(task: DeliveryTask) -> list[dict]:
                 "detail": row.kind,
             }
         )
+    for row in task.meaning_change_requests.all()[:100]:
+        events.append(
+            {
+                "kind": f"meaning:{row.status}",
+                "at": row.created_at.isoformat(),
+                "actor_id": row.requested_by_id,
+                "summary": "Meaning change: "
+                + ", ".join(sorted((row.proposed_fields or {}).keys())),
+                "detail": row.note or row.review_note or "",
+            }
+        )
     events.sort(key=lambda e: e["at"], reverse=True)
     return events[:500]

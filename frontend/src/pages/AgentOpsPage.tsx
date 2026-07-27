@@ -103,6 +103,13 @@ export function AgentOpsPage() {
       new_value: string;
       created_at: string;
     }>;
+    timeline?: Array<{
+      kind: string;
+      at: string;
+      actor_id: number | null;
+      summary: string;
+      detail: string;
+    }>;
   } | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -124,6 +131,15 @@ export function AgentOpsPage() {
   const [projectLinks, setProjectLinks] = useState<
     Record<number, { repo_url: string; docs_url: string }>
   >({});
+  const [newProject, setNewProject] = useState({
+    name: "",
+    description: "",
+    repo_url: "",
+    docs_url: "",
+  });
+  const [meaningChanges, setMeaningChanges] = useState<
+    import("../api/delivery").MeaningChangeRequest[]
+  >([]);
   const [epicTitle, setEpicTitle] = useState("");
   const [sprintName, setSprintName] = useState("");
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
@@ -192,12 +208,14 @@ export function AgentOpsPage() {
     async (id: number) => {
       if (!api) return;
       try {
-        const [task, hist] = await Promise.all([
+        const [task, hist, meanings] = await Promise.all([
           api.getTask(id),
           api.getHistory(id),
+          api.listMeaningChanges(id),
         ]);
         setSelected(task);
         setHistory(hist);
+        setMeaningChanges(meanings);
       } catch (err) {
         setError(parseApiError(err));
       }
@@ -384,6 +402,57 @@ export function AgentOpsPage() {
     }
   };
 
+  const attachPr = async () => {
+    if (!api || !selected) return;
+    try {
+      const res = await api.attachPr(selected.id);
+      setMessage(
+        res.skipped
+          ? "Ссылка уже есть в PR"
+          : `Ссылка прикреплена к PR${res.pr_url ? `: ${res.pr_url}` : ""}`,
+      );
+      await loadTask(selected.id);
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const reviewMeaning = async (
+    requestId: number,
+    decision: "approve" | "reject",
+  ) => {
+    if (!api || !selected) return;
+    try {
+      await api.reviewMeaningChange(selected.id, requestId, { decision });
+      setMessage(
+        decision === "approve"
+          ? `Meaning change #${requestId} approved`
+          : `Meaning change #${requestId} rejected`,
+      );
+      await loadTask(selected.id);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const createProject = async () => {
+    if (!api || !newProject.name.trim()) return;
+    try {
+      await api.upsertProjectMeta({
+        name: newProject.name.trim(),
+        description: newProject.description,
+        repo_url: newProject.repo_url,
+        docs_url: newProject.docs_url,
+      });
+      setNewProject({ name: "", description: "", repo_url: "", docs_url: "" });
+      setMessage("Проект создан");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
   const tabs = useMemo(
     () =>
       [
@@ -512,6 +581,54 @@ export function AgentOpsPage() {
               <p className="text-sm text-text-muted">
                 Проекты workspace + ссылки repo/docs (TZ §5.1).
               </p>
+              <div className="space-y-2 rounded-xl border border-border bg-surface p-4">
+                <h3 className="font-semibold">Создать проект</h3>
+                <input
+                  className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  placeholder="Название"
+                  value={newProject.name}
+                  onChange={(e) =>
+                    setNewProject((p) => ({ ...p, name: e.target.value }))
+                  }
+                />
+                <textarea
+                  className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  placeholder="Описание"
+                  rows={2}
+                  value={newProject.description}
+                  onChange={(e) =>
+                    setNewProject((p) => ({
+                      ...p,
+                      description: e.target.value,
+                    }))
+                  }
+                />
+                <div className="grid gap-2 md:grid-cols-2">
+                  <input
+                    className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                    placeholder="Repo URL"
+                    value={newProject.repo_url}
+                    onChange={(e) =>
+                      setNewProject((p) => ({ ...p, repo_url: e.target.value }))
+                    }
+                  />
+                  <input
+                    className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                    placeholder="Docs URL"
+                    value={newProject.docs_url}
+                    onChange={(e) =>
+                      setNewProject((p) => ({ ...p, docs_url: e.target.value }))
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white"
+                  onClick={() => void createProject()}
+                >
+                  Создать
+                </button>
+              </div>
               <ul className="space-y-3">
                 {projects.map((p) => (
                   <li
@@ -1013,8 +1130,58 @@ export function AgentOpsPage() {
                       >
                         Copy PR snippet
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void attachPr()}
+                        className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                      >
+                        Attach link to PR
+                      </button>
                     </div>
                   </div>
+
+                  {meaningChanges.some((m) => m.status === "pending") && (
+                    <div className="space-y-2 rounded-xl border border-amber-300 bg-surface p-4">
+                      <h3 className="font-semibold">Meaning change requests</h3>
+                      <ul className="space-y-2 text-sm">
+                        {meaningChanges
+                          .filter((m) => m.status === "pending")
+                          .map((m) => (
+                            <li
+                              key={m.id}
+                              className="flex flex-wrap items-center justify-between gap-2"
+                            >
+                              <span>
+                                #{m.id}:{" "}
+                                {Object.entries(m.proposed_fields)
+                                  .map(([k, v]) => `${k}=${String(v)}`)
+                                  .join(", ")}
+                              </span>
+                              <span className="flex gap-2">
+                                <button
+                                  type="button"
+                                  className="rounded-lg bg-primary px-2 py-1 text-xs text-white"
+                                  onClick={() =>
+                                    void reviewMeaning(m.id, "approve")
+                                  }
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-lg border border-border px-2 py-1 text-xs"
+                                  onClick={() =>
+                                    void reviewMeaning(m.id, "reject")
+                                  }
+                                >
+                                  Reject
+                                </button>
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2 rounded-xl border border-border bg-surface p-4">

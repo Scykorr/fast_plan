@@ -16,6 +16,8 @@ class DeliverySettings(models.Model):
     )
     agent_ops_enabled = models.BooleanField(default=False)
     github_webhook_secret = models.CharField(max_length=255, blank=True, default="")
+    # Optional PAT for attaching task links to PRs (TZ §10 desirable)
+    github_api_token = models.CharField(max_length=255, blank=True, default="")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -683,3 +685,68 @@ class DeliveryAccessLog(models.Model):
     class Meta:
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["workspace", "created_at"])]
+
+
+class TaskMeaningChangeRequest(models.Model):
+    """TZ §12 — agents propose meaning changes; Owner/Planner must approve."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    task = models.ForeignKey(
+        DeliveryTask, on_delete=models.CASCADE, related_name="meaning_change_requests"
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delivery_meaning_requests",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delivery_meaning_reviews",
+    )
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
+    proposed_fields = models.JSONField(default=dict)
+    note = models.TextField(blank=True, default="")
+    review_note = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class TaskGitHubReview(models.Model):
+    """TZ §10 — structured open review remarks (not a blob)."""
+
+    class State(models.TextChoices):
+        COMMENTED = "commented", "Commented"
+        APPROVED = "approved", "Approved"
+        CHANGES_REQUESTED = "changes_requested", "Changes requested"
+        DISMISSED = "dismissed", "Dismissed"
+        OPEN = "open", "Open"
+
+    task = models.ForeignKey(
+        DeliveryTask, on_delete=models.CASCADE, related_name="github_reviews"
+    )
+    github_review_id = models.BigIntegerField(null=True, blank=True)
+    author_login = models.CharField(max_length=255, blank=True, default="")
+    state = models.CharField(max_length=32, choices=State.choices, default=State.OPEN)
+    body = models.TextField(blank=True, default="")
+    html_url = models.URLField(blank=True, default="")
+    is_resolved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["task", "is_resolved"])]

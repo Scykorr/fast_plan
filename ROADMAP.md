@@ -40,7 +40,7 @@
 | 2026-07-23 | Релиз **v0.12.0** — SSO Microsoft, P8 UX, P7 Mobile/Security в changelog |
 | 2026-07-25 | **CRM calendar sync** — events + Outlook/Google push; staging smoke 0.12 |
 | 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
-| 2026-07-27 | **P9 Agent Ops** — эпик в ROADMAP; модуль delivery + TZ end-to-end (P9e) |
+| 2026-07-27 | **P9 Agent Ops** — эпик в ROADMAP; модуль delivery + TZ end-to-end (P9e) + ideal close (P9g) |
 | 2026-07-26 | Релиз **v0.14.2** — Lead click-to-call, live ARI WebSocket bridge |
 | 2026-07-26 | Релиз **v0.14.1** — Mango sign, Asterisk AMI/ARI ingest, click-to-call Person/Deal |
 | 2026-07-26 | Релиз **v0.14.0** — calendar 2-way, telephony Asterisk/Mango, CRM connectors/finance/roles/tasks |
@@ -352,6 +352,7 @@ _Границы:_ CryptoGamp/любой repo = канон; Fast Plan = испо�
 - [x] **P9d** — Agent API: filters, Idempotency-Key, rate limit, service-account friendly queues. **M**
 - [x] **P9e** — TZ end-to-end: full Ready-gate §8, dependencies, field/access journals, service accounts, project meta, review notes/PR snippet, overview+task card UI. **L**
 - [x] **P9f** — TZ gap-close: ACL `can()`, assign API, unified timeline, dep gates, SubTask CRUD, comment kinds, project §5.1 list, webhook HMAC, richer Agent Ops UI. **M**
+- [x] **P9g** — Ideal TZ close: Owner/Planner meaning-approve queue; universal access log; GitHub branch auto-link + structured reviews + attach-PR PAT; create Project+meta from Agent Ops. **M**
 
 ### DoD (§17 ТЗ)
 

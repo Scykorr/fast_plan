@@ -29,6 +29,8 @@ from delivery.models import (
     TaskComment,
     TaskDependency,
     TaskFieldHistory,
+    TaskGitHubReview,
+    TaskMeaningChangeRequest,
     TaskStatusHistory,
 )
 from delivery.serializers import (
@@ -72,6 +74,20 @@ User = get_user_model()
 
 RATE_LIMIT = 120
 RATE_WINDOW = 60
+
+
+class DeliveryOpsMixin(WorkspaceMixin):
+    """TZ §9.1 — log every delivery API response for authenticated callers."""
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        user = getattr(request, "user", None)
+        if user and getattr(user, "is_authenticated", False):
+            try:
+                ws = self.get_workspace()
+            except Exception:
+                pass
+        return response
 
 
 def _ensure_ops_enabled(workspace):
@@ -196,7 +212,7 @@ def _idempotency_store(workspace, user, key, method, path, response: Response):
     )
 
 
-class DeliverySettingsView(WorkspaceMixin, APIView):
+class DeliverySettingsView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def patch(self, request):
@@ -210,9 +226,14 @@ class DeliverySettingsView(WorkspaceMixin, APIView):
             row.github_webhook_secret = (
                 request.data.get("github_webhook_secret") or ""
             )[:255]
+        if "github_api_token" in request.data:
+            row.github_api_token = (request.data.get("github_api_token") or "")[
+                :255
+            ]
         row.save()
         data = DeliverySettingsSerializer(row).data
         data["github_webhook_secret_set"] = bool(row.github_webhook_secret)
+        data["github_api_token_set"] = bool(row.github_api_token)
         return Response(data)
 
     def get(self, request):
@@ -221,10 +242,11 @@ class DeliverySettingsView(WorkspaceMixin, APIView):
         )
         data = DeliverySettingsSerializer(row).data
         data["github_webhook_secret_set"] = bool(row.github_webhook_secret)
+        data["github_api_token_set"] = bool(row.github_api_token)
         return Response(data)
 
 
-class ProjectMetaListCreateView(WorkspaceMixin, APIView):
+class ProjectMetaListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -232,7 +254,6 @@ class ProjectMetaListCreateView(WorkspaceMixin, APIView):
 
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
-        _log_access(ws, request, 200)
         metas = {
             m.project_id: m
             for m in DeliveryProjectMeta.objects.filter(workspace=ws).select_related(
@@ -259,12 +280,23 @@ class ProjectMetaListCreateView(WorkspaceMixin, APIView):
         return Response(rows)
 
     def post(self, request):
+        from projects.models import Project
+
         self.require_editor()
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
         project_id = request.data.get("project")
-        if not project_id:
-            raise ValidationError({"project": "Required"})
+        name = (request.data.get("name") or "").strip()
+        if not project_id and not name:
+            raise ValidationError({"project": "Provide project id or name to create"})
+        if not project_id and name:
+            project = Project.objects.create(
+                workspace=ws,
+                name=name[:255],
+                description=(request.data.get("description") or "")[:5000],
+                manager=request.user,
+            )
+            project_id = project.id
         row, _ = DeliveryProjectMeta.objects.update_or_create(
             workspace=ws,
             project_id=project_id,
@@ -273,13 +305,12 @@ class ProjectMetaListCreateView(WorkspaceMixin, APIView):
                 "docs_url": request.data.get("docs_url") or "",
             },
         )
-        _log_access(ws, request, 201)
         return Response(
             DeliveryProjectMetaSerializer(row).data, status=201
         )
 
 
-class AgentProfileListCreateView(WorkspaceMixin, APIView):
+class AgentProfileListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -309,7 +340,7 @@ class AgentProfileListCreateView(WorkspaceMixin, APIView):
         return Response(AgentProfileSerializer(row).data, status=201)
 
 
-class AgentServiceAccountCreateView(WorkspaceMixin, APIView):
+class AgentServiceAccountCreateView(DeliveryOpsMixin, APIView):
     """TZ §9.1 / §15.4 — provision a dedicated agent user + API token."""
 
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
@@ -369,7 +400,7 @@ class AgentServiceAccountCreateView(WorkspaceMixin, APIView):
         return Response(data, status=201)
 
 
-class AgentActionLogListView(WorkspaceMixin, APIView):
+class AgentActionLogListView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -379,7 +410,7 @@ class AgentActionLogListView(WorkspaceMixin, APIView):
         return Response(AgentActionLogSerializer(rows, many=True).data)
 
 
-class AccessLogListView(WorkspaceMixin, APIView):
+class AccessLogListView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -390,13 +421,12 @@ class AccessLogListView(WorkspaceMixin, APIView):
         return Response(DeliveryAccessLogSerializer(rows, many=True).data)
 
 
-class EpicListCreateView(WorkspaceMixin, APIView):
+class EpicListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
-        _log_access(ws, request, 200)
         rows = Epic.objects.filter(workspace=ws)
         return Response(EpicSerializer(rows, many=True).data)
 
@@ -416,11 +446,10 @@ class EpicListCreateView(WorkspaceMixin, APIView):
         ):
             data["priority"] = Epic.Priority.NORMAL
         row = Epic.objects.create(workspace=ws, **data)
-        _log_access(ws, request, 201)
         return Response(EpicSerializer(row).data, status=201)
 
 
-class EpicDetailView(WorkspaceMixin, APIView):
+class EpicDetailView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def patch(self, request, epic_id):
@@ -450,7 +479,7 @@ class EpicDetailView(WorkspaceMixin, APIView):
         return Response(EpicSerializer(epic).data)
 
 
-class SprintListCreateView(WorkspaceMixin, APIView):
+class SprintListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -474,7 +503,7 @@ class SprintListCreateView(WorkspaceMixin, APIView):
         return Response(SprintSerializer(row).data, status=201)
 
 
-class SprintDetailView(WorkspaceMixin, APIView):
+class SprintDetailView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def patch(self, request, sprint_id):
@@ -492,7 +521,7 @@ class SprintDetailView(WorkspaceMixin, APIView):
         return Response(SprintSerializer(sprint).data)
 
 
-class TaskListCreateView(WorkspaceMixin, APIView):
+class TaskListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -529,7 +558,6 @@ class TaskListCreateView(WorkspaceMixin, APIView):
             and not any([status_q, role_q, mine, ready_only])
         ):
             qs = qs.filter(assignee_role=profile.role)
-        _log_access(ws, request, 200)
         return Response(DeliveryTaskSerializer(qs[:300], many=True).data)
 
     def post(self, request):
@@ -561,11 +589,10 @@ class TaskListCreateView(WorkspaceMixin, APIView):
         )
         resp = Response(DeliveryTaskSerializer(task).data, status=201)
         _idempotency_store(ws, request.user, idem_key, "POST", request.path, resp)
-        _log_access(ws, request, 201)
         return resp
 
 
-class TaskDetailView(WorkspaceMixin, APIView):
+class TaskDetailView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request, task_id):
@@ -588,28 +615,41 @@ class TaskDetailView(WorkspaceMixin, APIView):
         if not _can_mutate_task(ws, request.user, task):
             raise PermissionDenied("Not allowed to mutate this task.")
         profile = _agent_profile(ws, request.user)
+        meaning_request = None
+        data = dict(request.data)
         if (
             profile
             and profile.actor_type == AgentProfile.ActorType.AGENT
-            and profile.role not in ("owner", "planner", "documentation")
+            and profile.role not in ("owner", "planner")
         ):
-            touched = MEANING_FIELDS.intersection(request.data.keys())
-            if touched and not request.data.get("confirm_meaning_change"):
-                raise PermissionDenied(
-                    "Agents cannot change task meaning without confirm_meaning_change."
+            touched = MEANING_FIELDS.intersection(data.keys())
+            if touched:
+                proposed = {k: data.pop(k) for k in list(touched)}
+                meaning_request = TaskMeaningChangeRequest.objects.create(
+                    task=task,
+                    requested_by=request.user,
+                    proposed_fields=proposed,
+                    note=(request.data.get("meaning_note") or "")[:2000],
                 )
-            if touched and request.data.get("confirm_meaning_change"):
                 TaskComment.objects.create(
                     task=task,
                     kind=TaskComment.Kind.OWNER_REQUEST,
                     body=(
-                        "Meaning change confirmation: "
-                        + ", ".join(sorted(touched))
+                        "Meaning change awaiting Owner/Planner approval "
+                        f"(#{meaning_request.id}): "
+                        + ", ".join(sorted(proposed.keys()))
                     ),
                     author=request.user,
                 )
+                log_agent_action(
+                    workspace=ws,
+                    user=request.user,
+                    action="meaning.request",
+                    entity_type="TaskMeaningChangeRequest",
+                    entity_id=meaning_request.id,
+                )
         before = snapshot_task(task)
-        ser = DeliveryTaskWriteSerializer(task, data=request.data, partial=True)
+        ser = DeliveryTaskWriteSerializer(task, data=data, partial=True)
         ser.is_valid(raise_exception=True)
         for k, v in ser.validated_data.items():
             setattr(task, k, v)
@@ -618,10 +658,97 @@ class TaskDetailView(WorkspaceMixin, APIView):
         record_field_changes(
             task, user=request.user, before=before, after=snapshot_task(task)
         )
-        return Response(DeliveryTaskSerializer(task).data)
+        payload = DeliveryTaskSerializer(task).data
+        if meaning_request:
+            payload["meaning_change_request_id"] = meaning_request.id
+            payload["meaning_change_pending"] = True
+        return Response(payload)
 
 
-class TaskStatusView(WorkspaceMixin, APIView):
+class MeaningChangeListView(DeliveryOpsMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, task_id):
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        rows = task.meaning_change_requests.all()[:50]
+        return Response(
+            [
+                {
+                    "id": r.id,
+                    "status": r.status,
+                    "proposed_fields": r.proposed_fields,
+                    "note": r.note,
+                    "requested_by": r.requested_by_id,
+                    "reviewed_by": r.reviewed_by_id,
+                    "review_note": r.review_note,
+                    "created_at": r.created_at,
+                    "reviewed_at": r.reviewed_at,
+                }
+                for r in rows
+            ]
+        )
+
+
+class MeaningChangeReviewView(DeliveryOpsMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, task_id, request_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        profile = _agent_profile(ws, request.user)
+        membership = WorkspaceMember.objects.filter(
+            workspace=ws, user=request.user
+        ).first()
+        is_ownerish = membership and membership.role == WorkspaceMember.Role.OWNER
+        if not (
+            is_ownerish
+            or (profile and profile.role in ("owner", "planner"))
+        ):
+            raise PermissionDenied("Only Owner/Planner can approve meaning changes.")
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        row = get_object_or_404(task.meaning_change_requests.all(), pk=request_id)
+        if row.status != TaskMeaningChangeRequest.Status.PENDING:
+            raise ValidationError({"detail": "Request already reviewed"})
+        decision = (request.data.get("decision") or "approve").strip().lower()
+        from django.utils import timezone as dj_tz
+
+        row.reviewed_by = request.user
+        row.reviewed_at = dj_tz.now()
+        row.review_note = (request.data.get("note") or "")[:2000]
+        if decision in ("reject", "rejected"):
+            row.status = TaskMeaningChangeRequest.Status.REJECTED
+            row.save()
+            return Response({"id": row.id, "status": row.status})
+        before = snapshot_task(task)
+        for field, value in (row.proposed_fields or {}).items():
+            if hasattr(task, field):
+                setattr(task, field, value)
+        task.version += 1
+        task.save()
+        record_field_changes(
+            task, user=request.user, before=before, after=snapshot_task(task)
+        )
+        row.status = TaskMeaningChangeRequest.Status.APPROVED
+        row.save()
+        TaskComment.objects.create(
+            task=task,
+            kind=TaskComment.Kind.COMMENT,
+            body=f"Meaning change #{row.id} approved by Owner/Planner",
+            author=request.user,
+        )
+        return Response(
+            {
+                "id": row.id,
+                "status": row.status,
+                "task": DeliveryTaskSerializer(task).data,
+            }
+        )
+
+
+class TaskStatusView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def post(self, request, task_id):
@@ -647,7 +774,7 @@ class TaskStatusView(WorkspaceMixin, APIView):
         return resp
 
 
-class TaskClaimView(WorkspaceMixin, APIView):
+class TaskClaimView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def post(self, request, task_id):
@@ -678,13 +805,12 @@ class TaskClaimView(WorkspaceMixin, APIView):
             entity_type="DeliveryTask",
             entity_id=claimed.id,
         )
-        _log_access(ws, request, 200)
         resp = Response(DeliveryTaskSerializer(claimed).data)
         _idempotency_store(ws, request.user, idem_key, "POST", request.path, resp)
         return resp
 
 
-class TaskAssignView(WorkspaceMixin, APIView):
+class TaskAssignView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def post(self, request, task_id):
@@ -712,11 +838,10 @@ class TaskAssignView(WorkspaceMixin, APIView):
             entity_id=assigned.id,
             detail=str(assignee),
         )
-        _log_access(ws, request, 200)
         return Response(DeliveryTaskSerializer(assigned).data)
 
 
-class TaskHistoryView(WorkspaceMixin, APIView):
+class TaskHistoryView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request, task_id):
@@ -734,7 +859,6 @@ class TaskHistoryView(WorkspaceMixin, APIView):
         )
         status_rows = task.status_history.all()
         field_rows = task.field_history.all()[:200]
-        _log_access(ws, request, 200)
         return Response(
             {
                 "status_history": StatusHistorySerializer(status_rows, many=True).data,
@@ -744,7 +868,7 @@ class TaskHistoryView(WorkspaceMixin, APIView):
         )
 
 
-class TaskBlockerListCreateView(WorkspaceMixin, APIView):
+class TaskBlockerListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request, task_id):
@@ -794,7 +918,7 @@ class TaskBlockerListCreateView(WorkspaceMixin, APIView):
         return Response(BlockerSerializer(blocker).data, status=201)
 
 
-class TaskBlockerResolveView(WorkspaceMixin, APIView):
+class TaskBlockerResolveView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def post(self, request, task_id, blocker_id):
@@ -809,7 +933,7 @@ class TaskBlockerResolveView(WorkspaceMixin, APIView):
         return Response(BlockerSerializer(blocker).data)
 
 
-class TaskBlockerCancelView(WorkspaceMixin, APIView):
+class TaskBlockerCancelView(DeliveryOpsMixin, APIView):
     """Soft-cancel with required reason — no hard delete (TZ §12)."""
 
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
@@ -829,7 +953,7 @@ class TaskBlockerCancelView(WorkspaceMixin, APIView):
         return Response(BlockerSerializer(blocker).data)
 
 
-class TaskHandoffCreateView(WorkspaceMixin, APIView):
+class TaskHandoffCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def post(self, request, task_id):
@@ -871,7 +995,7 @@ class TaskHandoffCreateView(WorkspaceMixin, APIView):
         return resp
 
 
-class TaskCommentListCreateView(WorkspaceMixin, APIView):
+class TaskCommentListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request, task_id):
@@ -893,11 +1017,10 @@ class TaskCommentListCreateView(WorkspaceMixin, APIView):
         row = TaskComment.objects.create(
             task=task, body=body, kind=kind, author=request.user
         )
-        _log_access(ws, request, 201)
         return Response(CommentSerializer(row).data, status=201)
 
 
-class TaskSubTaskListCreateView(WorkspaceMixin, APIView):
+class TaskSubTaskListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request, task_id):
@@ -924,7 +1047,7 @@ class TaskSubTaskListCreateView(WorkspaceMixin, APIView):
         return Response(SubTaskSerializer(row).data, status=201)
 
 
-class TaskSubTaskDetailView(WorkspaceMixin, APIView):
+class TaskSubTaskDetailView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def patch(self, request, task_id, subtask_id):
@@ -942,7 +1065,7 @@ class TaskSubTaskDetailView(WorkspaceMixin, APIView):
         return Response(SubTaskSerializer(row).data)
 
 
-class TaskDependencyListCreateView(WorkspaceMixin, APIView):
+class TaskDependencyListCreateView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request, task_id):
@@ -974,7 +1097,7 @@ class TaskDependencyListCreateView(WorkspaceMixin, APIView):
         )
 
 
-class TaskPrSnippetView(WorkspaceMixin, APIView):
+class TaskPrSnippetView(DeliveryOpsMixin, APIView):
     """TZ §10 — markdown to paste into PR body linking back to the task."""
 
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
@@ -993,7 +1116,112 @@ class TaskPrSnippetView(WorkspaceMixin, APIView):
         return Response({"markdown": snippet, "task_id": task.id})
 
 
-class AgentQueueView(WorkspaceMixin, APIView):
+class TaskPrAttachView(DeliveryOpsMixin, APIView):
+    """TZ §10 desirable — append task link snippet to GitHub PR body via PAT."""
+
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, task_id):
+        import json
+        import urllib.error
+        import urllib.request
+
+        self.require_editor()
+        ws = self.get_workspace()
+        settings_row = _ensure_ops_enabled(ws)
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        token = (settings_row.github_api_token or "").strip()
+        if not token:
+            raise ValidationError(
+                {"github_api_token": "Set DeliverySettings.github_api_token first"}
+            )
+        repo = (request.data.get("repo") or task.github_repo or "").strip()
+        pr_number = request.data.get("pr_number") or task.github_pr_number
+        if not repo or not pr_number:
+            raise ValidationError(
+                {"detail": "Task needs github_repo and github_pr_number (or pass them)"}
+            )
+        base = request.build_absolute_uri("/").rstrip("/")
+        snippet = (
+            f"\n\n## Fast Plan task\n"
+            f"- Task: [{task.title}]({base}/agent-ops?task={task.id})\n"
+            f"- Role: `{task.assignee_role or '—'}`\n"
+            f"- DoD: {task.done_criterion or '—'}\n"
+        )
+        api_url = f"https://api.github.com/repos/{repo}/pulls/{int(pr_number)}"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "fast-plan-agent-ops",
+        }
+        try:
+            req = urllib.request.Request(api_url, headers=headers, method="GET")
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                current = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            raise ValidationError(
+                {"detail": f"GitHub GET PR failed: {exc.code}"}
+            ) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise ValidationError({"detail": f"GitHub GET PR failed: {exc}"}) from exc
+        body = current.get("body") or ""
+        marker = f"/agent-ops?task={task.id}"
+        if marker in body:
+            return Response(
+                {
+                    "ok": True,
+                    "skipped": True,
+                    "detail": "Task link already present in PR body",
+                    "pr_url": current.get("html_url") or task.github_pr_url,
+                }
+            )
+        new_body = body + snippet
+        payload = json.dumps({"body": new_body}).encode()
+        try:
+            req = urllib.request.Request(
+                api_url,
+                data=payload,
+                headers={**headers, "Content-Type": "application/json"},
+                method="PATCH",
+            )
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                updated = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            raise ValidationError(
+                {"detail": f"GitHub PATCH PR failed: {exc.code}"}
+            ) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise ValidationError({"detail": f"GitHub PATCH PR failed: {exc}"}) from exc
+        task.github_pr_url = updated.get("html_url") or task.github_pr_url
+        task.github_pr_number = int(pr_number)
+        task.github_repo = repo
+        task.github_pr_state = updated.get("state") or task.github_pr_state
+        task.save(
+            update_fields=[
+                "github_pr_url",
+                "github_pr_number",
+                "github_repo",
+                "github_pr_state",
+            ]
+        )
+        log_agent_action(
+            workspace=ws,
+            user=request.user,
+            action="github.attach_pr",
+            entity_type="DeliveryTask",
+            entity_id=task.id,
+        )
+        return Response(
+            {
+                "ok": True,
+                "skipped": False,
+                "pr_url": task.github_pr_url,
+                "task": DeliveryTaskSerializer(task).data,
+            }
+        )
+
+
+class AgentQueueView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -1011,14 +1239,95 @@ class AgentQueueView(WorkspaceMixin, APIView):
         return Response(DeliveryTaskSerializer(qs[:100], many=True).data)
 
 
+def _verify_github_signature(request, secrets_needed: set[str]) -> bool:
+    import hashlib
+    import hmac
+
+    if not secrets_needed:
+        return True
+    signature = request.headers.get("X-Hub-Signature-256") or request.META.get(
+        "HTTP_X_HUB_SIGNATURE_256", ""
+    )
+    raw = getattr(request, "_request", request).body or b""
+    for secret in secrets_needed:
+        digest = hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+        expected = f"sha256={digest}"
+        if hmac.compare_digest(expected, signature):
+            return True
+    return False
+
+
+def _find_github_tasks(full_name: str, number, head: str) -> list[DeliveryTask]:
+    tasks = list(
+        DeliveryTask.objects.filter(
+            github_repo=full_name, github_pr_number=number
+        ).select_related("workspace")
+    )
+    if tasks or not head:
+        return tasks
+    return list(
+        DeliveryTask.objects.filter(
+            github_repo=full_name,
+            github_branch=head,
+            github_pr_number__isnull=True,
+        ).select_related("workspace")
+    )
+
+
+def _upsert_github_review(task: DeliveryTask, review: dict, comment: dict, event: str):
+    notes = []
+    if review.get("body") or review.get("state"):
+        state = (review.get("state") or "commented").lower()
+        mapped = {
+            "approved": TaskGitHubReview.State.APPROVED,
+            "changes_requested": TaskGitHubReview.State.CHANGES_REQUESTED,
+            "dismissed": TaskGitHubReview.State.DISMISSED,
+            "commented": TaskGitHubReview.State.COMMENTED,
+        }.get(state, TaskGitHubReview.State.OPEN)
+        gh_id = review.get("id")
+        author = ((review.get("user") or {}).get("login") or "")[:255]
+        defaults = {
+            "author_login": author,
+            "state": mapped,
+            "body": (review.get("body") or "")[:10000],
+            "html_url": (review.get("html_url") or "")[:500],
+            "is_resolved": mapped
+            in (
+                TaskGitHubReview.State.APPROVED,
+                TaskGitHubReview.State.DISMISSED,
+            ),
+        }
+        if gh_id:
+            TaskGitHubReview.objects.update_or_create(
+                task=task,
+                github_review_id=gh_id,
+                defaults=defaults,
+            )
+        else:
+            TaskGitHubReview.objects.create(task=task, **defaults)
+        if review.get("body"):
+            notes.append(f"[{state}] {review.get('body')}")
+    if comment.get("body") and event in (
+        "pull_request_review_comment",
+        "issue_comment",
+        "",
+    ):
+        TaskGitHubReview.objects.create(
+            task=task,
+            author_login=((comment.get("user") or {}).get("login") or "")[:255],
+            state=TaskGitHubReview.State.OPEN,
+            body=(comment.get("body") or "")[:10000],
+            html_url=(comment.get("html_url") or "")[:500],
+        )
+        notes.append(comment.get("body"))
+    return notes
+
+
 class GitHubWebhookView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
-        import hashlib
-        import hmac
-
         payload = request.data if isinstance(request.data, dict) else {}
         action = payload.get("action") or ""
         event = request.headers.get("X-GitHub-Event") or request.META.get(
@@ -1036,59 +1345,32 @@ class GitHubWebhookView(APIView):
         comment = payload.get("comment") or {}
         if not full_name or not number:
             return Response({"detail": "ignored"}, status=200)
-        tasks = list(
-            DeliveryTask.objects.filter(
-                github_repo=full_name, github_pr_number=number
-            ).select_related("workspace")
-        )
-        if tasks:
-            # If any matching workspace configured a secret, require valid signature
-            secrets_needed = {
-                DeliverySettings.objects.filter(workspace_id=t.workspace_id)
-                .values_list("github_webhook_secret", flat=True)
-                .first()
-                or ""
-                for t in tasks
-            }
-            secrets_needed.discard("")
-            if secrets_needed:
-                signature = request.headers.get(
-                    "X-Hub-Signature-256"
-                ) or request.META.get("HTTP_X_HUB_SIGNATURE_256", "")
-                raw = getattr(request, "_request", request).body or b""
-                ok = False
-                for secret in secrets_needed:
-                    digest = hmac.new(
-                        secret.encode(), raw, hashlib.sha256
-                    ).hexdigest()
-                    expected = f"sha256={digest}"
-                    if hmac.compare_digest(expected, signature):
-                        ok = True
-                        break
-                if not ok:
-                    return Response({"detail": "Invalid signature"}, status=401)
+        tasks = _find_github_tasks(full_name, number, head)
+        if not tasks:
+            return Response({"ok": True, "updated": 0, "action": action})
+        secrets_needed = {
+            DeliverySettings.objects.filter(workspace_id=t.workspace_id)
+            .values_list("github_webhook_secret", flat=True)
+            .first()
+            or ""
+            for t in tasks
+        }
+        secrets_needed.discard("")
+        if not _verify_github_signature(request, secrets_needed):
+            return Response({"detail": "Invalid signature"}, status=401)
         updated = 0
         for task in tasks:
             if pr:
                 task.github_pr_state = state or task.github_pr_state
                 task.github_pr_url = html_url or task.github_pr_url
+                task.github_pr_number = number or task.github_pr_number
                 if head:
                     task.github_branch = head
                 if sha:
                     task.github_commit = sha[:64]
                 if action in ("synchronize", "opened", "reopened", "closed"):
                     task.github_checks_status = state
-            notes = []
-            if review.get("body"):
-                notes.append(
-                    f"[{review.get('state', 'review')}] {review.get('body')}"
-                )
-            if comment.get("body") and event in (
-                "pull_request_review_comment",
-                "issue_comment",
-                "",
-            ):
-                notes.append(comment.get("body"))
+            notes = _upsert_github_review(task, review, comment, event)
             if notes:
                 existing = task.github_review_notes or ""
                 addition = "\n---\n".join(notes)
@@ -1102,7 +1384,7 @@ class GitHubWebhookView(APIView):
         return Response({"ok": True, "updated": updated, "action": action})
 
 
-class OverviewView(WorkspaceMixin, APIView):
+class OverviewView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
@@ -1161,6 +1443,20 @@ class OverviewView(WorkspaceMixin, APIView):
                     "task_id": c.task_id,
                     "task_title": c.task.title,
                     "source": "owner_request",
+                }
+            )
+        for m in TaskMeaningChangeRequest.objects.filter(
+            task__workspace=ws,
+            status=TaskMeaningChangeRequest.Status.PENDING,
+        ).select_related("task")[:30]:
+            awaiting_items.append(
+                {
+                    "blocker_id": None,
+                    "title": f"Meaning change #{m.id}: "
+                    + ", ".join(sorted((m.proposed_fields or {}).keys())),
+                    "task_id": m.task_id,
+                    "task_title": m.task.title,
+                    "source": "meaning_change",
                 }
             )
         returned_ids = (
