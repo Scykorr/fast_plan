@@ -1,0 +1,998 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+
+import { parseApiError } from "../api/errors";
+import type {
+  AgentProfile,
+  DeliveryEpic,
+  DeliveryOverview,
+  DeliverySprint,
+  DeliveryTask,
+} from "../api/delivery";
+import { ErrorMessage } from "../components/ErrorMessage";
+import { useDeliveryApi } from "../hooks/useDeliveryApi";
+import { useWorkspace } from "../context/WorkspaceContext";
+
+const STATUSES = [
+  "draft",
+  "ready",
+  "assigned",
+  "in_progress",
+  "blocked",
+  "review",
+  "qa",
+  "done",
+  "archived",
+] as const;
+
+const ROLES = [
+  "documentation",
+  "smart_contract",
+  "backend",
+  "frontend",
+  "qa",
+  "owner",
+  "human",
+  "planner",
+  "reviewer",
+] as const;
+
+const emptyTaskForm = {
+  title: "",
+  business_outcome: "",
+  context: "",
+  scope_in: "",
+  scope_out: "",
+  ready_criterion: "",
+  done_criterion: "",
+  expected_checks: "",
+  result_artifact: "",
+  assignee_role: "backend",
+  next_role: "qa",
+  canon_url: "",
+  architecture_url: "",
+  planning_doc_url: "",
+  acceptance_url: "",
+  github_repo: "",
+  github_branch: "",
+  epic: "" as number | "",
+  sprint: "" as number | "",
+};
+
+type Tab = "overview" | "backlog" | "task" | "agents" | "sprints" | "epics";
+
+export function AgentOpsPage() {
+  const api = useDeliveryApi();
+  const { workspaceEpoch } = useWorkspace();
+  const [params, setParams] = useSearchParams();
+  const [enabled, setEnabled] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<Tab>(
+    (params.get("task") ? "task" : "overview") as Tab,
+  );
+  const [tasks, setTasks] = useState<DeliveryTask[]>([]);
+  const [epics, setEpics] = useState<DeliveryEpic[]>([]);
+  const [sprints, setSprints] = useState<DeliverySprint[]>([]);
+  const [agents, setAgents] = useState<AgentProfile[]>([]);
+  const [overview, setOverview] = useState<DeliveryOverview | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(
+    params.get("task") ? Number(params.get("task")) : null,
+  );
+  const [selected, setSelected] = useState<DeliveryTask | null>(null);
+  const [history, setHistory] = useState<{
+    status_history: Array<{
+      from_status: string;
+      to_status: string;
+      reason: string;
+      created_at: string;
+    }>;
+    field_history: Array<{
+      field: string;
+      old_value: string;
+      new_value: string;
+      created_at: string;
+    }>;
+  } | null>(null);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sprintFilter, setSprintFilter] = useState<number | "">("");
+  const [epicTitle, setEpicTitle] = useState("");
+  const [sprintName, setSprintName] = useState("");
+  const [taskForm, setTaskForm] = useState(emptyTaskForm);
+  const [handoff, setHandoff] = useState({
+    to_role: "qa",
+    done_summary: "",
+    left_summary: "",
+    branch_or_pr_url: "",
+    checks_url: "",
+    open_questions: "",
+  });
+  const [blockerTitle, setBlockerTitle] = useState("");
+  const [serviceRole, setServiceRole] = useState("backend");
+  const [issuedToken, setIssuedToken] = useState("");
+
+  const load = useCallback(async () => {
+    if (!api) return;
+    setLoading(true);
+    setError("");
+    try {
+      const settings = await api.getSettings();
+      setEnabled(settings.agent_ops_enabled);
+      if (!settings.agent_ops_enabled) {
+        setTasks([]);
+        setEpics([]);
+        setSprints([]);
+        setAgents([]);
+        setOverview(null);
+        return;
+      }
+      const [taskRows, epicRows, sprintRows, agentRows, ov] = await Promise.all(
+        [
+          api.listTasks({
+            status: statusFilter || undefined,
+            sprint: sprintFilter === "" ? undefined : sprintFilter,
+          }),
+          api.listEpics(),
+          api.listSprints(),
+          api.listAgents(),
+          api.overview(),
+        ],
+      );
+      setTasks(taskRows);
+      setEpics(epicRows);
+      setSprints(sprintRows);
+      setAgents(agentRows);
+      setOverview(ov);
+    } catch (err) {
+      setError(parseApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [api, statusFilter, sprintFilter]);
+
+  const loadTask = useCallback(
+    async (id: number) => {
+      if (!api) return;
+      try {
+        const [task, hist] = await Promise.all([
+          api.getTask(id),
+          api.getHistory(id),
+        ]);
+        setSelected(task);
+        setHistory(hist);
+      } catch (err) {
+        setError(parseApiError(err));
+      }
+    },
+    [api],
+  );
+
+  useEffect(() => {
+    void load();
+  }, [load, workspaceEpoch]);
+
+  useEffect(() => {
+    if (selectedId && enabled) {
+      void loadTask(selectedId);
+    }
+  }, [selectedId, enabled, loadTask]);
+
+  const openTask = (id: number) => {
+    setSelectedId(id);
+    setTab("task");
+    setParams({ task: String(id) });
+  };
+
+  const toggleEnabled = async () => {
+    if (!api) return;
+    try {
+      const next = await api.patchSettings({ agent_ops_enabled: !enabled });
+      setEnabled(next.agent_ops_enabled);
+      setMessage(
+        next.agent_ops_enabled
+          ? "Agent Ops включён"
+          : "Agent Ops выключен",
+      );
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const createEpic = async () => {
+    if (!api || !epicTitle.trim()) return;
+    try {
+      await api.createEpic({ title: epicTitle.trim() });
+      setEpicTitle("");
+      setMessage("Эпик создан");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const createSprint = async () => {
+    if (!api || !sprintName.trim()) return;
+    try {
+      await api.createSprint({ name: sprintName.trim(), status: "active" });
+      setSprintName("");
+      setMessage("Спринт создан");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const createTask = async () => {
+    if (!api || !taskForm.title.trim()) return;
+    try {
+      const created = await api.createTask({
+        title: taskForm.title.trim(),
+        business_outcome: taskForm.business_outcome,
+        context: taskForm.context,
+        scope_in: taskForm.scope_in,
+        scope_out: taskForm.scope_out,
+        ready_criterion: taskForm.ready_criterion,
+        done_criterion: taskForm.done_criterion,
+        expected_checks: taskForm.expected_checks,
+        result_artifact: taskForm.result_artifact,
+        assignee_role: taskForm.assignee_role,
+        next_role: taskForm.next_role,
+        canon_url: taskForm.canon_url,
+        architecture_url: taskForm.architecture_url,
+        planning_doc_url: taskForm.planning_doc_url,
+        acceptance_url: taskForm.acceptance_url,
+        github_repo: taskForm.github_repo,
+        github_branch: taskForm.github_branch,
+        epic: taskForm.epic === "" ? null : taskForm.epic,
+        sprint: taskForm.sprint === "" ? null : taskForm.sprint,
+      });
+      setTaskForm(emptyTaskForm);
+      setMessage(`Задача #${created.id} создана`);
+      await load();
+      openTask(created.id);
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const makeReady = async (task: DeliveryTask) => {
+    if (!api) return;
+    try {
+      await api.setStatus(task.id, "ready");
+      setMessage(`#${task.id} → Ready`);
+      await load();
+      if (selectedId === task.id) await loadTask(task.id);
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const claim = async (task: DeliveryTask) => {
+    if (!api) return;
+    try {
+      await api.claimTask(task.id, task.version);
+      setMessage(`#${task.id} claimed`);
+      await load();
+      if (selectedId === task.id) await loadTask(task.id);
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const submitHandoff = async () => {
+    if (!api || !selected) return;
+    try {
+      await api.createHandoff(selected.id, {
+        from_role: selected.assignee_role,
+        ...handoff,
+      });
+      setMessage("Handoff создан");
+      setHandoff({
+        to_role: "qa",
+        done_summary: "",
+        left_summary: "",
+        branch_or_pr_url: "",
+        checks_url: "",
+        open_questions: "",
+      });
+      await load();
+      await loadTask(selected.id);
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const addBlocker = async () => {
+    if (!api || !selected || !blockerTitle.trim()) return;
+    try {
+      await api.createBlocker(selected.id, {
+        title: blockerTitle.trim(),
+        needs_owner_decision: true,
+      });
+      setBlockerTitle("");
+      setMessage("Блокер отмечен");
+      await loadTask(selected.id);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const provisionAgent = async () => {
+    if (!api) return;
+    try {
+      const row = await api.createServiceAccount({
+        role: serviceRole,
+        display_name: `${serviceRole} bot`,
+      });
+      setIssuedToken(row.api_token_raw || "");
+      setMessage(`Service account: ${row.service_user_email}`);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const copyPrSnippet = async () => {
+    if (!api || !selected) return;
+    try {
+      const snip = await api.prSnippet(selected.id);
+      await navigator.clipboard.writeText(snip.markdown);
+      setMessage("PR snippet скопирован");
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const tabs = useMemo(
+    () =>
+      [
+        ["overview", "Обзор"],
+        ["backlog", "Backlog"],
+        ["task", "Карточка"],
+        ["agents", "Агенты"],
+        ["sprints", "Спринты"],
+        ["epics", "Эпики"],
+      ] as const,
+    [],
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-text">Agent Ops</h1>
+          <p className="mt-1 text-sm text-text-muted">
+            Операционный слой: эпики, спринты, ЖЦ, handoff, GitHub/docs. Канон
+            — во внешних документах.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void toggleEnabled()}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
+        >
+          {enabled ? "Выключить" : "Включить Agent Ops"}
+        </button>
+      </div>
+
+      <ErrorMessage message={error} />
+      {message && (
+        <p className="text-sm text-secondary" role="status">
+          {message}
+        </p>
+      )}
+
+      {!enabled && (
+        <p className="rounded-xl border border-border bg-surface p-4 text-sm text-text-muted">
+          Модуль выключен (`agent_ops_enabled`).
+        </p>
+      )}
+
+      {enabled && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {tabs.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={[
+                  "rounded-lg px-3 py-1.5 text-sm font-medium",
+                  tab === id
+                    ? "bg-primary text-white"
+                    : "border border-border bg-surface text-text-muted",
+                ].join(" ")}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {loading && <p className="text-sm text-text-muted">Загрузка…</p>}
+
+          {tab === "overview" && overview && (
+            <section className="grid gap-4 md:grid-cols-2">
+              {(
+                [
+                  ["Blocked", overview.blocked],
+                  ["Stuck in Review", overview.stuck_review],
+                  ["Returned from QA", overview.returned_from_qa],
+                ] as const
+              ).map(([label, rows]) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-border bg-surface p-4"
+                >
+                  <h2 className="font-semibold text-text">{label}</h2>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {rows.length === 0 && (
+                      <li className="text-text-muted">—</li>
+                    )}
+                    {rows.map((t) => (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          className="text-primary hover:underline"
+                          onClick={() => openTask(t.id)}
+                        >
+                          #{t.id} {t.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              <div className="rounded-xl border border-border bg-surface p-4 md:col-span-2">
+                <h2 className="font-semibold text-text">Awaiting owner</h2>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {overview.awaiting_owner.length === 0 && (
+                    <li className="text-text-muted">—</li>
+                  )}
+                  {overview.awaiting_owner.map((b) => (
+                    <li key={b.blocker_id}>
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => openTask(b.task_id)}
+                      >
+                        #{b.task_id} {b.task_title}
+                      </button>
+                      : {b.title}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          )}
+
+          {tab === "epics" && (
+            <section className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  className="min-w-[12rem] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  placeholder="Название эпика"
+                  value={epicTitle}
+                  onChange={(e) => setEpicTitle(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => void createEpic()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm text-white"
+                >
+                  Создать эпик
+                </button>
+              </div>
+              <ul className="space-y-2">
+                {epics.map((epic) => (
+                  <li
+                    key={epic.id}
+                    className="rounded-xl border border-border bg-surface px-4 py-3"
+                  >
+                    <p className="font-semibold text-text">{epic.title}</p>
+                    <p className="text-xs text-text-muted">
+                      {epic.status} · {epic.priority} · tasks:{" "}
+                      {epic.task_ids?.length ?? 0}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {tab === "sprints" && (
+            <section className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  className="min-w-[12rem] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  placeholder="Название спринта"
+                  value={sprintName}
+                  onChange={(e) => setSprintName(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => void createSprint()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm text-white"
+                >
+                  Создать спринт
+                </button>
+              </div>
+              <ul className="space-y-2">
+                {sprints.map((sprint) => (
+                  <li
+                    key={sprint.id}
+                    className="rounded-xl border border-border bg-surface px-4 py-3"
+                  >
+                    <p className="font-semibold text-text">{sprint.name}</p>
+                    <p className="text-xs text-text-muted">
+                      {sprint.status} · tasks: {sprint.task_count}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {tab === "agents" && (
+            <section className="space-y-4">
+              <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-surface p-4">
+                <label className="text-sm">
+                  Role
+                  <select
+                    className="mt-1 block rounded-lg border border-border bg-cream px-3 py-2"
+                    value={serviceRole}
+                    onChange={(e) => setServiceRole(e.target.value)}
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void provisionAgent()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm text-white"
+                >
+                  Создать service account + token
+                </button>
+              </div>
+              {issuedToken && (
+                <p className="break-all rounded-lg border border-border bg-cream p-3 text-xs">
+                  Token (один раз): {issuedToken}
+                </p>
+              )}
+              <ul className="space-y-2">
+                {agents.map((a) => (
+                  <li
+                    key={a.id}
+                    className="rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+                  >
+                    <p className="font-semibold text-text">
+                      {a.display_name || a.user_email} · {a.role}
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {a.actor_type}
+                      {a.is_service_account ? " · service" : ""} · actions:{" "}
+                      {(a.effective_actions || []).join(", ")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {tab === "backlog" && (
+            <section className="space-y-4">
+              <div className="grid gap-3 rounded-xl border border-border bg-surface p-4 md:grid-cols-2">
+                {(
+                  [
+                    ["title", "Заголовок"],
+                    ["business_outcome", "Business outcome"],
+                    ["context", "Context"],
+                    ["scope_in", "Scope in"],
+                    ["scope_out", "Scope out"],
+                    ["ready_criterion", "Ready criterion"],
+                    ["done_criterion", "Done criterion"],
+                    ["expected_checks", "Expected checks"],
+                    ["result_artifact", "Result artifact"],
+                    ["canon_url", "Canon URL"],
+                    ["architecture_url", "Architecture URL"],
+                    ["planning_doc_url", "Planning URL"],
+                    ["acceptance_url", "Acceptance URL"],
+                    ["github_repo", "GitHub repo (org/name)"],
+                    ["github_branch", "Branch"],
+                  ] as const
+                ).map(([key, placeholder]) => (
+                  <input
+                    key={key}
+                    className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                    placeholder={placeholder}
+                    value={taskForm[key]}
+                    onChange={(e) =>
+                      setTaskForm((p) => ({ ...p, [key]: e.target.value }))
+                    }
+                  />
+                ))}
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  value={taskForm.assignee_role}
+                  onChange={(e) =>
+                    setTaskForm((p) => ({
+                      ...p,
+                      assignee_role: e.target.value,
+                    }))
+                  }
+                >
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      role: {role}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  value={taskForm.next_role}
+                  onChange={(e) =>
+                    setTaskForm((p) => ({ ...p, next_role: e.target.value }))
+                  }
+                >
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      next: {role}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  value={taskForm.epic}
+                  onChange={(e) =>
+                    setTaskForm((p) => ({
+                      ...p,
+                      epic: e.target.value ? Number(e.target.value) : "",
+                    }))
+                  }
+                >
+                  <option value="">Без эпика</option>
+                  {epics.map((epic) => (
+                    <option key={epic.id} value={epic.id}>
+                      {epic.title}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  value={taskForm.sprint}
+                  onChange={(e) =>
+                    setTaskForm((p) => ({
+                      ...p,
+                      sprint: e.target.value ? Number(e.target.value) : "",
+                    }))
+                  }
+                >
+                  <option value="">Без спринта</option>
+                  {sprints.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => void createTask()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm text-white md:col-span-2"
+                >
+                  Создать задачу (draft)
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="">Все статусы</option>
+                  {STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  value={sprintFilter}
+                  onChange={(e) =>
+                    setSprintFilter(
+                      e.target.value ? Number(e.target.value) : "",
+                    )
+                  }
+                >
+                  <option value="">Все спринты</option>
+                  {sprints.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <ul className="space-y-2">
+                {tasks.map((task) => (
+                  <li
+                    key={task.id}
+                    className="rounded-xl border border-border bg-surface p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <button
+                        type="button"
+                        className="text-left"
+                        onClick={() => openTask(task.id)}
+                      >
+                        <p className="font-semibold text-text hover:underline">
+                          {task.title}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          #{task.id} · {task.status} · {task.assignee_role || "—"}
+                          {task.ready_missing?.length
+                            ? ` · missing: ${task.ready_missing.join(", ")}`
+                            : ""}
+                        </p>
+                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        {task.status === "draft" && (
+                          <button
+                            type="button"
+                            onClick={() => void makeReady(task)}
+                            className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                          >
+                            → Ready
+                          </button>
+                        )}
+                        {(task.status === "ready" ||
+                          task.status === "assigned") && (
+                          <button
+                            type="button"
+                            onClick={() => void claim(task)}
+                            className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white"
+                          >
+                            Claim
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {tab === "task" && (
+            <section className="space-y-4">
+              {!selected && (
+                <p className="text-sm text-text-muted">
+                  Выберите задачу в Backlog.
+                </p>
+              )}
+              {selected && (
+                <>
+                  <div className="rounded-xl border border-border bg-surface p-4">
+                    <h2 className="text-xl font-semibold text-text">
+                      #{selected.id} {selected.title}
+                    </h2>
+                    <p className="mt-1 text-sm text-text-muted">
+                      {selected.status} · role {selected.assignee_role || "—"} ·
+                      next {selected.next_role || "—"} · v{selected.version}
+                    </p>
+                    <dl className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                      <div>
+                        <dt className="text-text-muted">Outcome</dt>
+                        <dd>{selected.business_outcome || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">Context</dt>
+                        <dd>{selected.context || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">Scope in / out</dt>
+                        <dd>
+                          {selected.scope_in || "—"} / {selected.scope_out || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">DoR / DoD</dt>
+                        <dd>
+                          {selected.ready_criterion || "—"} /{" "}
+                          {selected.done_criterion || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">Docs</dt>
+                        <dd className="break-all text-xs">
+                          {[
+                            selected.canon_url,
+                            selected.architecture_url,
+                            selected.planning_doc_url,
+                            selected.acceptance_url,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">GitHub</dt>
+                        <dd className="text-xs">
+                          {selected.github_repo || "—"}{" "}
+                          {selected.github_pr_number
+                            ? `PR #${selected.github_pr_number} (${selected.github_pr_state})`
+                            : ""}
+                          {selected.github_pr_url && (
+                            <>
+                              {" "}
+                              <a
+                                className="text-primary hover:underline"
+                                href={selected.github_pr_url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                open
+                              </a>
+                            </>
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                    {selected.github_review_notes && (
+                      <pre className="mt-3 overflow-x-auto rounded bg-cream p-2 text-xs">
+                        {selected.github_review_notes}
+                      </pre>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selected.status === "draft" && (
+                        <button
+                          type="button"
+                          onClick={() => void makeReady(selected)}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                        >
+                          → Ready
+                        </button>
+                      )}
+                      {(selected.status === "ready" ||
+                        selected.status === "assigned") && (
+                        <button
+                          type="button"
+                          onClick={() => void claim(selected)}
+                          className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white"
+                        >
+                          Claim
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void copyPrSnippet()}
+                        className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                      >
+                        Copy PR snippet
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 rounded-xl border border-border bg-surface p-4">
+                      <h3 className="font-semibold">Handoff</h3>
+                      <select
+                        className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                        value={handoff.to_role}
+                        onChange={(e) =>
+                          setHandoff((p) => ({ ...p, to_role: e.target.value }))
+                        }
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            → {r}
+                          </option>
+                        ))}
+                      </select>
+                      {(
+                        [
+                          ["done_summary", "Done summary"],
+                          ["left_summary", "Left"],
+                          ["branch_or_pr_url", "Branch/PR URL"],
+                          ["checks_url", "Checks URL"],
+                          ["open_questions", "Open questions"],
+                        ] as const
+                      ).map(([key, ph]) => (
+                        <input
+                          key={key}
+                          className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                          placeholder={ph}
+                          value={handoff[key]}
+                          onChange={(e) =>
+                            setHandoff((p) => ({ ...p, [key]: e.target.value }))
+                          }
+                        />
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => void submitHandoff()}
+                        className="rounded-lg bg-primary px-3 py-2 text-sm text-white"
+                      >
+                        Отправить handoff
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border bg-surface p-4">
+                      <h3 className="font-semibold">Блокер</h3>
+                      <input
+                        className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                        placeholder="Заголовок блокера"
+                        value={blockerTitle}
+                        onChange={(e) => setBlockerTitle(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void addBlocker()}
+                        className="rounded-lg border border-border px-3 py-2 text-sm"
+                      >
+                        Отметить блокер
+                      </button>
+                      <ul className="text-sm">
+                        {(selected.blockers || []).map((b) => (
+                          <li key={b.id}>
+                            #{b.id} {b.title}{" "}
+                            {b.is_open ? "(open)" : "(closed)"}
+                          </li>
+                        ))}
+                      </ul>
+                      <h3 className="pt-2 font-semibold">Dependencies</h3>
+                      <ul className="text-sm">
+                        {(selected.dependencies || []).length === 0 && (
+                          <li className="text-text-muted">—</li>
+                        )}
+                        {(selected.dependencies || []).map((d) => (
+                          <li key={d.id}>
+                            depends on #{d.depends_on} {d.depends_on_title} (
+                            {d.depends_on_status})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {history && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="rounded-xl border border-border bg-surface p-4">
+                        <h3 className="font-semibold">Status history</h3>
+                        <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
+                          {history.status_history.map((h, i) => (
+                            <li key={`${h.created_at}-${i}`}>
+                              {h.from_status || "∅"} → {h.to_status}
+                              {h.reason ? ` (${h.reason})` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="rounded-xl border border-border bg-surface p-4">
+                        <h3 className="font-semibold">Field history</h3>
+                        <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
+                          {history.field_history.map((h, i) => (
+                            <li key={`${h.created_at}-${i}`}>
+                              {h.field}: {h.old_value || "∅"} → {h.new_value}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

@@ -15,6 +15,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- **P9 Agent Ops (TZ end-to-end)** — полный Ready-gate §8; `architecture_url`; task dependencies; field history + access/agent action logs; `Reviewer` role + default action sets; delivery project meta (repo/docs); service-account provisioning + API token; blocker soft-cancel with reason; claim via Assigned; GitHub review notes + PR snippet; overview/agents/task-card UI on `/agent-ops`
+- **P9 Agent Ops** — модуль `delivery`: feature flag `agent_ops_enabled`, Epic/Sprint/DeliveryTask (фиксированный ЖЦ + status history), blockers, structured handoff, agent profiles/roles + ACL, atomic claim, Ready-gate (doc links), GitHub fields + webhook, agent queue filters, Idempotency-Key + rate limit; UI `/agent-ops`
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог улучшений.

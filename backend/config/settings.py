@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "chats",
     "crm",
     "process",
+    "delivery",
 ]
 
 MIDDLEWARE = [

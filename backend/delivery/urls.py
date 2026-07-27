@@ -1,0 +1,108 @@
+from django.urls import path
+
+from delivery import views
+
+urlpatterns = [
+    path("delivery/settings/", views.DeliverySettingsView.as_view(), name="delivery-settings"),
+    path("delivery/overview/", views.OverviewView.as_view(), name="delivery-overview"),
+    path(
+        "delivery/projects/",
+        views.ProjectMetaListCreateView.as_view(),
+        name="delivery-projects",
+    ),
+    path("delivery/agents/", views.AgentProfileListCreateView.as_view(), name="delivery-agents"),
+    path(
+        "delivery/agents/service-accounts/",
+        views.AgentServiceAccountCreateView.as_view(),
+        name="delivery-service-accounts",
+    ),
+    path(
+        "delivery/agents/actions/",
+        views.AgentActionLogListView.as_view(),
+        name="delivery-agent-actions",
+    ),
+    path(
+        "delivery/access-log/",
+        views.AccessLogListView.as_view(),
+        name="delivery-access-log",
+    ),
+    path("delivery/epics/", views.EpicListCreateView.as_view(), name="delivery-epics"),
+    path(
+        "delivery/epics/<int:epic_id>/",
+        views.EpicDetailView.as_view(),
+        name="delivery-epic-detail",
+    ),
+    path("delivery/sprints/", views.SprintListCreateView.as_view(), name="delivery-sprints"),
+    path(
+        "delivery/sprints/<int:sprint_id>/",
+        views.SprintDetailView.as_view(),
+        name="delivery-sprint-detail",
+    ),
+    path("delivery/tasks/", views.TaskListCreateView.as_view(), name="delivery-tasks"),
+    path(
+        "delivery/tasks/<int:task_id>/",
+        views.TaskDetailView.as_view(),
+        name="delivery-task-detail",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/status/",
+        views.TaskStatusView.as_view(),
+        name="delivery-task-status",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/claim/",
+        views.TaskClaimView.as_view(),
+        name="delivery-task-claim",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/history/",
+        views.TaskHistoryView.as_view(),
+        name="delivery-task-history",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/blockers/",
+        views.TaskBlockerListCreateView.as_view(),
+        name="delivery-task-blockers",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/blockers/<int:blocker_id>/resolve/",
+        views.TaskBlockerResolveView.as_view(),
+        name="delivery-task-blocker-resolve",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/blockers/<int:blocker_id>/cancel/",
+        views.TaskBlockerCancelView.as_view(),
+        name="delivery-task-blocker-cancel",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/handoffs/",
+        views.TaskHandoffCreateView.as_view(),
+        name="delivery-task-handoffs",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/comments/",
+        views.TaskCommentListCreateView.as_view(),
+        name="delivery-task-comments",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/subtasks/",
+        views.TaskSubTaskListCreateView.as_view(),
+        name="delivery-task-subtasks",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/dependencies/",
+        views.TaskDependencyListCreateView.as_view(),
+        name="delivery-task-dependencies",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/pr-snippet/",
+        views.TaskPrSnippetView.as_view(),
+        name="delivery-task-pr-snippet",
+    ),
+    path("delivery/queue/", views.AgentQueueView.as_view(), name="delivery-queue"),
+    path(
+        "delivery/webhooks/github/",
+        views.GitHubWebhookView.as_view(),
+        name="delivery-github-webhook",
+    ),
+]

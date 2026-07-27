@@ -40,6 +40,7 @@
 | 2026-07-23 | Релиз **v0.12.0** — SSO Microsoft, P8 UX, P7 Mobile/Security в changelog |
 | 2026-07-25 | **CRM calendar sync** — events + Outlook/Google push; staging smoke 0.12 |
 | 2026-07-25 | **Матрица CRM-требований** обновлена (P6a–P6i ✓, backlog 1f/6/9/10) |
+| 2026-07-27 | **P9 Agent Ops** — эпик в ROADMAP; модуль delivery + TZ end-to-end (P9e) |
 | 2026-07-26 | Релиз **v0.14.2** — Lead click-to-call, live ARI WebSocket bridge |
 | 2026-07-26 | Релиз **v0.14.1** — Mango sign, Asterisk AMI/ARI ingest, click-to-call Person/Deal |
 | 2026-07-26 | Релиз **v0.14.0** — calendar 2-way, telephony Asterisk/Mango, CRM connectors/finance/roles/tasks |
@@ -122,13 +123,11 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 
 Следующие кандидаты:
 
-1. **CRM backlog** — tasks UX (1f), finance deep (6), roles expand (9).
+1. **P9 Agent Ops** — мультиагентное исполнение (Epic/Sprint/handoff/GitHub) по ТЗ CryptoGamp ops layer.
 2. **MS Project XML import** — при появлении подтверждённого формата/образца.
-3. 1С / Stripe / WA-коннекторы — по запросу клиентов.
-4. ~~Двусторонний calendar sync / conflict resolution~~ — done.
-5. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
+3. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
 
-~~Ранее закрыто:~~ P5 чаты · Redis SSE · P6 CRM (a–i + calendar sync MVP) · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · staging smoke 0.12.
+~~Ранее закрыто:~~ P5 чаты · Redis SSE · P6 CRM (a–i + calendar 2-way) · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · telephony/connectors · staging smoke.
 
 ---
 
@@ -325,10 +324,37 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 ### Принцип приоритизации спринтов (CRM)
 
-1. **CRM backlog** из матрицы: tasks UX (1f) → finance deep (6) → roles (9).
-2. Клиентские коннекторы (1С / Stripe / WA) — по запросу.
-3. ~~Calendar 2-way sync~~ — done (pull + conflict policy).
-4. MS Project XML import — при наличии образца.
+1. ~~**CRM backlog**~~ — 1f / 6 / 9 / 10 / 1e 2-way / telephony закрыты.
+2. **P9 Agent Ops** — следующий продуктовый эпик (мультиагентное исполнение).
+3. MS Project XML import — при наличии образца.
+
+---
+
+## P9 — Agent Ops (мультиагентное исполнение)
+
+_Цель:_ операционный слой исполнения для людей и агентов (ТЗ CryptoGamp ops) — задачи, спринты, handoff, GitHub-связи — **без** превращения Fast Plan в канон документации или крипто-домен.  
+_Границы:_ CryptoGamp/любой repo = канон; Fast Plan = исполнение; GitHub = код.
+
+### Позиционирование
+
+| Делаем | Не цель |
+|--------|---------|
+| Epic / Sprint / DeliveryTask + фиксированный ЖЦ | Замена Jira Cloud «из коробки» |
+| Роли агентов + handoff + claim API | Автономное изменение смысла задачи без Owner |
+| Ссылки на docs + GitHub branch/PR/checks | Хранение канона / payout / USDC внутри FP |
+| Feature flag `agent_ops_enabled` | Ломать существующий Kanban/WBS/CRM |
+
+### Фазы
+
+- [x] **P9a** — Foundation: settings flag, Epic, Sprint, DeliveryTask, SubTask, status history, Blocker, backlog/sprint UI. **L**
+- [x] **P9b** — Agent profiles/roles, ACL, structured Handoff, atomic claim. **L**
+- [x] **P9c** — GitHub fields + webhook PR status; Ready-gate (doc links / DoR). **M–L**
+- [x] **P9d** — Agent API: filters, Idempotency-Key, rate limit, service-account friendly queues. **M**
+- [x] **P9e** — TZ end-to-end: full Ready-gate §8, dependencies, field/access journals, service accounts, project meta, review notes/PR snippet, overview+task card UI. **L**
+
+### DoD (§17 ТЗ)
+
+Проект → эпик → спринт → задача с обязательными полями → назначение роли/исполнителя → статусы → handoff → блокер → links docs/GitHub → история → фильтр очереди по агенту.
 
 ---
 

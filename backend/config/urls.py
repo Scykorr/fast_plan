@@ -22,6 +22,7 @@ urlpatterns = [
     path("api/", include("chats.urls")),
     path("api/", include("crm.urls")),
     path("api/", include("process.urls")),
+    path("api/", include("delivery.urls")),
 ]
 
 if settings.DEBUG:
