@@ -120,10 +120,11 @@ export type DeliveryOverview = {
   blocked: DeliveryTask[];
   stuck_review: DeliveryTask[];
   awaiting_owner: Array<{
-    blocker_id: number;
+    blocker_id: number | null;
     title: string;
     task_id: number;
     task_title: string;
+    source?: string;
   }>;
   returned_from_qa: DeliveryTask[];
 };
@@ -258,6 +259,80 @@ export function createDeliveryApi() {
         method: "POST",
         body: JSON.stringify({ note: note || "" }),
       }),
+    cancelBlocker: (taskId: number, blockerId: number, reason: string) =>
+      request(`/delivery/tasks/${taskId}/blockers/${blockerId}/cancel/`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }),
+    listComments: (taskId: number) =>
+      request<
+        Array<{ id: number; kind: string; body: string; created_at: string }>
+      >(`/delivery/tasks/${taskId}/comments/`),
+    addComment: (
+      taskId: number,
+      data: { body: string; kind?: string },
+    ) =>
+      request(`/delivery/tasks/${taskId}/comments/`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    listSubtasks: (taskId: number) =>
+      request<
+        Array<{
+          id: number;
+          title: string;
+          status: string;
+          expected_artifact: string;
+        }>
+      >(`/delivery/tasks/${taskId}/subtasks/`),
+    createSubtask: (
+      taskId: number,
+      data: { title: string; expected_artifact?: string },
+    ) =>
+      request(`/delivery/tasks/${taskId}/subtasks/`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    patchSubtask: (
+      taskId: number,
+      subtaskId: number,
+      data: { status?: string; title?: string },
+    ) =>
+      request(`/delivery/tasks/${taskId}/subtasks/${subtaskId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    listProjects: () =>
+      request<
+        Array<{
+          id: number | null;
+          project: number;
+          project_name: string;
+          description: string;
+          status: string;
+          owner: number | null;
+          owner_email: string | null;
+          repo_url: string;
+          docs_url: string;
+        }>
+      >("/delivery/projects/"),
+    upsertProjectMeta: (data: {
+      project: number;
+      repo_url?: string;
+      docs_url?: string;
+    }) =>
+      request("/delivery/projects/", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    assignTask: (
+      taskId: number,
+      data: { assignee: number | null; assignee_role?: string },
+    ) =>
+      request<DeliveryTask>(`/delivery/tasks/${taskId}/assign/`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     createHandoff: (
       taskId: number,
       data: {
@@ -296,6 +371,13 @@ export function createDeliveryApi() {
           old_value: string;
           new_value: string;
           created_at: string;
+        }>;
+        timeline: Array<{
+          kind: string;
+          at: string;
+          actor_id: number | null;
+          summary: string;
+          detail: string;
         }>;
       }>(`/delivery/tasks/${taskId}/history/`),
     prSnippet: (taskId: number) =>

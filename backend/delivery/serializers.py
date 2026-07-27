@@ -22,17 +22,47 @@ from delivery.models import (
 class DeliverySettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliverySettings
-        fields = ["agent_ops_enabled", "updated_at"]
+        fields = ["agent_ops_enabled", "github_webhook_secret", "updated_at"]
         read_only_fields = ["updated_at"]
+        extra_kwargs = {
+            "github_webhook_secret": {"write_only": True, "required": False},
+        }
 
 
 class DeliveryProjectMetaSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source="project.name", read_only=True)
+    description = serializers.CharField(source="project.description", read_only=True)
+    status = serializers.CharField(source="project.status", read_only=True)
+    owner = serializers.IntegerField(source="project.manager_id", read_only=True)
+    owner_email = serializers.SerializerMethodField()
 
     class Meta:
         model = DeliveryProjectMeta
-        fields = ["id", "project", "project_name", "repo_url", "docs_url", "updated_at"]
-        read_only_fields = ["id", "updated_at"]
+        fields = [
+            "id",
+            "project",
+            "project_name",
+            "description",
+            "status",
+            "owner",
+            "owner_email",
+            "repo_url",
+            "docs_url",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "project_name",
+            "description",
+            "status",
+            "owner",
+            "owner_email",
+            "updated_at",
+        ]
+
+    def get_owner_email(self, obj):
+        manager = getattr(obj.project, "manager", None)
+        return manager.email if manager else None
 
 
 class AgentProfileSerializer(serializers.ModelSerializer):

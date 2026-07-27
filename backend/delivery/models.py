@@ -15,6 +15,7 @@ class DeliverySettings(models.Model):
         related_name="delivery_settings",
     )
     agent_ops_enabled = models.BooleanField(default=False)
+    github_webhook_secret = models.CharField(max_length=255, blank=True, default="")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -36,6 +37,17 @@ class AgentRole(models.TextChoices):
 
 # TZ §4 / §12 — default action sets per role
 ROLE_DEFAULT_ACTIONS: dict[str, list[str]] = {
+    AgentRole.PLANNER: [
+        "read",
+        "write_task",
+        "write_epic",
+        "write_sprint",
+        "comment",
+        "assign",
+        "claim",
+        "handoff",
+        "blocker",
+    ],
     AgentRole.OWNER: [
         "read",
         "write_task",
@@ -48,14 +60,7 @@ ROLE_DEFAULT_ACTIONS: dict[str, list[str]] = {
         "close_epic",
         "assign",
         "manage_agents",
-    ],
-    AgentRole.PLANNER: [
-        "read",
-        "write_task",
-        "write_epic",
-        "write_sprint",
-        "comment",
-        "assign",
+        "review",
     ],
     AgentRole.DOCUMENTATION: [
         "read",

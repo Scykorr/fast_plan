@@ -52,14 +52,18 @@ from delivery.serializers import (
 from delivery.services import (
     MEANING_FIELDS,
     agent_may_close_epic,
+    assign_task,
+    build_task_timeline,
     cancel_blocker,
     change_status,
     claim_task,
     create_handoff,
     log_agent_action,
+    profile_may,
     record_field_changes,
     resolve_blocker,
     snapshot_task,
+    would_create_dependency_cycle,
 )
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 from workspaces.models import WorkspaceAPIToken, WorkspaceMember
@@ -98,28 +102,36 @@ def _log_access(workspace, request, status_code: int = 0):
 def _can_mutate_task(workspace, user, task: DeliveryTask) -> bool:
     membership = WorkspaceMember.objects.filter(workspace=workspace, user=user).first()
     profile = _agent_profile(workspace, user)
+    if profile and profile.role == "observer":
+        return False
+    if profile and profile.actor_type == AgentProfile.ActorType.AGENT:
+        if task.project_id and profile.allowed_projects.exists():
+            if not profile.allowed_projects.filter(pk=task.project_id).exists():
+                return False
+        if not (
+            profile_may(profile, "write_task_own")
+            or profile_may(profile, "write_task")
+            or profile_may(profile, "claim")
+            or profile_may(profile, "handoff")
+            or profile_may(profile, "comment")
+            or profile_may(profile, "blocker")
+            or profile_may(profile, "review")
+        ):
+            return False
+        if task.assignee_id and task.assignee_id != user.id:
+            if task.assignee_role and profile.role != task.assignee_role:
+                if task.status not in (
+                    DeliveryTask.Status.READY,
+                    DeliveryTask.Status.ASSIGNED,
+                ):
+                    return False
+        return True
     if membership and membership.role in (
         WorkspaceMember.Role.OWNER,
         WorkspaceMember.Role.EDITOR,
     ):
-        if profile and profile.actor_type == AgentProfile.ActorType.AGENT:
-            if profile.role == "observer":
-                return False
-            if task.project_id and profile.allowed_projects.exists():
-                if not profile.allowed_projects.filter(pk=task.project_id).exists():
-                    return False
-            if task.assignee_id and task.assignee_id != user.id:
-                if task.assignee_role and profile.role != task.assignee_role:
-                    if task.status not in (
-                        DeliveryTask.Status.READY,
-                        DeliveryTask.Status.ASSIGNED,
-                    ):
-                        return False
-            return True
         return True
     if not profile:
-        return False
-    if profile.role == "observer":
         return False
     if profile.role == "owner":
         return True
@@ -130,6 +142,17 @@ def _can_mutate_task(workspace, user, task: DeliveryTask) -> bool:
     if task.status == DeliveryTask.Status.READY and task.assignee_role == profile.role:
         return True
     return False
+
+
+def _require_action(workspace, user, action: str):
+    profile = _agent_profile(workspace, user)
+    if profile and profile.actor_type == AgentProfile.ActorType.AGENT:
+        if not profile_may(profile, action):
+            raise PermissionDenied(
+                f"Agent role '{profile.role}' cannot perform '{action}'."
+            )
+    elif profile and not profile_may(profile, action) and profile.role == "observer":
+        raise PermissionDenied("Observer is read-only.")
 
 
 def _check_rate_limit(workspace_id: int, user_id: int):
@@ -176,12 +199,6 @@ def _idempotency_store(workspace, user, key, method, path, response: Response):
 class DeliverySettingsView(WorkspaceMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
-    def get(self, request):
-        row, _ = DeliverySettings.objects.get_or_create(
-            workspace=self.get_workspace()
-        )
-        return Response(DeliverySettingsSerializer(row).data)
-
     def patch(self, request):
         self.require_editor()
         row, _ = DeliverySettings.objects.get_or_create(
@@ -189,18 +206,57 @@ class DeliverySettingsView(WorkspaceMixin, APIView):
         )
         if "agent_ops_enabled" in request.data:
             row.agent_ops_enabled = bool(request.data.get("agent_ops_enabled"))
-            row.save(update_fields=["agent_ops_enabled", "updated_at"])
-        return Response(DeliverySettingsSerializer(row).data)
+        if "github_webhook_secret" in request.data:
+            row.github_webhook_secret = (
+                request.data.get("github_webhook_secret") or ""
+            )[:255]
+        row.save()
+        data = DeliverySettingsSerializer(row).data
+        data["github_webhook_secret_set"] = bool(row.github_webhook_secret)
+        return Response(data)
+
+    def get(self, request):
+        row, _ = DeliverySettings.objects.get_or_create(
+            workspace=self.get_workspace()
+        )
+        data = DeliverySettingsSerializer(row).data
+        data["github_webhook_secret_set"] = bool(row.github_webhook_secret)
+        return Response(data)
 
 
 class ProjectMetaListCreateView(WorkspaceMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
+        from projects.models import Project
+
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
-        rows = DeliveryProjectMeta.objects.filter(workspace=ws).select_related("project")
-        return Response(DeliveryProjectMetaSerializer(rows, many=True).data)
+        _log_access(ws, request, 200)
+        metas = {
+            m.project_id: m
+            for m in DeliveryProjectMeta.objects.filter(workspace=ws).select_related(
+                "project", "project__manager"
+            )
+        }
+        rows = []
+        for project in Project.objects.filter(workspace=ws).select_related("manager"):
+            meta = metas.get(project.id)
+            rows.append(
+                {
+                    "id": meta.id if meta else None,
+                    "project": project.id,
+                    "project_name": project.name,
+                    "description": project.description,
+                    "status": project.status,
+                    "owner": project.manager_id,
+                    "owner_email": project.manager.email if project.manager_id else None,
+                    "repo_url": meta.repo_url if meta else "",
+                    "docs_url": meta.docs_url if meta else "",
+                    "updated_at": meta.updated_at if meta else None,
+                }
+            )
+        return Response(rows)
 
     def post(self, request):
         self.require_editor()
@@ -217,7 +273,10 @@ class ProjectMetaListCreateView(WorkspaceMixin, APIView):
                 "docs_url": request.data.get("docs_url") or "",
             },
         )
-        return Response(DeliveryProjectMetaSerializer(row).data, status=201)
+        _log_access(ws, request, 201)
+        return Response(
+            DeliveryProjectMetaSerializer(row).data, status=201
+        )
 
 
 class AgentProfileListCreateView(WorkspaceMixin, APIView):
@@ -539,6 +598,16 @@ class TaskDetailView(WorkspaceMixin, APIView):
                 raise PermissionDenied(
                     "Agents cannot change task meaning without confirm_meaning_change."
                 )
+            if touched and request.data.get("confirm_meaning_change"):
+                TaskComment.objects.create(
+                    task=task,
+                    kind=TaskComment.Kind.OWNER_REQUEST,
+                    body=(
+                        "Meaning change confirmation: "
+                        + ", ".join(sorted(touched))
+                    ),
+                    author=request.user,
+                )
         before = snapshot_task(task)
         ser = DeliveryTaskWriteSerializer(task, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
@@ -585,6 +654,7 @@ class TaskClaimView(WorkspaceMixin, APIView):
         self.require_editor()
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
+        _require_action(ws, request.user, "claim")
         _check_rate_limit(ws.id, request.user.id)
         idem_key, cached = _idempotency_get(ws, request.user, request)
         if cached:
@@ -608,9 +678,42 @@ class TaskClaimView(WorkspaceMixin, APIView):
             entity_type="DeliveryTask",
             entity_id=claimed.id,
         )
+        _log_access(ws, request, 200)
         resp = Response(DeliveryTaskSerializer(claimed).data)
         _idempotency_store(ws, request.user, idem_key, "POST", request.path, resp)
         return resp
+
+
+class TaskAssignView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, task_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        _require_action(ws, request.user, "assign")
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        assignee = request.data.get("assignee", None)
+        role = request.data.get("assignee_role")
+        try:
+            assigned = assign_task(
+                task,
+                user=request.user,
+                assignee_id=assignee,
+                assignee_role=role,
+            )
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        log_agent_action(
+            workspace=ws,
+            user=request.user,
+            action="task.assign",
+            entity_type="DeliveryTask",
+            entity_id=assigned.id,
+            detail=str(assignee),
+        )
+        _log_access(ws, request, 200)
+        return Response(DeliveryTaskSerializer(assigned).data)
 
 
 class TaskHistoryView(WorkspaceMixin, APIView):
@@ -619,13 +722,24 @@ class TaskHistoryView(WorkspaceMixin, APIView):
     def get(self, request, task_id):
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
-        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
-        status_rows = TaskStatusHistory.objects.filter(task=task)
-        field_rows = TaskFieldHistory.objects.filter(task=task)[:200]
+        task = get_object_or_404(
+            DeliveryTask.objects.filter(workspace=ws).prefetch_related(
+                "status_history",
+                "field_history",
+                "handoffs",
+                "blockers",
+                "comments",
+            ),
+            pk=task_id,
+        )
+        status_rows = task.status_history.all()
+        field_rows = task.field_history.all()[:200]
+        _log_access(ws, request, 200)
         return Response(
             {
                 "status_history": StatusHistorySerializer(status_rows, many=True).data,
                 "field_history": FieldHistorySerializer(field_rows, many=True).data,
+                "timeline": build_task_timeline(task),
             }
         )
 
@@ -653,6 +767,19 @@ class TaskBlockerListCreateView(WorkspaceMixin, APIView):
             detail=(request.data.get("detail") or ""),
             needs_owner_decision=bool(request.data.get("needs_owner_decision")),
             created_by=request.user,
+        )
+        TaskComment.objects.create(
+            task=task,
+            kind=TaskComment.Kind.BLOCKER_NOTE,
+            body=f"Blocker: {title}",
+            author=request.user,
+        )
+        log_agent_action(
+            workspace=ws,
+            user=request.user,
+            action="blocker.create",
+            entity_type="TaskBlocker",
+            entity_id=blocker.id,
         )
         if task.status != DeliveryTask.Status.BLOCKED:
             try:
@@ -716,6 +843,7 @@ class TaskHandoffCreateView(WorkspaceMixin, APIView):
         task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
         if not _can_mutate_task(ws, request.user, task):
             raise PermissionDenied("Not allowed to hand off this task.")
+        _require_action(ws, request.user, "handoff")
         try:
             handoff = create_handoff(
                 task,
@@ -756,6 +884,7 @@ class TaskCommentListCreateView(WorkspaceMixin, APIView):
         self.require_editor()
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
+        _require_action(ws, request.user, "comment")
         task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
         body = (request.data.get("body") or "").strip()
         if not body:
@@ -764,11 +893,18 @@ class TaskCommentListCreateView(WorkspaceMixin, APIView):
         row = TaskComment.objects.create(
             task=task, body=body, kind=kind, author=request.user
         )
+        _log_access(ws, request, 201)
         return Response(CommentSerializer(row).data, status=201)
 
 
 class TaskSubTaskListCreateView(WorkspaceMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, task_id):
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        return Response(SubTaskSerializer(task.subtasks.all(), many=True).data)
 
     def post(self, request, task_id):
         self.require_editor()
@@ -783,8 +919,27 @@ class TaskSubTaskListCreateView(WorkspaceMixin, APIView):
             title=title,
             expected_artifact=(request.data.get("expected_artifact") or ""),
             assignee_id=request.data.get("assignee"),
+            status=request.data.get("status") or DeliverySubTask.Status.TODO,
         )
         return Response(SubTaskSerializer(row).data, status=201)
+
+
+class TaskSubTaskDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def patch(self, request, task_id, subtask_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        row = get_object_or_404(task.subtasks.all(), pk=subtask_id)
+        for field in ("title", "status", "expected_artifact"):
+            if field in request.data:
+                setattr(row, field, request.data.get(field) or getattr(row, field))
+        if "assignee" in request.data:
+            row.assignee_id = request.data.get("assignee")
+        row.save()
+        return Response(SubTaskSerializer(row).data)
 
 
 class TaskDependencyListCreateView(WorkspaceMixin, APIView):
@@ -806,6 +961,8 @@ class TaskDependencyListCreateView(WorkspaceMixin, APIView):
             raise ValidationError({"depends_on": "Required"})
         if int(depends_on_id) == task.id:
             raise ValidationError({"depends_on": "Task cannot depend on itself"})
+        if would_create_dependency_cycle(task.id, int(depends_on_id)):
+            raise ValidationError({"depends_on": "Dependency would create a cycle"})
         other = get_object_or_404(
             DeliveryTask.objects.filter(workspace=ws), pk=depends_on_id
         )
@@ -859,6 +1016,9 @@ class GitHubWebhookView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        import hashlib
+        import hmac
+
         payload = request.data if isinstance(request.data, dict) else {}
         action = payload.get("action") or ""
         event = request.headers.get("X-GitHub-Event") or request.META.get(
@@ -876,10 +1036,39 @@ class GitHubWebhookView(APIView):
         comment = payload.get("comment") or {}
         if not full_name or not number:
             return Response({"detail": "ignored"}, status=200)
+        tasks = list(
+            DeliveryTask.objects.filter(
+                github_repo=full_name, github_pr_number=number
+            ).select_related("workspace")
+        )
+        if tasks:
+            # If any matching workspace configured a secret, require valid signature
+            secrets_needed = {
+                DeliverySettings.objects.filter(workspace_id=t.workspace_id)
+                .values_list("github_webhook_secret", flat=True)
+                .first()
+                or ""
+                for t in tasks
+            }
+            secrets_needed.discard("")
+            if secrets_needed:
+                signature = request.headers.get(
+                    "X-Hub-Signature-256"
+                ) or request.META.get("HTTP_X_HUB_SIGNATURE_256", "")
+                raw = getattr(request, "_request", request).body or b""
+                ok = False
+                for secret in secrets_needed:
+                    digest = hmac.new(
+                        secret.encode(), raw, hashlib.sha256
+                    ).hexdigest()
+                    expected = f"sha256={digest}"
+                    if hmac.compare_digest(expected, signature):
+                        ok = True
+                        break
+                if not ok:
+                    return Response({"detail": "Invalid signature"}, status=401)
         updated = 0
-        for task in DeliveryTask.objects.filter(
-            github_repo=full_name, github_pr_number=number
-        ):
+        for task in tasks:
             if pr:
                 task.github_pr_state = state or task.github_pr_state
                 task.github_pr_url = html_url or task.github_pr_url
@@ -917,6 +1106,8 @@ class OverviewView(WorkspaceMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def get(self, request):
+        from delivery.models import TaskHandoff
+
         ws = self.get_workspace()
         settings_row, _ = DeliverySettings.objects.get_or_create(workspace=ws)
         if not settings_row.agent_ops_enabled:
@@ -932,12 +1123,46 @@ class OverviewView(WorkspaceMixin, APIView):
         tasks = DeliveryTask.objects.filter(workspace=ws)
         blocked = tasks.filter(status=DeliveryTask.Status.BLOCKED)[:50]
         review = tasks.filter(status=DeliveryTask.Status.REVIEW)[:50]
-        awaiting = TaskBlocker.objects.filter(
+        awaiting_items = []
+        for b in TaskBlocker.objects.filter(
             task__workspace=ws,
             needs_owner_decision=True,
             resolved_at__isnull=True,
             cancelled_at__isnull=True,
-        ).select_related("task")[:50]
+        ).select_related("task")[:50]:
+            awaiting_items.append(
+                {
+                    "blocker_id": b.id,
+                    "title": b.title,
+                    "task_id": b.task_id,
+                    "task_title": b.task.title,
+                    "source": "blocker",
+                }
+            )
+        for h in TaskHandoff.objects.filter(
+            task__workspace=ws, needs_owner_decision=True
+        ).select_related("task")[:50]:
+            awaiting_items.append(
+                {
+                    "blocker_id": None,
+                    "title": f"Handoff {h.from_role}→{h.to_role}",
+                    "task_id": h.task_id,
+                    "task_title": h.task.title,
+                    "source": "handoff",
+                }
+            )
+        for c in TaskComment.objects.filter(
+            task__workspace=ws, kind=TaskComment.Kind.OWNER_REQUEST
+        ).select_related("task")[:30]:
+            awaiting_items.append(
+                {
+                    "blocker_id": None,
+                    "title": c.body[:120],
+                    "task_id": c.task_id,
+                    "task_title": c.task.title,
+                    "source": "owner_request",
+                }
+            )
         returned_ids = (
             TaskStatusHistory.objects.filter(
                 task__workspace=ws,
@@ -953,15 +1178,7 @@ class OverviewView(WorkspaceMixin, APIView):
                 "agent_ops_enabled": True,
                 "blocked": DeliveryTaskSerializer(blocked, many=True).data,
                 "stuck_review": DeliveryTaskSerializer(review, many=True).data,
-                "awaiting_owner": [
-                    {
-                        "blocker_id": b.id,
-                        "title": b.title,
-                        "task_id": b.task_id,
-                        "task_title": b.task.title,
-                    }
-                    for b in awaiting
-                ],
+                "awaiting_owner": awaiting_items[:80],
                 "returned_from_qa": DeliveryTaskSerializer(returned, many=True).data,
             }
         )

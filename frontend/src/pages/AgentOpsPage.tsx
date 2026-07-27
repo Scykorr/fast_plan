@@ -35,6 +35,7 @@ const ROLES = [
   "human",
   "planner",
   "reviewer",
+  "observer",
 ] as const;
 
 const emptyTaskForm = {
@@ -53,13 +54,21 @@ const emptyTaskForm = {
   architecture_url: "",
   planning_doc_url: "",
   acceptance_url: "",
+  external_pack_url: "",
   github_repo: "",
   github_branch: "",
   epic: "" as number | "",
   sprint: "" as number | "",
 };
 
-type Tab = "overview" | "backlog" | "task" | "agents" | "sprints" | "epics";
+type Tab =
+  | "overview"
+  | "backlog"
+  | "task"
+  | "agents"
+  | "sprints"
+  | "epics"
+  | "projects";
 
 export function AgentOpsPage() {
   const api = useDeliveryApi();
@@ -96,7 +105,25 @@ export function AgentOpsPage() {
     }>;
   } | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [sprintFilter, setSprintFilter] = useState<number | "">("");
+  const [projects, setProjects] = useState<
+    Array<{
+      project: number;
+      project_name: string;
+      description: string;
+      status: string;
+      owner_email: string | null;
+      repo_url: string;
+      docs_url: string;
+    }>
+  >([]);
+  const [commentBody, setCommentBody] = useState("");
+  const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [depTaskId, setDepTaskId] = useState("");
+  const [projectLinks, setProjectLinks] = useState<
+    Record<number, { repo_url: string; docs_url: string }>
+  >({});
   const [epicTitle, setEpicTitle] = useState("");
   const [sprintName, setSprintName] = useState("");
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
@@ -127,29 +154,39 @@ export function AgentOpsPage() {
         setOverview(null);
         return;
       }
-      const [taskRows, epicRows, sprintRows, agentRows, ov] = await Promise.all(
-        [
+      const [taskRows, epicRows, sprintRows, agentRows, ov, projectRows] =
+        await Promise.all([
           api.listTasks({
             status: statusFilter || undefined,
+            role: roleFilter || undefined,
             sprint: sprintFilter === "" ? undefined : sprintFilter,
           }),
           api.listEpics(),
           api.listSprints(),
           api.listAgents(),
           api.overview(),
-        ],
-      );
+          api.listProjects(),
+        ]);
       setTasks(taskRows);
       setEpics(epicRows);
       setSprints(sprintRows);
       setAgents(agentRows);
       setOverview(ov);
+      setProjects(projectRows);
+      setProjectLinks(
+        Object.fromEntries(
+          projectRows.map((p) => [
+            p.project,
+            { repo_url: p.repo_url || "", docs_url: p.docs_url || "" },
+          ]),
+        ),
+      );
     } catch (err) {
       setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
-  }, [api, statusFilter, sprintFilter]);
+  }, [api, statusFilter, sprintFilter, roleFilter]);
 
   const loadTask = useCallback(
     async (id: number) => {
@@ -243,6 +280,7 @@ export function AgentOpsPage() {
         architecture_url: taskForm.architecture_url,
         planning_doc_url: taskForm.planning_doc_url,
         acceptance_url: taskForm.acceptance_url,
+        external_pack_url: taskForm.external_pack_url,
         github_repo: taskForm.github_repo,
         github_branch: taskForm.github_branch,
         epic: taskForm.epic === "" ? null : taskForm.epic,
@@ -352,6 +390,7 @@ export function AgentOpsPage() {
         ["overview", "Обзор"],
         ["backlog", "Backlog"],
         ["task", "Карточка"],
+        ["projects", "Проекты"],
         ["agents", "Агенты"],
         ["sprints", "Спринты"],
         ["epics", "Эпики"],
@@ -465,6 +504,90 @@ export function AgentOpsPage() {
                   ))}
                 </ul>
               </div>
+            </section>
+          )}
+
+          {tab === "projects" && (
+            <section className="space-y-3">
+              <p className="text-sm text-text-muted">
+                Проекты workspace + ссылки repo/docs (TZ §5.1).
+              </p>
+              <ul className="space-y-3">
+                {projects.map((p) => (
+                  <li
+                    key={p.project}
+                    className="space-y-2 rounded-xl border border-border bg-surface p-4"
+                  >
+                    <p className="font-semibold text-text">
+                      {p.project_name}{" "}
+                      <span className="text-xs font-normal text-text-muted">
+                        {p.status}
+                        {p.owner_email ? ` · ${p.owner_email}` : ""}
+                      </span>
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {p.description || "—"}
+                    </p>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <input
+                        className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                        placeholder="Repo URL"
+                        value={projectLinks[p.project]?.repo_url || ""}
+                        onChange={(e) =>
+                          setProjectLinks((prev) => ({
+                            ...prev,
+                            [p.project]: {
+                              ...(prev[p.project] || {
+                                repo_url: "",
+                                docs_url: "",
+                              }),
+                              repo_url: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      <input
+                        className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                        placeholder="Docs URL"
+                        value={projectLinks[p.project]?.docs_url || ""}
+                        onChange={(e) =>
+                          setProjectLinks((prev) => ({
+                            ...prev,
+                            [p.project]: {
+                              ...(prev[p.project] || {
+                                repo_url: "",
+                                docs_url: "",
+                              }),
+                              docs_url: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white"
+                      onClick={() => {
+                        void (async () => {
+                          if (!api) return;
+                          try {
+                            await api.upsertProjectMeta({
+                              project: p.project,
+                              ...projectLinks[p.project],
+                            });
+                            setMessage(`Ссылки проекта #${p.project} сохранены`);
+                            await load();
+                          } catch (err) {
+                            setError(parseApiError(err));
+                          }
+                        })();
+                      }}
+                    >
+                      Сохранить ссылки
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 
@@ -603,6 +726,7 @@ export function AgentOpsPage() {
                     ["architecture_url", "Architecture URL"],
                     ["planning_doc_url", "Planning URL"],
                     ["acceptance_url", "Acceptance URL"],
+                    ["external_pack_url", "External pack URL"],
                     ["github_repo", "GitHub repo (org/name)"],
                     ["github_branch", "Branch"],
                   ] as const
@@ -699,6 +823,18 @@ export function AgentOpsPage() {
                   {STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {s}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <option value="">Все роли</option>
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
                     </option>
                   ))}
                 </select>
@@ -939,15 +1075,97 @@ export function AgentOpsPage() {
                       >
                         Отметить блокер
                       </button>
-                      <ul className="text-sm">
+                      <ul className="space-y-2 text-sm">
                         {(selected.blockers || []).map((b) => (
-                          <li key={b.id}>
-                            #{b.id} {b.title}{" "}
-                            {b.is_open ? "(open)" : "(closed)"}
+                          <li
+                            key={b.id}
+                            className="flex flex-wrap items-center gap-2"
+                          >
+                            <span>
+                              #{b.id} {b.title}{" "}
+                              {b.is_open ? "(open)" : "(closed)"}
+                            </span>
+                            {b.is_open && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="text-xs text-primary hover:underline"
+                                  onClick={() => {
+                                    void (async () => {
+                                      if (!api) return;
+                                      try {
+                                        await api.resolveBlocker(
+                                          selected.id,
+                                          b.id,
+                                          "resolved in UI",
+                                        );
+                                        await loadTask(selected.id);
+                                        await load();
+                                      } catch (err) {
+                                        setError(parseApiError(err));
+                                      }
+                                    })();
+                                  }}
+                                >
+                                  Resolve
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-xs text-primary hover:underline"
+                                  onClick={() => {
+                                    void (async () => {
+                                      if (!api) return;
+                                      try {
+                                        await api.cancelBlocker(
+                                          selected.id,
+                                          b.id,
+                                          "cancelled in UI",
+                                        );
+                                        await loadTask(selected.id);
+                                        await load();
+                                      } catch (err) {
+                                        setError(parseApiError(err));
+                                      }
+                                    })();
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
                           </li>
                         ))}
                       </ul>
                       <h3 className="pt-2 font-semibold">Dependencies</h3>
+                      <div className="flex gap-2">
+                        <input
+                          className="flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                          placeholder="depends on task id"
+                          value={depTaskId}
+                          onChange={(e) => setDepTaskId(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border px-3 py-2 text-sm"
+                          onClick={() => {
+                            void (async () => {
+                              if (!api || !selected || !depTaskId) return;
+                              try {
+                                await api.addDependency(
+                                  selected.id,
+                                  Number(depTaskId),
+                                );
+                                setDepTaskId("");
+                                await loadTask(selected.id);
+                              } catch (err) {
+                                setError(parseApiError(err));
+                              }
+                            })();
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
                       <ul className="text-sm">
                         {(selected.dependencies || []).length === 0 && (
                           <li className="text-text-muted">—</li>
@@ -959,11 +1177,81 @@ export function AgentOpsPage() {
                           </li>
                         ))}
                       </ul>
+                      <h3 className="pt-2 font-semibold">Subtasks</h3>
+                      <div className="flex gap-2">
+                        <input
+                          className="flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                          placeholder="Subtask title"
+                          value={subtaskTitle}
+                          onChange={(e) => setSubtaskTitle(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border px-3 py-2 text-sm"
+                          onClick={() => {
+                            void (async () => {
+                              if (!api || !selected || !subtaskTitle.trim())
+                                return;
+                              try {
+                                await api.createSubtask(selected.id, {
+                                  title: subtaskTitle.trim(),
+                                });
+                                setSubtaskTitle("");
+                                await loadTask(selected.id);
+                              } catch (err) {
+                                setError(parseApiError(err));
+                              }
+                            })();
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <h3 className="pt-2 font-semibold">Comments</h3>
+                      <div className="flex gap-2">
+                        <input
+                          className="flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                          placeholder="Comment"
+                          value={commentBody}
+                          onChange={(e) => setCommentBody(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border px-3 py-2 text-sm"
+                          onClick={() => {
+                            void (async () => {
+                              if (!api || !selected || !commentBody.trim())
+                                return;
+                              try {
+                                await api.addComment(selected.id, {
+                                  body: commentBody.trim(),
+                                });
+                                setCommentBody("");
+                                await loadTask(selected.id);
+                              } catch (err) {
+                                setError(parseApiError(err));
+                              }
+                            })();
+                          }}
+                        >
+                          Send
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   {history && (
                     <div className="grid gap-4 md:grid-cols-2">
+                      <div className="rounded-xl border border-border bg-surface p-4">
+                        <h3 className="font-semibold">Unified timeline</h3>
+                        <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto text-xs">
+                          {(history.timeline || []).map((h, i) => (
+                            <li key={`${h.at}-${i}`}>
+                              [{h.kind}] {h.summary}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                       <div className="rounded-xl border border-border bg-surface p-4">
                         <h3 className="font-semibold">Status history</h3>
                         <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
@@ -971,16 +1259,6 @@ export function AgentOpsPage() {
                             <li key={`${h.created_at}-${i}`}>
                               {h.from_status || "∅"} → {h.to_status}
                               {h.reason ? ` (${h.reason})` : ""}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="rounded-xl border border-border bg-surface p-4">
-                        <h3 className="font-semibold">Field history</h3>
-                        <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
-                          {history.field_history.map((h, i) => (
-                            <li key={`${h.created_at}-${i}`}>
-                              {h.field}: {h.old_value || "∅"} → {h.new_value}
                             </li>
                           ))}
                         </ul>

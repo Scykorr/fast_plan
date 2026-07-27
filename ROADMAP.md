@@ -351,6 +351,7 @@ _Границы:_ CryptoGamp/любой repo = канон; Fast Plan = испо�
 - [x] **P9c** — GitHub fields + webhook PR status; Ready-gate (doc links / DoR). **M–L**
 - [x] **P9d** — Agent API: filters, Idempotency-Key, rate limit, service-account friendly queues. **M**
 - [x] **P9e** — TZ end-to-end: full Ready-gate §8, dependencies, field/access journals, service accounts, project meta, review notes/PR snippet, overview+task card UI. **L**
+- [x] **P9f** — TZ gap-close: ACL `can()`, assign API, unified timeline, dep gates, SubTask CRUD, comment kinds, project §5.1 list, webhook HMAC, richer Agent Ops UI. **M**
 
 ### DoD (§17 ТЗ)
 

@@ -55,6 +55,11 @@ urlpatterns = [
         name="delivery-task-claim",
     ),
     path(
+        "delivery/tasks/<int:task_id>/assign/",
+        views.TaskAssignView.as_view(),
+        name="delivery-task-assign",
+    ),
+    path(
         "delivery/tasks/<int:task_id>/history/",
         views.TaskHistoryView.as_view(),
         name="delivery-task-history",
@@ -88,6 +93,11 @@ urlpatterns = [
         "delivery/tasks/<int:task_id>/subtasks/",
         views.TaskSubTaskListCreateView.as_view(),
         name="delivery-task-subtasks",
+    ),
+    path(
+        "delivery/tasks/<int:task_id>/subtasks/<int:subtask_id>/",
+        views.TaskSubTaskDetailView.as_view(),
+        name="delivery-task-subtask-detail",
     ),
     path(
         "delivery/tasks/<int:task_id>/dependencies/",

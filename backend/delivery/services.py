@@ -10,6 +10,8 @@ from delivery.models import (
     AgentProfile,
     DeliveryTask,
     TaskBlocker,
+    TaskComment,
+    TaskDependency,
     TaskFieldHistory,
     TaskHandoff,
     TaskStatusHistory,
@@ -135,17 +137,77 @@ TRACKED_FIELDS = (
 
 
 def ready_gate_errors(task: DeliveryTask) -> list[str]:
-    """Fields required before moving to Ready (TZ §8)."""
+    """Fields required before moving to Ready (TZ §8 + §11 source docs)."""
     errors = []
     for field in READY_REQUIRED_FIELDS:
         value = getattr(task, field, "")
         if value is None or not str(value).strip():
             errors.append(field)
-    # Architecture link optional if acceptance present, but TZ §11 wants docs —
-    # require at least one of architecture_url or acceptance_url in addition to canon/planning
-    if not (task.architecture_url or task.acceptance_url or "").strip():
-        errors.append("architecture_url_or_acceptance_url")
+    if not (task.architecture_url or "").strip():
+        errors.append("architecture_url")
+    if not (task.acceptance_url or "").strip():
+        errors.append("acceptance_url")
     return errors
+
+
+def unfinished_dependency_ids(task: DeliveryTask) -> list[int]:
+    done = {DeliveryTask.Status.DONE, DeliveryTask.Status.ARCHIVED}
+    return list(
+        task.dependencies.exclude(depends_on__status__in=done).values_list(
+            "depends_on_id", flat=True
+        )
+    )
+
+
+def assert_dependencies_satisfied(task: DeliveryTask):
+    blocked = unfinished_dependency_ids(task)
+    if blocked:
+        raise ValueError(
+            f"Unfinished dependencies block progress: {', '.join(map(str, blocked))}"
+        )
+
+
+def would_create_dependency_cycle(task_id: int, depends_on_id: int) -> bool:
+    """True if adding task → depends_on creates a cycle."""
+    if task_id == depends_on_id:
+        return True
+    seen: set[int] = set()
+    stack = [depends_on_id]
+    while stack:
+        current = stack.pop()
+        if current == task_id:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        stack.extend(
+            TaskDependency.objects.filter(task_id=current).values_list(
+                "depends_on_id", flat=True
+            )
+        )
+    return False
+
+
+def profile_may(profile: AgentProfile | None, action: str) -> bool:
+    """TZ §4/§12 — enforce role action sets for agent profiles."""
+    if profile is None:
+        return True
+    if not profile.is_active:
+        return False
+    if profile.role == "observer" and action != "read":
+        return False
+    if profile.role in ("owner", "planner") and action != "close_epic":
+        # owners/planners retain broad write; close_epic still via can()
+        if action == "close_epic":
+            return profile.can("close_epic") or profile.role in ("owner", "planner")
+        return True
+    if profile.can(action):
+        return True
+    if action == "write_task_own" and profile.can("write_task"):
+        return True
+    if action == "review" and profile.role in ("qa", "reviewer", "owner"):
+        return True
+    return False
 
 
 def log_agent_action(
@@ -206,6 +268,11 @@ def change_status(
         missing = ready_gate_errors(task)
         if missing:
             raise ValueError(f"Ready gate failed: missing {', '.join(missing)}")
+    if to_status in (
+        DeliveryTask.Status.IN_PROGRESS,
+        DeliveryTask.Status.ASSIGNED,
+    ):
+        assert_dependencies_satisfied(task)
     if to_status == DeliveryTask.Status.BLOCKED:
         if not task.blockers.filter(
             resolved_at__isnull=True, cancelled_at__isnull=True
@@ -240,8 +307,11 @@ def claim_task(
         raise ValueError("Version conflict — task was updated")
     if locked.assignee_id and locked.assignee_id != user.id:
         raise ValueError("Task already claimed by another assignee")
+    assert_dependencies_satisfied(locked)
+    before = snapshot_task(locked)
     locked.assignee = user
     locked.save(update_fields=["assignee", "updated_at"])
+    record_field_changes(locked, user=user, before=before, after=snapshot_task(locked))
     if locked.status == DeliveryTask.Status.READY:
         change_status(
             locked,
@@ -257,6 +327,44 @@ def claim_task(
         reason="started after claim",
     )
     locked.refresh_from_db()
+    return locked
+
+
+@transaction.atomic
+def assign_task(
+    task: DeliveryTask, *, user, assignee_id: int | None, assignee_role: str | None = None
+) -> DeliveryTask:
+    """TZ §9.2.8 — explicit assign / unassign with field journal."""
+    locked = DeliveryTask.objects.select_for_update().get(pk=task.pk)
+    before = snapshot_task(locked)
+    locked.assignee_id = assignee_id
+    update = ["assignee", "updated_at"]
+    if assignee_role is not None:
+        locked.assignee_role = assignee_role
+        update.append("assignee_role")
+    locked.version += 1
+    update.append("version")
+    locked.save(update_fields=update)
+    record_field_changes(locked, user=user, before=before, after=snapshot_task(locked))
+    if (
+        assignee_id
+        and locked.status == DeliveryTask.Status.READY
+    ):
+        change_status(
+            locked,
+            to_status=DeliveryTask.Status.ASSIGNED,
+            user=user,
+            reason="assigned",
+        )
+        locked.refresh_from_db()
+    elif assignee_id is None and locked.status == DeliveryTask.Status.ASSIGNED:
+        change_status(
+            locked,
+            to_status=DeliveryTask.Status.READY,
+            user=user,
+            reason="unassigned",
+        )
+        locked.refresh_from_db()
     return locked
 
 
@@ -292,6 +400,22 @@ def create_handoff(
         needs_owner_decision=needs_owner_decision,
         created_by=user,
     )
+    TaskComment.objects.create(
+        task=task,
+        kind=TaskComment.Kind.HANDOFF_NOTE,
+        body=(
+            f"Handoff {from_role} → {to_role}: {done_summary}"
+            + (f" | left: {left_summary}" if left_summary else "")
+        ),
+        author=user,
+    )
+    if needs_owner_decision:
+        TaskComment.objects.create(
+            task=task,
+            kind=TaskComment.Kind.OWNER_REQUEST,
+            body=open_questions or "Owner decision requested via handoff",
+            author=user,
+        )
     before = snapshot_task(task)
     task.assignee_role = to_role
     task.next_role = to_role
@@ -324,6 +448,13 @@ def resolve_blocker(blocker: TaskBlocker, *, user, note: str = "") -> TaskBlocke
     blocker.resolution_note = note or ""
     blocker.save(
         update_fields=["resolved_at", "resolved_by", "resolution_note"]
+    )
+    TaskComment.objects.create(
+        task=blocker.task,
+        kind=TaskComment.Kind.BLOCKER_NOTE,
+        body=f"Blocker resolved: {blocker.title}"
+        + (f" — {note}" if note else ""),
+        author=user,
     )
     task = blocker.task
     if (
@@ -377,3 +508,80 @@ def agent_may_close_epic(profile: AgentProfile | None) -> bool:
     if profile.role in ("owner", "planner"):
         return True
     return profile.can("close_epic")
+
+
+def build_task_timeline(task: DeliveryTask) -> list[dict]:
+    """Unified §13 journal: status, fields, handoffs, blockers, comments."""
+    events: list[dict] = []
+    for row in task.status_history.all():
+        events.append(
+            {
+                "kind": "status",
+                "at": row.created_at.isoformat(),
+                "actor_id": row.changed_by_id,
+                "summary": f"{row.from_status or '∅'} → {row.to_status}",
+                "detail": row.reason,
+            }
+        )
+    for row in task.field_history.all()[:300]:
+        events.append(
+            {
+                "kind": "field",
+                "at": row.created_at.isoformat(),
+                "actor_id": row.changed_by_id,
+                "summary": f"{row.field}: {row.old_value or '∅'} → {row.new_value}",
+                "detail": "",
+            }
+        )
+    for row in task.handoffs.all():
+        events.append(
+            {
+                "kind": "handoff",
+                "at": row.created_at.isoformat(),
+                "actor_id": row.created_by_id,
+                "summary": f"{row.from_role} → {row.to_role}",
+                "detail": row.done_summary,
+            }
+        )
+    for row in task.blockers.all():
+        events.append(
+            {
+                "kind": "blocker",
+                "at": row.created_at.isoformat(),
+                "actor_id": row.created_by_id,
+                "summary": row.title,
+                "detail": row.detail,
+            }
+        )
+        if row.resolved_at:
+            events.append(
+                {
+                    "kind": "blocker_resolved",
+                    "at": row.resolved_at.isoformat(),
+                    "actor_id": row.resolved_by_id,
+                    "summary": f"Resolved: {row.title}",
+                    "detail": row.resolution_note,
+                }
+            )
+        if row.cancelled_at:
+            events.append(
+                {
+                    "kind": "blocker_cancelled",
+                    "at": row.cancelled_at.isoformat(),
+                    "actor_id": row.cancelled_by_id,
+                    "summary": f"Cancelled: {row.title}",
+                    "detail": row.cancel_reason,
+                }
+            )
+    for row in task.comments.all():
+        events.append(
+            {
+                "kind": f"comment:{row.kind}",
+                "at": row.created_at.isoformat(),
+                "actor_id": row.author_id,
+                "summary": row.body[:200],
+                "detail": row.kind,
+            }
+        )
+    events.sort(key=lambda e: e["at"], reverse=True)
+    return events[:500]

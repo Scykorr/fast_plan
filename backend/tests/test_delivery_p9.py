@@ -142,6 +142,31 @@ def test_claim_blocker_handoff_deps_queue(
     assert dep.status_code == status.HTTP_201_CREATED
     assert TaskDependency.objects.filter(task_id=task_id).count() == 1
 
+    # Satisfy dependency so claim is allowed
+    authenticated_client.post(
+        f"/api/delivery/tasks/{other.data['id']}/status/",
+        {"status": "ready"},
+        format="json",
+    )
+    other_detail = authenticated_client.get(
+        f"/api/delivery/tasks/{other.data['id']}/"
+    )
+    authenticated_client.post(
+        f"/api/delivery/tasks/{other.data['id']}/claim/",
+        {"version": other_detail.data["version"]},
+        format="json",
+    )
+    authenticated_client.post(
+        f"/api/delivery/tasks/{other.data['id']}/status/",
+        {"status": "review"},
+        format="json",
+    )
+    authenticated_client.post(
+        f"/api/delivery/tasks/{other.data['id']}/status/",
+        {"status": "done"},
+        format="json",
+    )
+
     authenticated_client.post(
         f"/api/delivery/tasks/{task_id}/status/",
         {"status": "ready"},
@@ -161,6 +186,10 @@ def test_claim_blocker_handoff_deps_queue(
     statuses = [r["to_status"] for r in hist.data["status_history"]]
     assert "assigned" in statuses
     assert "in_progress" in statuses
+    assert any(e["kind"] == "status" for e in hist.data["timeline"])
+    assert any(
+        row["field"] == "assignee" for row in hist.data["field_history"]
+    )
 
     conflict = authenticated_client.post(
         f"/api/delivery/tasks/{task_id}/claim/",
@@ -352,6 +381,91 @@ def test_idempotency_key_on_create(authenticated_client, enable_ops):
 
 
 @pytest.mark.django_db
+def test_dependency_blocks_claim_and_cycle(
+    authenticated_client, enable_ops
+):
+    dep = authenticated_client.post(
+        "/api/delivery/tasks/",
+        {**READY_FIELDS, "title": "Unfinished dep"},
+        format="json",
+    )
+    main = authenticated_client.post(
+        "/api/delivery/tasks/",
+        {**READY_FIELDS, "title": "Main"},
+        format="json",
+    )
+    authenticated_client.post(
+        f"/api/delivery/tasks/{main.data['id']}/dependencies/",
+        {"depends_on": dep.data["id"]},
+        format="json",
+    )
+    cycle = authenticated_client.post(
+        f"/api/delivery/tasks/{dep.data['id']}/dependencies/",
+        {"depends_on": main.data["id"]},
+        format="json",
+    )
+    assert cycle.status_code == status.HTTP_400_BAD_REQUEST
+
+    authenticated_client.post(
+        f"/api/delivery/tasks/{main.data['id']}/status/",
+        {"status": "ready"},
+        format="json",
+    )
+    detail = authenticated_client.get(f"/api/delivery/tasks/{main.data['id']}/")
+    claim = authenticated_client.post(
+        f"/api/delivery/tasks/{main.data['id']}/claim/",
+        {"version": detail.data["version"]},
+        format="json",
+    )
+    assert claim.status_code == status.HTTP_400_BAD_REQUEST
+    assert "dependencies" in str(claim.data).lower()
+
+
+@pytest.mark.django_db
+def test_assign_and_subtask_comment(
+    authenticated_client, enable_ops, user
+):
+    create = authenticated_client.post(
+        "/api/delivery/tasks/", READY_FIELDS, format="json"
+    )
+    task_id = create.data["id"]
+    authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/status/",
+        {"status": "ready"},
+        format="json",
+    )
+    assigned = authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/assign/",
+        {"assignee": user.id, "assignee_role": "backend"},
+        format="json",
+    )
+    assert assigned.status_code == status.HTTP_200_OK
+    assert assigned.data["status"] == "assigned"
+    assert assigned.data["assignee"] == user.id
+
+    sub = authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/subtasks/",
+        {"title": "Write tests", "expected_artifact": "pytest"},
+        format="json",
+    )
+    assert sub.status_code == status.HTTP_201_CREATED
+    patched = authenticated_client.patch(
+        f"/api/delivery/tasks/{task_id}/subtasks/{sub.data['id']}/",
+        {"status": "done"},
+        format="json",
+    )
+    assert patched.status_code == status.HTTP_200_OK
+    assert patched.data["status"] == "done"
+
+    comment = authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/comments/",
+        {"body": "note", "kind": "comment"},
+        format="json",
+    )
+    assert comment.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
 def test_overview_when_disabled(authenticated_client, workspace):
     resp = authenticated_client.get("/api/delivery/overview/")
     assert resp.status_code == status.HTTP_200_OK
@@ -363,6 +477,11 @@ def test_project_meta(authenticated_client, enable_ops, workspace):
     from projects.models import Project
 
     project = Project.objects.create(workspace=workspace, name="CryptoGamp ops")
+    listing = authenticated_client.get("/api/delivery/projects/")
+    assert listing.status_code == status.HTTP_200_OK
+    assert any(row["project"] == project.id for row in listing.data)
+    assert any(row["project_name"] == "CryptoGamp ops" for row in listing.data)
+
     resp = authenticated_client.post(
         "/api/delivery/projects/",
         {
@@ -374,3 +493,5 @@ def test_project_meta(authenticated_client, enable_ops, workspace):
     )
     assert resp.status_code == status.HTTP_201_CREATED
     assert resp.data["repo_url"].endswith("cryptogamp")
+    assert resp.data["description"] == ""
+    assert resp.data["status"] == project.status
