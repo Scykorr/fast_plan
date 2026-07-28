@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { parseApiError } from "../api/errors";
 import { mutateOrQueue } from "../api/offlineQueue";
@@ -15,7 +15,9 @@ import type {
 import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
+import { CrmSavedFiltersBar } from "../components/crm/CrmSavedFiltersBar";
 import { useCrmApi } from "../hooks/useCrmApi";
+import { useCrmHotkeys } from "../hooks/useCrmHotkeys";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
@@ -35,6 +37,8 @@ const KIND_LABELS: Record<CrmActivityKind, string> = {
   meeting: "Встреча",
   email: "Email",
   telegram: "Telegram",
+  instagram: "Instagram",
+  vk: "VK",
   invoice: "Счёт",
   order: "Заказ",
   other: "Другое",
@@ -58,6 +62,11 @@ export function ClientsPage() {
   const { workspaceEpoch } = useWorkspace();
   const [tab, setTab] = useState<"people" | "orgs">("people");
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useCrmHotkeys({
+    onSearchFocus: () => searchRef.current?.focus(),
+    onNew: () => searchRef.current?.focus(),
+  });
   const [staleOnly, setStaleOnly] = useState(false);
   const [people, setPeople] = useState<CrmPerson[]>([]);
   const [orgs, setOrgs] = useState<CrmOrganization[]>([]);
@@ -427,7 +436,9 @@ export function ClientsPage() {
         <div>
           <h1 className="text-2xl font-bold text-text">Клиенты</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Карточка клиента · теги, сегменты, история, документы (P6b)
+            Карточка клиента · теги, сегменты · hotkeys: <kbd>/</kbd> поиск,{" "}
+            <kbd>g</kbd>
+            <kbd>c</kbd> сюда
           </p>
         </div>
         <button
@@ -462,9 +473,10 @@ export function ClientsPage() {
           Компании
         </button>
         <input
+          ref={searchRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Поиск…"
+          placeholder="Поиск… (/)"
           className="min-w-[10rem] flex-1 rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
         />
         <select
@@ -506,6 +518,32 @@ export function ClientsPage() {
           Нет касаний ≥{STALE_DEFAULT} дн.
         </label>
       </div>
+
+      <CrmSavedFiltersBar
+        target="clients"
+        currentParams={{
+          q: query,
+          tag_id: filterTagId,
+          segment_id: filterSegmentId,
+          stale_only: staleOnly,
+          tab,
+        }}
+        onApply={(params) => {
+          setQuery(String(params.q ?? ""));
+          setFilterTagId(
+            params.tag_id ? Number(params.tag_id) : ("" as number | ""),
+          );
+          setFilterSegmentId(
+            params.segment_id
+              ? Number(params.segment_id)
+              : ("" as number | ""),
+          );
+          setStaleOnly(Boolean(params.stale_only));
+          if (params.tab === "orgs" || params.tab === "people") {
+            setTab(params.tab);
+          }
+        }}
+      />
 
       <form
         onSubmit={(event) => void createSegment(event)}

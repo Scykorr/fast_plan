@@ -323,6 +323,11 @@ async function checkAuthSmoke() {
         Array.isArray(b?.providers) &&
         b.providers.some((row) => row?.provider === "telephony"),
     },
+    {
+      path: "/api/crm/saved-filters/",
+      name: "crm saved filters",
+      ok: (b) => Array.isArray(b),
+    },
   ];
   for (const check of processGets) {
     const res = await fetchJson(check.path, { headers });
@@ -331,6 +336,24 @@ async function checkAuthSmoke() {
       return false;
     }
     pass(check.name);
+  }
+
+  // Agent Ops delivery smoke (optional feature flag)
+  const deliverySettings = await fetchJson("/api/delivery/settings/", { headers });
+  if (!deliverySettings.response.ok) {
+    warn("delivery settings", `HTTP ${deliverySettings.response.status}`);
+  } else if (!deliverySettings.body?.agent_ops_enabled) {
+    warn("delivery api", "agent_ops_enabled=false — skipped overview/queue");
+  } else {
+    pass("delivery settings", "agent_ops_enabled");
+    for (const path of ["/api/delivery/overview/", "/api/delivery/queue/", "/api/delivery/agents/"]) {
+      const res = await fetchJson(path, { headers });
+      if (!res.response.ok) {
+        fail(`delivery ${path}`, `HTTP ${res.response.status}`);
+        return false;
+      }
+      pass(`delivery ${path}`);
+    }
   }
 
   return true;

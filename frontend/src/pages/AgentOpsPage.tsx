@@ -857,6 +857,28 @@ export function AgentOpsPage() {
 
           {tab === "agents" && (
             <section className="space-y-4">
+              <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
+                <h2 className="font-semibold text-text">Onboarding агента</h2>
+                <ol className="list-decimal space-y-1 pl-5 text-text-muted">
+                  <li>Выберите роль и создайте service account + token (ниже).</li>
+                  <li>
+                    Сохраните token в secret store агента — он показывается один раз.
+                  </li>
+                  <li>
+                    Заголовок запросов:{" "}
+                    <code className="text-xs">Authorization: Token …</code> +{" "}
+                    <code className="text-xs">X-Workspace-Id</code>.
+                  </li>
+                  <li>
+                    Типичный цикл: claim → handoff → Owner/Planner approve meaning →
+                    Ready-gate.
+                  </li>
+                  <li>
+                    Проверьте ACL роли на карточке агента (effective_actions) и field
+                    ACL при PATCH.
+                  </li>
+                </ol>
+              </div>
               <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-surface p-4">
                 <label className="text-sm">
                   Role

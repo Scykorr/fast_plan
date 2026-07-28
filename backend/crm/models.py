@@ -364,6 +364,8 @@ class Activity(models.Model):
         TELEGRAM = "telegram", "Telegram"
         WHATSAPP = "whatsapp", "WhatsApp"
         SMS = "sms", "SMS"
+        INSTAGRAM = "instagram", "Instagram"
+        VK = "vk", "VK"
         NOTE = "note", "Note"
         INVOICE = "invoice", "Invoice"
         ORDER = "order", "Order"
@@ -376,6 +378,8 @@ class Activity(models.Model):
         TELEGRAM = "telegram", "Telegram"
         WHATSAPP = "whatsapp", "WhatsApp"
         SMS = "sms", "SMS"
+        INSTAGRAM = "instagram", "Instagram"
+        VK = "vk", "VK"
         STRIPE = "stripe", "Stripe"
         ONEC = "onec", "1C"
         CALENDAR = "calendar", "External calendar"
@@ -855,6 +859,8 @@ class ChannelConnection(models.Model):
     class Provider(models.TextChoices):
         IMAP = "imap", "IMAP / Gmail IMAP"
         TELEGRAM = "telegram", "Telegram bot"
+        INSTAGRAM = "instagram", "Instagram (webhook)"
+        VK = "vk", "VK (callback)"
 
     workspace = models.ForeignKey(
         "workspaces.Workspace",
@@ -866,6 +872,8 @@ class ChannelConnection(models.Model):
     is_active = models.BooleanField(default=True)
     # IMAP: {host, port, username, password, use_ssl, folder}
     # Telegram: {bot_token, webhook_secret}
+    # Instagram: {verify_token, app_secret, page_id}
+    # VK: {confirmation_code, secret, group_id}
     config = models.JSONField(default=dict, blank=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
     last_error = models.TextField(blank=True, default="")
@@ -931,6 +939,7 @@ class CrmDocument(models.Model):
         QUOTE = "quote", "Quote / КП"
         INVOICE = "invoice", "Invoice"
         CONTRACT = "contract", "Contract"
+        ACT = "act", "Completion act / Акт"
         BILL = "bill", "Vendor bill / AP"
 
     class Status(models.TextChoices):
@@ -1054,7 +1063,7 @@ class CrmSavedReport(models.Model):
         related_name="crm_saved_reports",
     )
     name = models.CharField(max_length=160)
-    # {"metric": "conversion|avg_check|by_owner|by_source", "filters": {...}}
+    # {"metric": "conversion|avg_check|by_owner|by_source|deals_pivot", "filters": {...}}
     query = models.JSONField(default=dict, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1071,6 +1080,41 @@ class CrmSavedReport(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CrmSavedFilter(models.Model):
+    """Named list filters for CRM pages (clients / deals / leads)."""
+
+    class Target(models.TextChoices):
+        CLIENTS = "clients", "Clients"
+        DEALS = "deals", "Deals"
+        LEADS = "leads", "Leads"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_saved_filters",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="crm_saved_filters",
+    )
+    target = models.CharField(max_length=20, choices=Target.choices)
+    name = models.CharField(max_length=120)
+    # clients: {q, tag_id, segment_id, stale_days}
+    # deals: {stage_id, owner_id, q}
+    # leads: {q, status, assigned_to}
+    params = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["target", "name", "id"]
+        indexes = [models.Index(fields=["workspace", "user", "target"])]
+
+    def __str__(self):
+        return f"{self.target}:{self.name}"
 
 
 class CalendarConnection(models.Model):

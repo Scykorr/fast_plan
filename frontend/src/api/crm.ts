@@ -1,4 +1,4 @@
-import { request, requestForm } from "./client";
+import { request, requestBlob, requestForm } from "./client";
 
 export type CrmTag = {
   id: number;
@@ -61,6 +61,8 @@ export type CrmActivityKind =
   | "meeting"
   | "email"
   | "telegram"
+  | "instagram"
+  | "vk"
   | "note"
   | "invoice"
   | "order"
@@ -1040,6 +1042,51 @@ export function createCrmApi() {
       ),
     deleteSavedReport: (id: number) =>
       request<void>(`/crm/saved-reports/${id}/`, { method: "DELETE" }),
+    runReport: (query: Record<string, unknown>, format?: "json" | "csv") => {
+      if (format === "csv") {
+        return requestBlob("/crm/reports/run/?export=csv", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, format: "csv" }),
+        });
+      }
+      return request<Record<string, unknown>>("/crm/reports/run/", {
+        method: "POST",
+        body: JSON.stringify({ query }),
+      });
+    },
+    listSavedFilters: (target?: string) => {
+      const q = target ? `?target=${encodeURIComponent(target)}` : "";
+      return request<
+        Array<{
+          id: number;
+          target: string;
+          name: string;
+          params: Record<string, unknown>;
+        }>
+      >(`/crm/saved-filters/${q}`, {});
+    },
+    createSavedFilter: (body: {
+      target: string;
+      name: string;
+      params?: Record<string, unknown>;
+    }) =>
+      request<{
+        id: number;
+        target: string;
+        name: string;
+        params: Record<string, unknown>;
+      }>("/crm/saved-filters/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    deleteSavedFilter: (id: number) =>
+      request<void>(`/crm/saved-filters/${id}/`, { method: "DELETE" }),
+    graphql: (query: string) =>
+      request<{ data: Record<string, unknown> }>("/crm/graphql/", {
+        method: "POST",
+        body: JSON.stringify({ query }),
+      }),
   };
 }
 

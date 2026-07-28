@@ -20,11 +20,11 @@ Without Redis, SSE stays in-process (fine for single worker / tests).
 
 ## Backup runbook (MVP)
 
-1. **Database** — nightly `pg_dump` of Postgres (`POSTGRES_DB`). Store off-host; retain ≥ 7 days.
-2. **Media** — back up `MEDIA_ROOT` (avatars, attachments) with the same cadence.
+1. **Database** — nightly `pg_dump` of Postgres (`POSTGRES_DB`). Prefer [`scripts/backup-db.sh`](scripts/backup-db.sh) (retention, `.env` snapshot, optional `BACKUP_GPG_RECIPIENT`). Store off-host; retain ≥ 7 days.
+2. **Media** — back up `MEDIA_ROOT` (avatars, attachments) with the same cadence (script tars `./media` when present).
 3. **Secrets** — `DJANGO_SECRET_KEY`, SMTP, Redis, Sentry DSN, VAPID keys live in env / secret manager — never in git.
 4. **Restore drill** — at least once per quarter: restore dump to a staging DB, run `migrate`, hit `/api/health/?extended=1`.
-5. **Before destructive ops** — snapshot DB + confirm `REDIS_URL` and cookie/CSRF settings for the target environment (see [`STAGING.md`](STAGING.md)).
+5. **Before destructive ops** — snapshot DB + confirm `REDIS_URL` and cookie/CSRF settings for the target environment (see [`STAGING.md`](STAGING.md) and [`DEPLOY.md`](DEPLOY.md)).
 
 ## Web Push (P7 Mobile)
 

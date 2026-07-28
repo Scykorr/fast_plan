@@ -79,6 +79,17 @@ export function CrmCommercePage() {
     bot_token: "",
     webhook_secret: "",
   });
+  const [igForm, setIgForm] = useState({
+    name: "Instagram",
+    verify_token: "",
+    webhook_secret: "",
+  });
+  const [vkForm, setVkForm] = useState({
+    name: "VK",
+    confirmation_code: "",
+    secret_key: "",
+    webhook_secret: "",
+  });
 
   const load = useCallback(async () => {
     if (!crmApi) return;
@@ -241,13 +252,55 @@ export function CrmCommercePage() {
     }
   };
 
+  const createInstagram = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!crmApi) return;
+    try {
+      await crmApi.createChannel({
+        provider: "instagram",
+        name: igForm.name,
+        config: {
+          verify_token: igForm.verify_token || "fast-plan",
+          webhook_secret:
+            igForm.webhook_secret || crypto.randomUUID().slice(0, 16),
+        },
+      });
+      setMessage("Instagram-канал добавлен");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось добавить Instagram"));
+    }
+  };
+
+  const createVk = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!crmApi) return;
+    try {
+      await crmApi.createChannel({
+        provider: "vk",
+        name: vkForm.name,
+        config: {
+          confirmation_code: vkForm.confirmation_code || "ok",
+          secret: vkForm.secret_key,
+          secret_key: vkForm.secret_key,
+          webhook_secret:
+            vkForm.webhook_secret || crypto.randomUUID().slice(0, 16),
+        },
+      });
+      setMessage("VK-канал добавлен");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось добавить VK"));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-text">Коммерция и омниканал</h1>
         <p className="mt-1 text-sm text-text-muted">
-          КП/счета/счета поставщиков → PDF, оплаты, AR/AP, cashflow; IMAP и Telegram →
-          Activity
+          КП/счета/акты/счета поставщиков → PDF, оплаты, AR/AP, cashflow; IMAP,
+          Telegram, Instagram, VK → Activity
         </p>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
@@ -335,6 +388,7 @@ export function CrmCommercePage() {
             <option value="quote">КП</option>
             <option value="invoice">Счёт (AR)</option>
             <option value="bill">Счёт поставщика (AP)</option>
+            <option value="act">Акт</option>
             <option value="contract">Договор</option>
           </select>
           <input
@@ -494,6 +548,80 @@ export function CrmCommercePage() {
               className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
             >
               Добавить Telegram
+            </button>
+          </form>
+        </div>
+        <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <h2 className="text-sm font-semibold text-text">Instagram</h2>
+          <form onSubmit={(e) => void createInstagram(e)} className="space-y-2">
+            <input
+              value={igForm.name}
+              onChange={(e) => setIgForm({ ...igForm, name: e.target.value })}
+              placeholder="name"
+              className="w-full rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            />
+            <input
+              value={igForm.verify_token}
+              onChange={(e) =>
+                setIgForm({ ...igForm, verify_token: e.target.value })
+              }
+              placeholder="verify_token (Meta hub.verify_token)"
+              className="w-full rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            />
+            <input
+              value={igForm.webhook_secret}
+              onChange={(e) =>
+                setIgForm({ ...igForm, webhook_secret: e.target.value })
+              }
+              placeholder="webhook_secret (optional)"
+              className="w-full rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              Добавить Instagram
+            </button>
+          </form>
+        </div>
+        <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <h2 className="text-sm font-semibold text-text">VK Callback</h2>
+          <form onSubmit={(e) => void createVk(e)} className="space-y-2">
+            <input
+              value={vkForm.name}
+              onChange={(e) => setVkForm({ ...vkForm, name: e.target.value })}
+              placeholder="name"
+              className="w-full rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            />
+            <input
+              value={vkForm.confirmation_code}
+              onChange={(e) =>
+                setVkForm({ ...vkForm, confirmation_code: e.target.value })
+              }
+              placeholder="confirmation_code"
+              className="w-full rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            />
+            <input
+              value={vkForm.secret_key}
+              onChange={(e) =>
+                setVkForm({ ...vkForm, secret_key: e.target.value })
+              }
+              placeholder="secret_key (optional)"
+              className="w-full rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            />
+            <input
+              value={vkForm.webhook_secret}
+              onChange={(e) =>
+                setVkForm({ ...vkForm, webhook_secret: e.target.value })
+              }
+              placeholder="webhook_secret (optional)"
+              className="w-full rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              Добавить VK
             </button>
           </form>
         </div>
@@ -936,6 +1064,16 @@ export function CrmCommercePage() {
                 {ch.provider === "telegram" && ch.config.webhook_secret ? (
                   <p className="text-xs text-text-muted">
                     webhook: /api/crm/channels/telegram/{String(ch.config.webhook_secret)}/
+                  </p>
+                ) : null}
+                {ch.provider === "instagram" && ch.config.webhook_secret ? (
+                  <p className="text-xs text-text-muted">
+                    webhook: /api/crm/channels/instagram/{String(ch.config.webhook_secret)}/
+                  </p>
+                ) : null}
+                {ch.provider === "vk" && ch.config.webhook_secret ? (
+                  <p className="text-xs text-text-muted">
+                    webhook: /api/crm/channels/vk/{String(ch.config.webhook_secret)}/
                   </p>
                 ) : null}
               </div>

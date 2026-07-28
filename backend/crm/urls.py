@@ -7,6 +7,7 @@ from crm import (
     commerce_views,
     connectors_views,
     deals_views,
+    graphql_views,
     leads_views,
     tasks_views,
     views,
@@ -257,6 +258,16 @@ urlpatterns = [
         name="crm-telegram-webhook",
     ),
     path(
+        "crm/channels/instagram/<str:secret>/",
+        commerce_views.InstagramWebhookView.as_view(),
+        name="crm-instagram-webhook",
+    ),
+    path(
+        "crm/channels/vk/<str:secret>/",
+        commerce_views.VkCallbackView.as_view(),
+        name="crm-vk-callback",
+    ),
+    path(
         "crm/documents/",
         commerce_views.CrmDocumentListCreateView.as_view(),
         name="crm-documents",
@@ -297,6 +308,26 @@ urlpatterns = [
         "crm/saved-reports/<int:report_id>/",
         commerce_views.CrmSavedReportDetailView.as_view(),
         name="crm-saved-report-detail",
+    ),
+    path(
+        "crm/reports/run/",
+        commerce_views.CrmReportRunView.as_view(),
+        name="crm-report-run",
+    ),
+    path(
+        "crm/saved-filters/",
+        commerce_views.CrmSavedFilterListCreateView.as_view(),
+        name="crm-saved-filters",
+    ),
+    path(
+        "crm/saved-filters/<int:filter_id>/",
+        commerce_views.CrmSavedFilterDetailView.as_view(),
+        name="crm-saved-filter-detail",
+    ),
+    path(
+        "crm/graphql/",
+        graphql_views.CrmGraphqlView.as_view(),
+        name="crm-graphql",
     ),
     path(
         "calendar/crm/",

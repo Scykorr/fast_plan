@@ -126,12 +126,12 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 
 Следующие кандидаты:
 
-1. ~~**P9 Agent Ops**~~ — закрыт по ТЗ (P9a–h); релиз **v0.15.x** с Agent Ops в changelog.
-2. **CRM polish** — hotkeys, saved filters, акт PDF, Instagram/VK (см. матрицу §P6).
+1. ~~**P9 Agent Ops**~~ — закрыт по ТЗ (P9a–h); **релизён в v0.15.0**.
+2. ~~**CRM polish**~~ — hotkeys, saved filters, акт PDF, Instagram/VK, report builder, GraphQL lite — **в v0.15.0**.
 3. **MS Project XML import** — при появлении подтверждённого формата/образца.
 4. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
 
-~~Ранее закрыто:~~ P5 чаты · Redis SSE · **P6 CRM (ядро + backlog)** · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · telephony/connectors · staging smoke · **P9 Agent Ops (TZ)**.
+~~Ранее закрыто:~~ P5 чаты · Redis SSE · **P6 CRM (ядро + polish)** · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · telephony/connectors · staging smoke · **P9 Agent Ops (TZ)**.
 
 ---
 
@@ -216,32 +216,42 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 1f | Задачи CRM: чек-листы, repeat, priority, Kanban | **✓** — DealTask + LeadTask + `/crm-tasks` | — |
 | 2 | Автоматизация (BPM / n8n-like) | **✓ P6e** + **P8** BPMN/DMN/CMMN для сложных процессов | — |
 | 3 | AI CRM-помощник | **✓ P6f** — `/crm-ai` (OpenAI / Ollama / heuristics) | — |
-| 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g** — IMAP + Telegram → Activity; WA/SMS через connectors | **P2** Instagram / VK |
-| 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** — Quote/Invoice/Contract PDF, payments, AR lite | Склад/SKU — только по явному запросу |
+| 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g + IG/VK** — IMAP + Telegram + Instagram/VK → Activity; WA/SMS connectors | — |
+| 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** — Quote/Invoice/Contract/Act PDF, payments, AR lite | Склад/SKU — только по явному запросу |
 | 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **✓** — AR/AP + P&L + cashflow на `/crm-commerce` | — |
-| 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h** — PDF Quote/Invoice/Contract | **P2** шаблон **Акта** |
-| 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **✓ P6i** — `/crm-analytics`, saved snapshots | Расширенный report builder — polish |
+| 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h + Акт** — PDF Quote/Invoice/Contract/Act | — |
+| 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **✓ P6i + report builder** — `/crm-analytics` + CSV | — |
 | 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **✓** — `crm_role` + accounting/marketing в Settings | workspace owner = admin |
-| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **✓** — Calendar OAuth 2-way; IMAP/TG; Stripe/1C/WA/SMS; **телефония:** webhook→Activity, click-to-call, Asterisk AMI/ARI, Mango sign, ARI live bridge | Instagram/VK; carrier-specific PBX polish |
-| 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **Частично** — REST + JWT + webhooks + API tokens + OAuth SSO/calendar | **P3** GraphQL / официальный SDK |
-| 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **Сильно** — themes, PWA, search, DnD; CRM pages shipped | **P1 polish** hotkeys; **P2** saved CRM filters |
+| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **✓** — Calendar OAuth 2-way; IMAP/TG/IG/VK; Stripe/1C/WA/SMS; telephony | carrier-specific PBX polish |
+| 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **✓ REST + GraphQL read lite** + JWT + webhooks + API tokens + OAuth | официальный SDK — later |
+| 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **✓** themes, PWA, search, DnD, CRM hotkeys + saved filters | custom fields — later |
 | 13 | Collab: comments @, notify, chat, audit, co-edit | **Сильно** — comments, mentions, SSE, chats, audit; CRM comments/files ✓ | Co-edit docs — out of scope |
-| 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 MVP + SSO** — 2FA, sessions, IP, Microsoft SSO; chat E2E | **P3** backup/encryption runbook hardening |
+| 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 + SSO** + `scripts/backup-db.sh` (opt GPG) | — |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
-**Итог:** ядро CRM (P6a–P6i + calendar 2-way + tasks + finance + roles + connectors + telephony) **закрыто**. Открыты только polish и явно внешние каналы (Instagram/VK) / enterprise API (GraphQL/SDK).
+**Итог:** ядро CRM + polish (v0.15.0) **закрыто**. Остаётся склад/SKU только по запросу и typed SDK.
 
-### Что доделать (CRM polish backlog, после ядра)
+### CRM polish (v0.15.0) — закрыт
+
+| Приоритет | Пункт | Статус |
+|-----------|-------|--------|
+| **P1** | Hotkeys на CRM-страницах (deals/leads/clients) | **✓** |
+| **P2** | Saved filters / представления для CRM lists | **✓** |
+| **P2** | PDF-шаблон **Акта** | **✓** |
+| **P2** | Instagram / VK → Activity | **✓** |
+| **P2** | Расширенный report builder | **✓** |
+| **P3** | GraphQL read API lite | **✓** |
+| **P3** | Backup/encryption hardening (`scripts/backup-db.sh`) | **✓** |
+| _запрос_ | Склад / SKU / inventory | только при явном запросе |
+| _out_ | Marketing journeys, co-edit docs, native apps | не планируем |
+
+### Что было «доделать» (архив таблицы)
 
 | Приоритет | Пункт | Блок | Оценка |
 |-----------|-------|------|--------|
-| **P1** | Hotkeys на CRM-страницах (deals/leads/clients) | 12 | **S** |
-| **P2** | Saved filters / представления для CRM lists | 12 | **M** |
-| **P2** | PDF-шаблон **Акта** (completion certificate) | 7 | **S–M** |
-| **P2** | Instagram / VK → Activity (омниканал этап 2) | 4 | **L** |
-| **P2** | Расширенный report builder (простые pivot/export) | 8 | **M** |
-| **P3** | GraphQL read API или typed SDK для CRM | 11 | **L** |
-| **P3** | Backup/encryption operational hardening (runbook → automation) | 14 | **M** |
+| ~~P1~~ | ~~Hotkeys~~ | 12 | done |
+| ~~P2~~ | ~~Saved filters / Акт / IG-VK / report builder~~ | — | done |
+| ~~P3~~ | ~~GraphQL lite / backup script~~ | — | done |
 | _запрос_ | Склад / SKU / inventory | 5 | **L** — только при явном запросе |
 | _out_ | Marketing journeys, co-edit docs, native apps | — | не планируем |
 
@@ -282,9 +292,8 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 ### Принцип приоритизации спринтов (CRM)
 
 1. ~~**CRM backlog**~~ — 1f / 6 / 9 / 10 / 1e 2-way / telephony закрыты.
-2. **CRM polish** — hotkeys, saved filters, акт PDF (см. таблицу выше).
-3. **Релиз v0.15.x** — Agent Ops (P9) из `[Unreleased]` changelog.
-4. MS Project XML import — при наличии образца.
+2. ~~**CRM polish + релиз v0.15.0**~~ — Agent Ops + polish закрыты.
+3. MS Project XML import — при наличии образца.
 
 ### P6a — критерии (архив)
 

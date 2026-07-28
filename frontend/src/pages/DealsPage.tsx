@@ -16,7 +16,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
@@ -32,7 +39,9 @@ import type {
 import type { Project } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
+import { CrmSavedFiltersBar } from "../components/crm/CrmSavedFiltersBar";
 import { useCrmApi } from "../hooks/useCrmApi";
+import { useCrmHotkeys } from "../hooks/useCrmHotkeys";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 
@@ -164,6 +173,13 @@ export function DealsPage() {
     organization_id: "" as number | "",
     close_date: "",
   });
+  const titleRef = useRef<HTMLInputElement>(null);
+  const [dealQuery, setDealQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useCrmHotkeys({
+    onSearchFocus: () => searchRef.current?.focus(),
+    onNew: () => titleRef.current?.focus(),
+  });
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDue, setTaskDue] = useState("");
   const [taskPriority, setTaskPriority] = useState("normal");
@@ -249,7 +265,15 @@ export function DealsPage() {
 
   const dealsByStage = useMemo(() => {
     const map = new Map<number, CrmDeal[]>();
+    const q = dealQuery.trim().toLowerCase();
     for (const deal of deals) {
+      if (
+        q &&
+        !deal.title.toLowerCase().includes(q) &&
+        !(deal.organization_name || "").toLowerCase().includes(q)
+      ) {
+        continue;
+      }
       const list = map.get(deal.stage) ?? [];
       list.push(deal);
       map.set(deal.stage, list);
@@ -261,7 +285,7 @@ export function DealsPage() {
       );
     }
     return map;
-  }, [deals]);
+  }, [deals, dealQuery]);
 
   const createDeal = async (event: FormEvent) => {
     event.preventDefault();
@@ -499,7 +523,8 @@ export function DealsPage() {
         <div>
           <h1 className="text-2xl font-bold text-text">Сделки</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Воронка с DnD · проект · прогноз
+            Воронка с DnD · hotkeys: <kbd>n</kbd> новая, <kbd>g</kbd>
+            <kbd>d</kbd> сюда
           </p>
         </div>
         {forecast && (
@@ -522,6 +547,21 @@ export function DealsPage() {
         </p>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={searchRef}
+          value={dealQuery}
+          onChange={(e) => setDealQuery(e.target.value)}
+          placeholder="Фильтр сделок… (/)"
+          className="min-w-[12rem] flex-1 rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
+        />
+      </div>
+      <CrmSavedFiltersBar
+        target="deals"
+        currentParams={{ q: dealQuery }}
+        onApply={(params) => setDealQuery(String(params.q ?? ""))}
+      />
+
       <form
         onSubmit={(event) => void createDeal(event)}
         className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-surface p-4"
@@ -529,6 +569,7 @@ export function DealsPage() {
         <div className="min-w-[12rem] flex-1">
           <label className="text-xs text-text-muted">Название</label>
           <input
+            ref={titleRef}
             value={form.title}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, title: event.target.value }))

@@ -331,7 +331,9 @@ docker compose up -d --build
 
 ### 5.1. Регулярный бэкап (cron)
 
-Пример ежедневного скрипта `/opt/fast_plan/scripts/backup-db.sh`:
+Пример ежедневного скрипта — готовый [`scripts/backup-db.sh`](scripts/backup-db.sh)
+(custom-format dump, retention, снимок `.env`, опционально GPG через `BACKUP_GPG_RECIPIENT`,
+media tarball). Мини-вариант:
 
 ```bash
 #!/bin/sh
@@ -349,6 +351,7 @@ find "$ROOT/backups" -name 'fast_plan_*.dump' -mtime +$KEEP_DAYS -delete
 ```bash
 chmod +x /opt/fast_plan/scripts/backup-db.sh
 # crontab -e → 0 3 * * * /opt/fast_plan/scripts/backup-db.sh
+# с шифрованием: BACKUP_GPG_RECIPIENT=ops@example.com /opt/fast_plan/scripts/backup-db.sh
 ```
 
 Храните копии **вне** сервера приложения (S3, другой диск, другой хост). См. [`SECURITY.md`](SECURITY.md).

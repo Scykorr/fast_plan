@@ -15,18 +15,22 @@
 
 ## [Unreleased]
 
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md).
+
+## [0.15.0] — 2026-07-28
+
 ### Added
 
-- **DEPLOY.md** — self-hosted Docker Compose install, HTTPS notes, upgrades without data loss (Postgres volumes), backup/restore, media volume recommendation
-- **P9 Agent Ops (TZ polish)** — multi-PR `TaskGitHubLink`, Checks webhook status, auto-attach on PR webhook; structured reviews + GitHub settings UI; role→field ACL matrix; entity creation in unified timeline
-- **P9 Agent Ops (ideal TZ)** — meaning changes only via Owner/Planner approve queue; access log on all delivery endpoints; GitHub auto-link by branch, structured `TaskGitHubReview`, optional attach-PR via PAT; create Project+meta from Agent Ops; CI typecheck fix for unified timeline
-- **P9 Agent Ops (TZ gap-close)** — enforce agent `can()` ACL; claim/assign field journal + unified timeline; dependency gates + cycle check; SubTask GET/PATCH; comment kinds on handoff/blocker; project list with §5.1 fields; GitHub webhook HMAC secret; overview awaiting from handoff/owner_request; UI projects/role filter/resolve-cancel/comments/deps
-- **P9 Agent Ops (TZ end-to-end)** — полный Ready-gate §8; `architecture_url`; task dependencies; field history + access/agent action logs; `Reviewer` role + default action sets; delivery project meta (repo/docs); service-account provisioning + API token; blocker soft-cancel with reason; claim via Assigned; GitHub review notes + PR snippet; overview/agents/task-card UI on `/agent-ops`
-- **P9 Agent Ops** — модуль `delivery`: feature flag `agent_ops_enabled`, Epic/Sprint/DeliveryTask (фиксированный ЖЦ + status history), blockers, structured handoff, agent profiles/roles + ACL, atomic claim, Ready-gate (doc links), GitHub fields + webhook, agent queue filters, Idempotency-Key + rate limit; UI `/agent-ops`
+- **P9 Agent Ops** — модуль `delivery` (Epic/Sprint/DeliveryTask, Ready-gate, claim/handoff, ACL, GitHub multi-PR + Checks, meaning Owner/Planner approve, access log, service accounts); UI `/agent-ops` + onboarding агентов
+- **CRM polish** — hotkeys на `/deals` `/leads` `/clients`; saved filters; PDF **Акт**; Instagram/VK → Activity; report builder + CSV; GraphQL read lite (`POST /api/crm/graphql/`)
+- **Ops** — `scripts/backup-db.sh` (pg_dump + optional GPG); staging smoke для `/api/delivery/` при `agent_ops_enabled`; E2E Agent Ops smoke
+- **DEPLOY.md** — self-hosted Docker Compose install, upgrades without data loss, backup/restore
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) — приоритетный бэклог: **CRM polish** (hotkeys, filters, акт), релиз **v0.15.x** (P9 Agent Ops).
+См. [ROADMAP.md](ROADMAP.md) — следующий фокус: MS Project XML (нужен sample), склад только по запросу.
 
 ## [0.14.2] — 2026-07-26
 

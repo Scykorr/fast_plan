@@ -10,6 +10,7 @@ from crm.models import (
     CrmComment,
     CrmDocument,
     CrmDocumentPayment,
+    CrmSavedFilter,
     CrmSavedReport,
     Deal,
     DealTask,
@@ -1180,3 +1181,17 @@ class CrmSavedReportSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+
+class CrmSavedFilterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CrmSavedFilter
+        fields = [
+            "id",
+            "target",
+            "name",
+            "params",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]

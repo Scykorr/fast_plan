@@ -16,13 +16,21 @@ from crm.analytics import (
     build_cashflow_forecast,
     build_crm_analytics,
     build_crm_pnl,
+    report_to_csv_rows,
+    run_crm_report,
 )
-from crm.channels import ingest_telegram_webhook, sync_connection
+from crm.channels import (
+    ingest_instagram_webhook,
+    ingest_telegram_webhook,
+    ingest_vk_callback,
+    sync_connection,
+)
 from crm.commerce_pdf import render_crm_document_pdf
 from crm.models import (
     ChannelConnection,
     CrmDocument,
     CrmDocumentPayment,
+    CrmSavedFilter,
     CrmSavedReport,
     Deal,
     Organization,
@@ -34,6 +42,7 @@ from crm.serializers import (
     CrmDocumentPaymentSerializer,
     CrmDocumentSerializer,
     CrmDocumentWriteSerializer,
+    CrmSavedFilterSerializer,
     CrmSavedReportSerializer,
 )
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
@@ -127,6 +136,97 @@ class TelegramWebhookView(APIView):
         connection.last_synced_at = timezone.now()
         connection.save(update_fields=["last_synced_at", "updated_at"])
         return Response({"ok": True, "activity_id": activity.id if activity else None})
+
+
+class InstagramWebhookView(APIView):
+    """Public Meta Instagram webhook: GET verify + POST events.
+
+    URL secret is `config.webhook_secret` (same pattern as Telegram).
+    Meta hub.verify_token must match `config.verify_token`.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def _connection(self, secret):
+        return (
+            ChannelConnection.objects.filter(
+                provider=ChannelConnection.Provider.INSTAGRAM,
+                is_active=True,
+                config__webhook_secret=secret,
+            )
+            .select_related("workspace")
+            .first()
+        )
+
+    def get(self, request, secret):
+        connection = self._connection(secret)
+        if connection is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        mode = request.query_params.get("hub.mode")
+        token = request.query_params.get("hub.verify_token")
+        challenge = request.query_params.get("hub.challenge")
+        expected = (connection.config or {}).get("verify_token") or ""
+        if mode == "subscribe" and expected and token == expected and challenge:
+            from django.http import HttpResponse
+
+            return HttpResponse(challenge, content_type="text/plain")
+        return Response({"detail": "Verification failed"}, status=status.HTTP_403_FORBIDDEN)
+
+    def post(self, request, secret):
+        connection = self._connection(secret)
+        if connection is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        created = ingest_instagram_webhook(
+            connection, request.data if isinstance(request.data, dict) else {}
+        )
+        connection.last_synced_at = timezone.now()
+        connection.save(update_fields=["last_synced_at", "updated_at"])
+        return Response({"ok": True, "created": created})
+
+
+class VkCallbackView(APIView):
+    """Public VK Callback API: POST /api/crm/channels/vk/<secret>/"""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, secret):
+        connection = (
+            ChannelConnection.objects.filter(
+                provider=ChannelConnection.Provider.VK,
+                is_active=True,
+            )
+            .filter(config__secret=secret)
+            .select_related("workspace")
+            .first()
+        )
+        if connection is None:
+            # also allow matching by webhook path secret stored as verify key
+            connection = (
+                ChannelConnection.objects.filter(
+                    provider=ChannelConnection.Provider.VK,
+                    is_active=True,
+                    config__webhook_secret=secret,
+                )
+                .select_related("workspace")
+                .first()
+            )
+        if connection is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            confirmation, created = ingest_vk_callback(
+                connection, request.data if isinstance(request.data, dict) else {}
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        connection.last_synced_at = timezone.now()
+        connection.save(update_fields=["last_synced_at", "updated_at"])
+        if confirmation is not None:
+            from django.http import HttpResponse
+
+            return HttpResponse(confirmation, content_type="text/plain")
+        return Response({"ok": True, "created": created})
 
 
 class CrmDocumentListCreateView(WorkspaceMixin, APIView):
@@ -396,6 +496,95 @@ class CrmSavedReportDetailView(WorkspaceMixin, APIView):
     def delete(self, request, report_id):
         row = get_object_or_404(
             CrmSavedReport.objects.filter(workspace=self.get_workspace()), pk=report_id
+        )
+        row.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CrmReportRunView(WorkspaceMixin, APIView):
+    """POST run builder query; GET ?format=csv exports last-style query from body not available — use POST."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request):
+        query = request.data.get("query") or request.data or {}
+        if not isinstance(query, dict):
+            raise ValidationError({"query": "Object required"})
+        # allow {query: {...}} or flat metric/filters
+        if "metric" not in query and "query" in request.data:
+            query = request.data["query"]
+        result = run_crm_report(self.get_workspace(), query)
+        export = (
+            (request.query_params.get("export") or request.query_params.get("format") or "")
+            .lower()
+        )
+        if export == "csv" or request.data.get("format") == "csv" or request.data.get("export") == "csv":
+            import csv
+            from django.http import HttpResponse
+
+            rows = report_to_csv_rows(result)
+            resp = HttpResponse(content_type="text/csv; charset=utf-8")
+            resp["Content-Disposition"] = 'attachment; filename="crm-report.csv"'
+            writer = csv.writer(resp)
+            writer.writerows(rows)
+            return resp
+        return Response(result)
+
+
+class CrmSavedFilterListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        qs = CrmSavedFilter.objects.filter(
+            workspace=self.get_workspace(), user=request.user
+        )
+        target = request.query_params.get("target")
+        if target:
+            qs = qs.filter(target=target)
+        return Response(CrmSavedFilterSerializer(qs, many=True).data)
+
+    def post(self, request):
+        name = (request.data.get("name") or "").strip()
+        target = (request.data.get("target") or "").strip()
+        if not name:
+            raise ValidationError({"name": "Required."})
+        if target not in dict(CrmSavedFilter.Target.choices):
+            raise ValidationError({"target": "Invalid target."})
+        row = CrmSavedFilter.objects.create(
+            workspace=self.get_workspace(),
+            user=request.user,
+            target=target,
+            name=name,
+            params=request.data.get("params") or {},
+        )
+        return Response(
+            CrmSavedFilterSerializer(row).data, status=status.HTTP_201_CREATED
+        )
+
+
+class CrmSavedFilterDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def patch(self, request, filter_id):
+        row = get_object_or_404(
+            CrmSavedFilter.objects.filter(
+                workspace=self.get_workspace(), user=request.user
+            ),
+            pk=filter_id,
+        )
+        if "name" in request.data:
+            row.name = (request.data.get("name") or row.name).strip() or row.name
+        if "params" in request.data:
+            row.params = request.data.get("params") or {}
+        row.save()
+        return Response(CrmSavedFilterSerializer(row).data)
+
+    def delete(self, request, filter_id):
+        row = get_object_or_404(
+            CrmSavedFilter.objects.filter(
+                workspace=self.get_workspace(), user=request.user
+            ),
+            pk=filter_id,
         )
         row.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -110,6 +110,145 @@ def build_crm_analytics(workspace) -> dict:
     }
 
 
+def run_crm_report(workspace, query: dict | None = None) -> dict:
+    """
+    Extended report builder: metrics + optional filters + pivot rows.
+    query = {
+      "metric": "conversion|avg_check|by_owner|by_source|deals_pivot|dashboard",
+      "filters": {"owner_id": 1, "source": "...", "stage_won": true},
+      "group_by": "owner|source|stage"  # for deals_pivot
+    }
+    """
+    query = query or {}
+    metric = (query.get("metric") or "dashboard").strip()
+    filters = query.get("filters") or {}
+    base = build_crm_analytics(workspace)
+
+    deals = Deal.objects.filter(workspace=workspace).select_related("stage", "owner")
+    leads = Lead.objects.filter(workspace=workspace)
+    if filters.get("owner_id"):
+        deals = deals.filter(owner_id=filters["owner_id"])
+        leads = leads.filter(assigned_to_id=filters["owner_id"])
+    if filters.get("source"):
+        leads = leads.filter(source__iexact=str(filters["source"]))
+    if filters.get("stage_won") is True:
+        deals = deals.filter(stage__is_won=True)
+    if filters.get("stage_lost") is True:
+        deals = deals.filter(stage__is_lost=True)
+
+    if metric == "conversion":
+        total = leads.count()
+        converted = leads.filter(status=Lead.Status.CONVERTED).count()
+        return {
+            "metric": metric,
+            "filters": filters,
+            "lead_total": total,
+            "lead_converted": converted,
+            "conversion_rate": round((converted / total * 100) if total else 0.0, 1),
+        }
+    if metric == "avg_check":
+        won = deals.filter(stage__is_won=True)
+        agg = won.aggregate(
+            count=Count("id"),
+            avg_check=Coalesce(Avg("amount"), Decimal("0")),
+            total_amount=Coalesce(Sum("amount"), Decimal("0")),
+        )
+        return {
+            "metric": metric,
+            "filters": filters,
+            "won_count": agg["count"] or 0,
+            "avg_check": float(agg["avg_check"] or 0),
+            "total_amount": float(agg["total_amount"] or 0),
+        }
+    if metric == "by_owner":
+        return {"metric": metric, "filters": filters, "rows": base["deals"]["by_owner"]}
+    if metric == "by_source":
+        return {"metric": metric, "filters": filters, "rows": base["leads"]["by_source"]}
+    if metric == "deals_pivot":
+        group_by = (query.get("group_by") or "owner").strip()
+        if group_by == "source":
+            # deals don't have source — use lead conversion path via organization name stub
+            rows = list(
+                deals.values("organization__name")
+                .annotate(
+                    count=Count("id"),
+                    amount=Coalesce(Sum("amount"), Decimal("0")),
+                )
+                .order_by("-amount")[:100]
+            )
+            return {
+                "metric": metric,
+                "group_by": group_by,
+                "filters": filters,
+                "rows": [
+                    {
+                        "key": r["organization__name"] or "—",
+                        "count": r["count"],
+                        "amount": float(r["amount"] or 0),
+                    }
+                    for r in rows
+                ],
+            }
+        if group_by == "stage":
+            rows = list(
+                deals.values("stage__name")
+                .annotate(
+                    count=Count("id"),
+                    amount=Coalesce(Sum("amount"), Decimal("0")),
+                )
+                .order_by("-amount")
+            )
+            return {
+                "metric": metric,
+                "group_by": group_by,
+                "filters": filters,
+                "rows": [
+                    {
+                        "key": r["stage__name"] or "—",
+                        "count": r["count"],
+                        "amount": float(r["amount"] or 0),
+                    }
+                    for r in rows
+                ],
+            }
+        rows = list(
+            deals.values("owner_id", "owner__email")
+            .annotate(
+                count=Count("id"),
+                amount=Coalesce(Sum("amount"), Decimal("0")),
+            )
+            .order_by("-amount")
+        )
+        return {
+            "metric": metric,
+            "group_by": "owner",
+            "filters": filters,
+            "rows": [
+                {
+                    "key": r["owner__email"] or "—",
+                    "owner_id": r["owner_id"],
+                    "count": r["count"],
+                    "amount": float(r["amount"] or 0),
+                }
+                for r in rows
+            ],
+        }
+    return {"metric": "dashboard", "filters": filters, "data": base}
+
+
+def report_to_csv_rows(result: dict) -> list[list[str]]:
+    rows = result.get("rows")
+    if isinstance(rows, list) and rows:
+        keys = list(rows[0].keys())
+        out = [keys]
+        for row in rows:
+            out.append([str(row.get(k, "")) for k in keys])
+        return out
+    if "data" in result:
+        return [["metric", "dashboard"], ["json", str(result["data"])[:2000]]]
+    return [["field", "value"]] + [[k, str(v)] for k, v in result.items() if k != "data"]
+
+
 def build_ar_ap_summary(workspace) -> dict:
     from crm.models import CrmDocument, CrmDocumentPayment
 

@@ -275,12 +275,136 @@ def sync_connection(connection: ChannelConnection) -> dict:
             return sync_imap_connection(connection)
         if connection.provider == ChannelConnection.Provider.TELEGRAM:
             return sync_telegram_connection(connection)
+        if connection.provider in (
+            ChannelConnection.Provider.INSTAGRAM,
+            ChannelConnection.Provider.VK,
+        ):
+            # Webhook-driven providers: sync is a no-op health check
+            connection.last_error = ""
+            connection.last_synced_at = timezone.now()
+            connection.save(
+                update_fields=["last_error", "last_synced_at", "updated_at"]
+            )
+            return {"created": 0, "provider": connection.provider, "mode": "webhook"}
         raise ValueError(f"Unknown provider: {connection.provider}")
     except Exception as exc:  # noqa: BLE001
         connection.last_error = str(exc)[:2000]
         connection.save(update_fields=["last_error", "updated_at"])
         logger.exception("Channel sync failed for %s", connection.id)
         raise
+
+
+def _person_from_social(workspace, handle: str) -> Person | None:
+    raw = (handle or "").strip().lstrip("@")
+    if not raw:
+        return None
+    # Match telegram handle or social_urls entries containing the handle
+    person = Person.objects.filter(workspace=workspace, telegram__iexact=raw).first()
+    if person:
+        return person
+    for p in Person.objects.filter(workspace=workspace).exclude(social_urls=[]):
+        urls = p.social_urls or []
+        for u in urls:
+            if isinstance(u, str) and raw.lower() in u.lower():
+                return p
+            if isinstance(u, dict):
+                val = str(u.get("url") or u.get("handle") or "")
+                if raw.lower() in val.lower():
+                    return p
+    return None
+
+
+def ingest_instagram_webhook(connection: ChannelConnection, payload: dict) -> int:
+    """Meta Instagram Messaging webhook (simplified entry parsing)."""
+    created = 0
+    cfg = connection.config or {}
+    entries = payload.get("entry") or []
+    if not isinstance(entries, list):
+        return 0
+    for entry in entries:
+        messaging = entry.get("messaging") or entry.get("changes") or []
+        if not isinstance(messaging, list):
+            continue
+        for event in messaging:
+            if not isinstance(event, dict):
+                continue
+            value = event.get("value") if "value" in event else event
+            if not isinstance(value, dict):
+                continue
+            sender = (
+                (value.get("sender") or {}).get("id")
+                or (value.get("from") or {}).get("id")
+                or value.get("sender_id")
+                or ""
+            )
+            text = (
+                (value.get("message") or {}).get("text")
+                or value.get("text")
+                or (value.get("message") if isinstance(value.get("message"), str) else "")
+                or ""
+            )
+            mid = (
+                (value.get("message") or {}).get("mid")
+                or value.get("id")
+                or f"ig-{sender}-{value.get('timestamp') or timezone.now().timestamp()}"
+            )
+            if not text and not mid:
+                continue
+            person = _person_from_social(connection.workspace, str(sender))
+            row = ingest_activity(
+                connection.workspace,
+                kind=Activity.Kind.INSTAGRAM,
+                channel=Activity.Channel.INSTAGRAM,
+                direction=Activity.Direction.INBOUND,
+                external_id=f"ig:{mid}",
+                subject=f"Instagram from {sender or 'unknown'}",
+                body=str(text)[:5000],
+                occurred_at=timezone.now(),
+                person=person,
+            )
+            if row:
+                created += 1
+    # verification challenge handled in view
+    _ = cfg
+    return created
+
+
+def ingest_vk_callback(connection: ChannelConnection, payload: dict) -> tuple[str | None, int]:
+    """
+    VK Callback API.
+    Returns (confirmation_response_or_None, created_count).
+    """
+    cfg = connection.config or {}
+    event_type = payload.get("type") or ""
+    secret = cfg.get("secret") or ""
+    if secret and payload.get("secret") and payload.get("secret") != secret:
+        raise ValueError("Invalid VK secret")
+    if event_type == "confirmation":
+        return (str(cfg.get("confirmation_code") or "ok"), 0)
+    created = 0
+    if event_type in ("message_new", "message_reply"):
+        obj = payload.get("object") or {}
+        message = obj.get("message") if isinstance(obj, dict) else obj
+        if not isinstance(message, dict):
+            message = obj if isinstance(obj, dict) else {}
+        text = message.get("text") or ""
+        from_id = message.get("from_id") or message.get("peer_id") or ""
+        mid = message.get("id") or f"vk-{from_id}-{message.get('date') or timezone.now().timestamp()}"
+        person = _person_from_social(connection.workspace, str(from_id))
+        row = ingest_activity(
+            connection.workspace,
+            kind=Activity.Kind.VK,
+            channel=Activity.Channel.VK,
+            direction=Activity.Direction.INBOUND,
+            external_id=f"vk:{mid}",
+            subject=f"VK from {from_id or 'unknown'}",
+            body=str(text)[:5000],
+            occurred_at=timezone.now(),
+            person=person,
+        )
+        if row:
+            created += 1
+    return (None, created)
 
 
 def sync_all_active_connections() -> dict:

@@ -17,6 +17,12 @@ export function CrmAnalyticsPage() {
     Array<{ id: number; name: string; query: Record<string, unknown> }>
   >([]);
   const [reportName, setReportName] = useState("");
+  const [builderMetric, setBuilderMetric] = useState("dashboard");
+  const [builderGroupBy, setBuilderGroupBy] = useState("owner");
+  const [builderSource, setBuilderSource] = useState("");
+  const [builderResult, setBuilderResult] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -54,6 +60,39 @@ export function CrmAnalyticsPage() {
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось сохранить отчёт"));
+    }
+  };
+
+  const builderQuery = () => ({
+    metric: builderMetric,
+    group_by: builderGroupBy,
+    filters: {
+      ...(builderSource.trim() ? { source: builderSource.trim() } : {}),
+    },
+  });
+
+  const runBuilder = async () => {
+    if (!crmApi) return;
+    try {
+      const result = await crmApi.runReport(builderQuery());
+      setBuilderResult(result as Record<string, unknown>);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось выполнить отчёт"));
+    }
+  };
+
+  const exportBuilderCsv = async () => {
+    if (!crmApi) return;
+    try {
+      const blob = await crmApi.runReport(builderQuery(), "csv");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `crm-report-${builderMetric}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось экспортировать CSV"));
     }
   };
 
@@ -199,6 +238,62 @@ export function CrmAnalyticsPage() {
                 )}
               </ul>
             </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-text">Report builder</h2>
+            <p className="text-xs text-text-muted">
+              Метрики conversion / avg_check / by_owner / by_source / deals_pivot + CSV
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={builderMetric}
+                onChange={(e) => setBuilderMetric(e.target.value)}
+                className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
+              >
+                <option value="dashboard">dashboard</option>
+                <option value="conversion">conversion</option>
+                <option value="avg_check">avg_check</option>
+                <option value="by_owner">by_owner</option>
+                <option value="by_source">by_source</option>
+                <option value="deals_pivot">deals_pivot</option>
+              </select>
+              <select
+                value={builderGroupBy}
+                onChange={(e) => setBuilderGroupBy(e.target.value)}
+                className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
+                disabled={builderMetric !== "deals_pivot"}
+              >
+                <option value="owner">group: owner</option>
+                <option value="stage">group: stage</option>
+                <option value="source">group: org</option>
+              </select>
+              <input
+                value={builderSource}
+                onChange={(e) => setBuilderSource(e.target.value)}
+                placeholder="filter source"
+                className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => void runBuilder()}
+                className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+              >
+                Run
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportBuilderCsv()}
+                className="rounded border border-border px-3 py-1.5 text-sm"
+              >
+                CSV
+              </button>
+            </div>
+            {builderResult && (
+              <pre className="max-h-64 overflow-auto rounded border border-border bg-cream/50 p-2 text-xs">
+                {JSON.stringify(builderResult, null, 2)}
+              </pre>
+            )}
           </section>
 
           <section className="rounded-xl border border-border bg-surface p-4 space-y-3">

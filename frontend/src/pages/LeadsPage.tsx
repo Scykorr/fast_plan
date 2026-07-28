@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
@@ -7,7 +7,9 @@ import type { CrmLead, CrmLeadStatus, CrmLeadTask } from "../api/crm";
 import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
+import { CrmSavedFiltersBar } from "../components/crm/CrmSavedFiltersBar";
 import { useCrmApi } from "../hooks/useCrmApi";
+import { useCrmHotkeys } from "../hooks/useCrmHotkeys";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
@@ -30,6 +32,11 @@ export function LeadsPage() {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<CrmLeadStatus | "">("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useCrmHotkeys({
+    onSearchFocus: () => searchRef.current?.focus(),
+    onNew: () => searchRef.current?.focus(),
+  });
   const [selected, setSelected] = useState<CrmLead | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -199,7 +206,10 @@ export function LeadsPage() {
         <div>
           <h1 className="text-2xl font-bold text-text">Лиды</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Import · score · assignment · convert → Deal (P6d)
+            Import · score · assignment · convert → Deal · hotkeys:{" "}
+            <kbd>/</kbd> поиск, <kbd>g</kbd>
+            <kbd>l</kbd> сюда, <kbd>g</kbd>
+            <kbd>d</kbd> сделки
           </p>
         </div>
         <label className="cursor-pointer rounded-lg border border-border bg-cream px-3 py-1.5 text-sm">
@@ -221,9 +231,10 @@ export function LeadsPage() {
 
       <div className="flex flex-wrap gap-2">
         <input
+          ref={searchRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Поиск…"
+          placeholder="Поиск… (/)"
           className="min-w-[12rem] flex-1 rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
         />
         <select
@@ -241,6 +252,18 @@ export function LeadsPage() {
           ))}
         </select>
       </div>
+
+      <CrmSavedFiltersBar
+        target="leads"
+        currentParams={{
+          q: query,
+          status: statusFilter,
+        }}
+        onApply={(params) => {
+          setQuery(String(params.q ?? ""));
+          setStatusFilter((String(params.status ?? "") || "") as CrmLeadStatus | "");
+        }}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <div className="space-y-4">

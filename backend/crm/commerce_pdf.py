@@ -44,6 +44,8 @@ def render_crm_document_pdf(document) -> bytes:
         "quote": "Коммерческое предложение",
         "invoice": "Счёт",
         "contract": "Договор",
+        "act": "Акт выполненных работ",
+        "bill": "Счёт поставщика",
     }
     story = [
         Paragraph(
@@ -123,6 +125,34 @@ def render_crm_document_pdf(document) -> bytes:
         story.append(Paragraph("Текст", heading))
         for paragraph in str(document.body).split("\n"):
             story.append(Paragraph(_fmt(paragraph) or "&nbsp;", body))
+
+    if document.doc_type == "act":
+        story.append(Spacer(1, 0.5 * cm))
+        story.append(
+            Paragraph(
+                "Заказчик подтверждает, что работы (услуги) выполнены "
+                "в полном объёме, в срок и с надлежащим качеством. "
+                "Претензий по объёму, качеству и срокам не имеется.",
+                body,
+            )
+        )
+        story.append(Spacer(1, 1.2 * cm))
+        sign = Table(
+            [
+                ["Исполнитель ____________________", "Заказчик ____________________"],
+                ["М.П.", "М.П."],
+            ],
+            colWidths=[8.5 * cm, 8.5 * cm],
+        )
+        sign.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        story.append(sign)
 
     doc.build(story)
     return buffer.getvalue()
