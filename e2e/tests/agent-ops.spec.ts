@@ -1,86 +1,77 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Agent Ops E2E: claim → handoff → meaning approve (UI smoke when feature enabled).
- * Requires Agent Ops enabled for the smoke workspace and E2E credentials.
+ * Agent Ops UI smoke. Full claim→handoff→meaning is covered by backend pytest
+ * (test_delivery_p9). Optional deep API flow: set E2E_AGENT_OPS=1.
  */
 const email = process.env.E2E_EMAIL || process.env.STAGING_EMAIL || "smoke@fast-plan.ci";
 const password =
   process.env.E2E_PASSWORD || process.env.STAGING_PASSWORD || "smokepass123";
-
-async function login(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Пароль").fill(password);
-  await page.getByRole("button", { name: "Войти" }).click();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
-}
+const workspaceId =
+  process.env.E2E_WORKSPACE_ID || process.env.STAGING_WORKSPACE_ID || "";
 
 test.describe("agent ops", () => {
-  test("opens /agent-ops and agents onboarding when enabled", async ({ page }) => {
+  test("opens /agent-ops with heading and toggle", async ({ page }) => {
     test.skip(!email || !password, "E2E_EMAIL/E2E_PASSWORD not set");
-    await login(page);
-    await page.goto("/agent-ops");
-    // Feature may be off — page should still render without crashing
-    const heading = page.getByRole("heading", { name: /Agent Ops|мультиагент/i }).first();
-    const disabled = page.getByText(/выключ|disabled|не включ/i).first();
-    await expect(heading.or(disabled)).toBeVisible({ timeout: 15_000 });
 
-    const agentsTab = page.getByRole("button", { name: /Агенты/i });
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Пароль").fill(password);
+    await page.getByRole("button", { name: "Войти" }).click();
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
+
+    await page.goto("/agent-ops");
+    await expect(page.getByRole("heading", { name: "Agent Ops" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(
+      page.getByRole("button", { name: /Включить Agent Ops|Выключить/i }),
+    ).toBeVisible();
+
+    // When enabled, agents tab shows onboarding copy.
+    const enableBtn = page.getByRole("button", { name: "Включить Agent Ops" });
+    if (await enableBtn.isVisible().catch(() => false)) {
+      await enableBtn.click();
+      await expect(page.getByRole("button", { name: "Выключить" })).toBeVisible({
+        timeout: 10_000,
+      });
+    }
+    const agentsTab = page.getByRole("button", { name: "Агенты" });
     if (await agentsTab.isVisible().catch(() => false)) {
       await agentsTab.click();
-      await expect(page.getByText(/Onboarding агента/i)).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: /service account/i }),
-      ).toBeVisible();
+      await expect(page.getByText("Onboarding агента")).toBeVisible();
     }
   });
 
-  test("claim → handoff → meaning via API helpers when ops enabled", async ({
-    request,
-    baseURL,
+  test("claim → handoff → meaning via API when E2E_AGENT_OPS=1", async ({
+    page,
   }) => {
-    test.skip(!email || !password, "E2E_EMAIL/E2E_PASSWORD not set");
-    const origin = baseURL || "http://127.0.0.1:4173";
-    // Prefer API host from env; SPA base may differ
-    const apiBase = (process.env.E2E_API_URL || process.env.STAGING_BASE_URL || origin).replace(
-      /\/$/,
-      "",
-    );
+    test.skip(process.env.E2E_AGENT_OPS !== "1", "set E2E_AGENT_OPS=1 to run");
+    test.skip(!email || !password || !workspaceId, "credentials/workspace required");
 
-    const csrfRes = await request.get(`${apiBase}/api/auth/csrf/`);
-    const setCookie = csrfRes.headers()["set-cookie"] || "";
-    const csrf =
-      /csrftoken=([^;]+)/.exec(Array.isArray(setCookie) ? setCookie.join(";") : setCookie)?.[1] ||
-      "";
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Пароль").fill(password);
+    await page.getByRole("button", { name: "Войти" }).click();
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
 
-    const loginRes = await request.post(`${apiBase}/api/auth/login/`, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrf,
-        Cookie: `csrftoken=${csrf}`,
-      },
-      data: { email, password },
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Workspace-Id": workspaceId,
+    };
+    const csrf = await page.request.get("/api/auth/csrf/");
+    const csrfJson = await csrf.json();
+    if (csrfJson?.csrfToken) {
+      headers["X-CSRFToken"] = csrfJson.csrfToken as string;
+    }
+
+    await page.request.patch("/api/delivery/settings/", {
+      headers,
+      data: { agent_ops_enabled: true },
     });
-    test.skip(!loginRes.ok(), `login failed HTTP ${loginRes.status()}`);
 
-    const settings = await request.get(`${apiBase}/api/delivery/settings/`);
-    if (!settings.ok()) {
-      test.skip(true, "delivery API unavailable");
-    }
-    const settingsBody = await settings.json();
-    if (!settingsBody?.agent_ops_enabled) {
-      test.skip(true, "agent_ops_enabled=false — skip claim/handoff flow");
-    }
-
-    const overview = await request.get(`${apiBase}/api/delivery/overview/`);
-    expect(overview.ok()).toBeTruthy();
-
-    const queue = await request.get(`${apiBase}/api/delivery/queue/`);
-    expect(queue.ok()).toBeTruthy();
-
-    // Create a Ready task, claim, handoff, request meaning change, approve
-    const create = await request.post(`${apiBase}/api/delivery/tasks/`, {
+    const create = await page.request.post("/api/delivery/tasks/", {
+      headers,
       data: {
         title: `e2e-claim-${Date.now()}`,
         business_outcome: "e2e",
@@ -99,18 +90,19 @@ test.describe("agent ops", () => {
         acceptance_url: "https://example.com/acc",
       },
     });
-    test.skip(!create.ok(), `create task HTTP ${create.status()}`);
+    expect(create.ok(), `create HTTP ${create.status()}`).toBeTruthy();
     const task = await create.json();
-    const taskId = task.id;
 
-    const claim = await request.post(`${apiBase}/api/delivery/tasks/${taskId}/claim/`, {
+    const claim = await page.request.post(`/api/delivery/tasks/${task.id}/claim/`, {
+      headers,
       data: {},
     });
-    expect(claim.ok()).toBeTruthy();
+    expect(claim.ok(), `claim HTTP ${claim.status()}`).toBeTruthy();
 
-    const handoff = await request.post(
-      `${apiBase}/api/delivery/tasks/${taskId}/handoffs/`,
+    const handoff = await page.request.post(
+      `/api/delivery/tasks/${task.id}/handoffs/`,
       {
+        headers,
         data: {
           from_role: "backend",
           to_role: "qa",
@@ -122,23 +114,21 @@ test.describe("agent ops", () => {
         },
       },
     );
-    expect(handoff.ok()).toBeTruthy();
+    expect(handoff.ok(), `handoff HTTP ${handoff.status()}`).toBeTruthy();
 
-    const meaning = await request.patch(`${apiBase}/api/delivery/tasks/${taskId}/`, {
-      data: {
-        business_outcome: "e2e meaning updated",
-      },
+    const meaning = await page.request.patch(`/api/delivery/tasks/${task.id}/`, {
+      headers,
+      data: { business_outcome: "e2e meaning updated", title: "e2e meaning title" },
     });
-    // Agent meaning may queue for approval rather than apply directly
-    expect([200, 202].includes(meaning.status()) || meaning.ok()).toBeTruthy();
-    const meaningBody = await meaning.json().catch(() => ({}));
+    expect(meaning.ok(), `meaning HTTP ${meaning.status()}`).toBeTruthy();
+    const meaningBody = await meaning.json();
     const reqId = meaningBody.meaning_change_request_id;
     if (reqId) {
-      const approve = await request.post(
-        `${apiBase}/api/delivery/tasks/${taskId}/meaning-changes/${reqId}/review/`,
-        { data: { decision: "approve" } },
+      const approve = await page.request.post(
+        `/api/delivery/tasks/${task.id}/meaning-changes/${reqId}/review/`,
+        { headers, data: { decision: "approve" } },
       );
-      expect(approve.ok()).toBeTruthy();
+      expect(approve.ok(), `approve HTTP ${approve.status()}`).toBeTruthy();
     }
   });
 });
