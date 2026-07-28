@@ -29,6 +29,7 @@ from delivery.models import (
     TaskComment,
     TaskDependency,
     TaskFieldHistory,
+    TaskGitHubLink,
     TaskGitHubReview,
     TaskMeaningChangeRequest,
     TaskStatusHistory,
@@ -54,6 +55,7 @@ from delivery.serializers import (
 from delivery.services import (
     MEANING_FIELDS,
     agent_may_close_epic,
+    assert_fields_editable,
     assign_task,
     build_task_timeline,
     cancel_blocker,
@@ -600,7 +602,12 @@ class TaskDetailView(DeliveryOpsMixin, APIView):
         _ensure_ops_enabled(ws)
         task = get_object_or_404(
             DeliveryTask.objects.filter(workspace=ws).prefetch_related(
-                "subtasks", "blockers", "handoffs", "dependencies"
+                "subtasks",
+                "blockers",
+                "handoffs",
+                "dependencies",
+                "github_links",
+                "github_reviews",
             ),
             pk=task_id,
         )
@@ -617,6 +624,10 @@ class TaskDetailView(DeliveryOpsMixin, APIView):
         profile = _agent_profile(ws, request.user)
         meaning_request = None
         data = dict(request.data)
+        # Drop non-model keys before field ACL / serializer
+        data.pop("meaning_note", None)
+        data.pop("confirm_meaning_change", None)
+        assert_fields_editable(profile, set(data.keys()))
         if (
             profile
             and profile.actor_type == AgentProfile.ActorType.AGENT
@@ -1116,15 +1127,16 @@ class TaskPrSnippetView(DeliveryOpsMixin, APIView):
         return Response({"markdown": snippet, "task_id": task.id})
 
 
+
 class TaskPrAttachView(DeliveryOpsMixin, APIView):
     """TZ §10 desirable — append task link snippet to GitHub PR body via PAT."""
 
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
     def post(self, request, task_id):
-        import json
         import urllib.error
-        import urllib.request
+
+        from delivery.github_ops import attach_task_link_to_pr, upsert_github_link
 
         self.require_editor()
         ws = self.get_workspace()
@@ -1139,71 +1151,35 @@ class TaskPrAttachView(DeliveryOpsMixin, APIView):
         pr_number = request.data.get("pr_number") or task.github_pr_number
         if not repo or not pr_number:
             raise ValidationError(
-                {"detail": "Task needs github_repo and github_pr_number (or pass them)"}
-            )
-        base = request.build_absolute_uri("/").rstrip("/")
-        snippet = (
-            f"\n\n## Fast Plan task\n"
-            f"- Task: [{task.title}]({base}/agent-ops?task={task.id})\n"
-            f"- Role: `{task.assignee_role or '—'}`\n"
-            f"- DoD: {task.done_criterion or '—'}\n"
-        )
-        api_url = f"https://api.github.com/repos/{repo}/pulls/{int(pr_number)}"
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "fast-plan-agent-ops",
-        }
-        try:
-            req = urllib.request.Request(api_url, headers=headers, method="GET")
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                current = json.loads(resp.read().decode())
-        except urllib.error.HTTPError as exc:
-            raise ValidationError(
-                {"detail": f"GitHub GET PR failed: {exc.code}"}
-            ) from exc
-        except Exception as exc:  # noqa: BLE001
-            raise ValidationError({"detail": f"GitHub GET PR failed: {exc}"}) from exc
-        body = current.get("body") or ""
-        marker = f"/agent-ops?task={task.id}"
-        if marker in body:
-            return Response(
                 {
-                    "ok": True,
-                    "skipped": True,
-                    "detail": "Task link already present in PR body",
-                    "pr_url": current.get("html_url") or task.github_pr_url,
+                    "detail": (
+                        "Task needs github_repo and github_pr_number "
+                        "(or pass them in the body)"
+                    )
                 }
             )
-        new_body = body + snippet
-        payload = json.dumps({"body": new_body}).encode()
+        link = upsert_github_link(
+            task,
+            repo=repo,
+            pr_number=int(pr_number),
+            make_primary=True,
+        )
+        base = request.build_absolute_uri("/").rstrip("/")
         try:
-            req = urllib.request.Request(
-                api_url,
-                data=payload,
-                headers={**headers, "Content-Type": "application/json"},
-                method="PATCH",
+            result = attach_task_link_to_pr(
+                task=task,
+                token=token,
+                repo=repo,
+                pr_number=int(pr_number),
+                base_url=base,
+                link=link,
             )
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                updated = json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             raise ValidationError(
-                {"detail": f"GitHub PATCH PR failed: {exc.code}"}
+                {"detail": f"GitHub API failed: {exc.code}"}
             ) from exc
         except Exception as exc:  # noqa: BLE001
-            raise ValidationError({"detail": f"GitHub PATCH PR failed: {exc}"}) from exc
-        task.github_pr_url = updated.get("html_url") or task.github_pr_url
-        task.github_pr_number = int(pr_number)
-        task.github_repo = repo
-        task.github_pr_state = updated.get("state") or task.github_pr_state
-        task.save(
-            update_fields=[
-                "github_pr_url",
-                "github_pr_number",
-                "github_repo",
-                "github_pr_state",
-            ]
-        )
+            raise ValidationError({"detail": f"GitHub API failed: {exc}"}) from exc
         log_agent_action(
             workspace=ws,
             user=request.user,
@@ -1211,14 +1187,49 @@ class TaskPrAttachView(DeliveryOpsMixin, APIView):
             entity_type="DeliveryTask",
             entity_id=task.id,
         )
+        task.refresh_from_db()
         return Response(
             {
-                "ok": True,
-                "skipped": False,
-                "pr_url": task.github_pr_url,
+                **result,
                 "task": DeliveryTaskSerializer(task).data,
             }
         )
+
+
+class TaskGitHubLinkListCreateView(DeliveryOpsMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, task_id):
+        from delivery.serializers import GitHubLinkSerializer
+
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        return Response(
+            GitHubLinkSerializer(task.github_links.all(), many=True).data
+        )
+
+    def post(self, request, task_id):
+        from delivery.github_ops import upsert_github_link
+        from delivery.serializers import GitHubLinkSerializer
+
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
+        link = upsert_github_link(
+            task,
+            repo=(request.data.get("repo") or "").strip(),
+            branch=(request.data.get("branch") or "").strip(),
+            commit=(request.data.get("commit") or "").strip(),
+            pr_number=request.data.get("pr_number"),
+            pr_url=(request.data.get("pr_url") or "").strip(),
+            pr_state=(request.data.get("pr_state") or "").strip(),
+            checks_url=(request.data.get("checks_url") or "").strip(),
+            checks_status=(request.data.get("checks_status") or "").strip(),
+            make_primary=bool(request.data.get("is_primary", True)),
+        )
+        return Response(GitHubLinkSerializer(link).data, status=201)
 
 
 class AgentQueueView(DeliveryOpsMixin, APIView):
@@ -1257,24 +1268,9 @@ def _verify_github_signature(request, secrets_needed: set[str]) -> bool:
     return False
 
 
-def _find_github_tasks(full_name: str, number, head: str) -> list[DeliveryTask]:
-    tasks = list(
-        DeliveryTask.objects.filter(
-            github_repo=full_name, github_pr_number=number
-        ).select_related("workspace")
-    )
-    if tasks or not head:
-        return tasks
-    return list(
-        DeliveryTask.objects.filter(
-            github_repo=full_name,
-            github_branch=head,
-            github_pr_number__isnull=True,
-        ).select_related("workspace")
-    )
-
-
-def _upsert_github_review(task: DeliveryTask, review: dict, comment: dict, event: str):
+def _upsert_github_review(
+    task: DeliveryTask, review: dict, comment: dict, event: str, link=None
+):
     notes = []
     if review.get("body") or review.get("state"):
         state = (review.get("state") or "commented").lower()
@@ -1296,6 +1292,7 @@ def _upsert_github_review(task: DeliveryTask, review: dict, comment: dict, event
                 TaskGitHubReview.State.APPROVED,
                 TaskGitHubReview.State.DISMISSED,
             ),
+            "github_link": link,
         }
         if gh_id:
             TaskGitHubReview.objects.update_or_create(
@@ -1314,6 +1311,7 @@ def _upsert_github_review(task: DeliveryTask, review: dict, comment: dict, event
     ):
         TaskGitHubReview.objects.create(
             task=task,
+            github_link=link,
             author_login=((comment.get("user") or {}).get("login") or "")[:255],
             state=TaskGitHubReview.State.OPEN,
             body=(comment.get("body") or "")[:10000],
@@ -1328,6 +1326,13 @@ class GitHubWebhookView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        from delivery.github_ops import (
+            apply_check_status_from_payload,
+            find_tasks_for_github,
+            maybe_auto_attach_pr,
+            upsert_github_link,
+        )
+
         payload = request.data if isinstance(request.data, dict) else {}
         action = payload.get("action") or ""
         event = request.headers.get("X-GitHub-Event") or request.META.get(
@@ -1343,9 +1348,91 @@ class GitHubWebhookView(APIView):
         sha = (pr.get("head") or {}).get("sha") or ""
         review = payload.get("review") or {}
         comment = payload.get("comment") or {}
+
+        if event in ("check_run", "check_suite", "status") and full_name:
+            check_run = payload.get("check_run") or {}
+            check_suite = payload.get("check_suite") or {}
+            conclusion = (
+                check_run.get("conclusion") or check_suite.get("conclusion") or ""
+            )
+            status_s = (
+                check_run.get("status")
+                or check_suite.get("status")
+                or payload.get("state")
+                or ""
+            )
+            sha = (
+                (check_run.get("head_sha") or "")
+                or (check_suite.get("head_sha") or "")
+                or (payload.get("sha") or "")
+                or sha
+            )
+            branch = ""
+            branches = (
+                check_suite.get("pull_requests")
+                or check_run.get("pull_requests")
+                or []
+            )
+            pr_number = None
+            if branches and isinstance(branches, list) and branches:
+                pr_number = (branches[0] or {}).get("number")
+            elif payload.get("branches"):
+                branch = ((payload.get("branches") or [{}])[0] or {}).get("name") or ""
+            html = (
+                check_run.get("html_url")
+                or (check_suite.get("url") or "")
+                or (payload.get("target_url") or "")
+            )
+            tasks = find_tasks_for_github(full_name, pr_number, branch or head)
+            if not tasks and sha:
+                tasks = list(
+                    DeliveryTask.objects.filter(
+                        github_repo=full_name, github_commit=sha[:64]
+                    ).select_related("workspace")
+                ) or list(
+                    DeliveryTask.objects.filter(
+                        github_links__repo=full_name,
+                        github_links__commit=sha[:64],
+                    )
+                    .distinct()
+                    .select_related("workspace")
+                )
+            if tasks:
+                secrets_needed = {
+                    DeliverySettings.objects.filter(workspace_id=t.workspace_id)
+                    .values_list("github_webhook_secret", flat=True)
+                    .first()
+                    or ""
+                    for t in tasks
+                }
+                secrets_needed.discard("")
+                if not _verify_github_signature(request, secrets_needed):
+                    return Response({"detail": "Invalid signature"}, status=401)
+                updated = 0
+                for task in tasks:
+                    apply_check_status_from_payload(
+                        task,
+                        repo=full_name,
+                        sha=sha,
+                        branch=branch or head,
+                        pr_number=pr_number or number,
+                        conclusion=conclusion,
+                        status=status_s,
+                        html_url=html or "",
+                    )
+                    updated += 1
+                return Response(
+                    {
+                        "ok": True,
+                        "updated": updated,
+                        "action": action,
+                        "event": event,
+                    }
+                )
+
         if not full_name or not number:
             return Response({"detail": "ignored"}, status=200)
-        tasks = _find_github_tasks(full_name, number, head)
+        tasks = find_tasks_for_github(full_name, number, head)
         if not tasks:
             return Response({"ok": True, "updated": 0, "action": action})
         secrets_needed = {
@@ -1358,28 +1445,31 @@ class GitHubWebhookView(APIView):
         secrets_needed.discard("")
         if not _verify_github_signature(request, secrets_needed):
             return Response({"detail": "Invalid signature"}, status=401)
+        base = request.build_absolute_uri("/").rstrip("/")
         updated = 0
         for task in tasks:
+            link = None
             if pr:
-                task.github_pr_state = state or task.github_pr_state
-                task.github_pr_url = html_url or task.github_pr_url
-                task.github_pr_number = number or task.github_pr_number
-                if head:
-                    task.github_branch = head
-                if sha:
-                    task.github_commit = sha[:64]
-                if action in ("synchronize", "opened", "reopened", "closed"):
-                    task.github_checks_status = state
-            notes = _upsert_github_review(task, review, comment, event)
+                link = upsert_github_link(
+                    task,
+                    repo=full_name,
+                    branch=head,
+                    commit=sha,
+                    pr_number=number,
+                    pr_url=html_url,
+                    pr_state=state,
+                    make_primary=True,
+                )
+                if action in ("opened", "reopened", "synchronize", "edited"):
+                    maybe_auto_attach_pr(task, link, base_url=base)
+            notes = _upsert_github_review(task, review, comment, event, link=link)
             if notes:
                 existing = task.github_review_notes or ""
                 addition = "\n---\n".join(notes)
                 task.github_review_notes = (
-                    f"{existing}\n{addition}".strip()
-                    if existing
-                    else addition
+                    f"{existing}\n{addition}".strip() if existing else addition
                 )
-            task.save()
+                task.save(update_fields=["github_review_notes", "updated_at"])
             updated += 1
         return Response({"ok": True, "updated": updated, "action": action})
 

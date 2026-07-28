@@ -154,6 +154,18 @@ export function AgentOpsPage() {
   const [blockerTitle, setBlockerTitle] = useState("");
   const [serviceRole, setServiceRole] = useState("backend");
   const [issuedToken, setIssuedToken] = useState("");
+  const [ghSecret, setGhSecret] = useState("");
+  const [ghToken, setGhToken] = useState("");
+  const [settingsFlags, setSettingsFlags] = useState({
+    webhook: false,
+    token: false,
+  });
+  const [newPr, setNewPr] = useState({
+    repo: "",
+    branch: "",
+    pr_number: "",
+    pr_url: "",
+  });
 
   const load = useCallback(async () => {
     if (!api) return;
@@ -162,6 +174,10 @@ export function AgentOpsPage() {
     try {
       const settings = await api.getSettings();
       setEnabled(settings.agent_ops_enabled);
+      setSettingsFlags({
+        webhook: Boolean(settings.github_webhook_secret_set),
+        token: Boolean(settings.github_api_token_set),
+      });
       if (!settings.agent_ops_enabled) {
         setTasks([]);
         setEpics([]);
@@ -485,6 +501,70 @@ export function AgentOpsPage() {
           {enabled ? "Выключить" : "Включить Agent Ops"}
         </button>
       </div>
+
+      {enabled && (
+        <section className="grid gap-3 rounded-xl border border-border bg-surface p-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-text">GitHub webhook secret</h2>
+            <p className="text-xs text-text-muted">
+              {settingsFlags.webhook ? "Задан" : "Не задан"} · HMAC X-Hub-Signature-256
+            </p>
+            <input
+              type="password"
+              className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+              placeholder="Новый secret"
+              value={ghSecret}
+              onChange={(e) => setGhSecret(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-text">GitHub API token (PAT)</h2>
+            <p className="text-xs text-text-muted">
+              {settingsFlags.token ? "Задан" : "Не задан"} · auto-attach / Attach to PR
+            </p>
+            <input
+              type="password"
+              className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+              placeholder="ghp_…"
+              value={ghToken}
+              onChange={(e) => setGhToken(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs md:col-span-2"
+            onClick={() => {
+              void (async () => {
+                if (!api) return;
+                try {
+                  const body: {
+                    github_webhook_secret?: string;
+                    github_api_token?: string;
+                  } = {};
+                  if (ghSecret.trim()) body.github_webhook_secret = ghSecret.trim();
+                  if (ghToken.trim()) body.github_api_token = ghToken.trim();
+                  if (!Object.keys(body).length) {
+                    setMessage("Введите secret и/или token");
+                    return;
+                  }
+                  const next = await api.patchSettings(body);
+                  setSettingsFlags({
+                    webhook: Boolean(next.github_webhook_secret_set),
+                    token: Boolean(next.github_api_token_set),
+                  });
+                  setGhSecret("");
+                  setGhToken("");
+                  setMessage("GitHub settings сохранены");
+                } catch (err) {
+                  setError(parseApiError(err));
+                }
+              })();
+            }}
+          >
+            Сохранить GitHub settings
+          </button>
+        </section>
+      )}
 
       <ErrorMessage message={error} />
       {message && (
@@ -1082,6 +1162,9 @@ export function AgentOpsPage() {
                           {selected.github_pr_number
                             ? `PR #${selected.github_pr_number} (${selected.github_pr_state})`
                             : ""}
+                          {selected.github_checks_status
+                            ? ` · checks ${selected.github_checks_status}`
+                            : ""}
                           {selected.github_pr_url && (
                             <>
                               {" "}
@@ -1098,6 +1181,114 @@ export function AgentOpsPage() {
                         </dd>
                       </div>
                     </dl>
+                    {(selected.github_links || []).length > 0 && (
+                      <div className="mt-3 space-y-1 text-xs">
+                        <p className="font-semibold">Linked PRs</p>
+                        <ul className="space-y-1">
+                          {(selected.github_links || []).map((l) => (
+                            <li key={l.id}>
+                              {l.is_primary ? "★ " : ""}
+                              {l.repo}
+                              {l.pr_number ? ` #${l.pr_number}` : ` ${l.branch}`}
+                              {l.checks_status
+                                ? ` · checks ${l.checks_status}`
+                                : ""}
+                              {l.attached_to_pr ? " · attached" : ""}
+                              {l.pr_url && (
+                                <>
+                                  {" "}
+                                  <a
+                                    className="text-primary hover:underline"
+                                    href={l.pr_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    open
+                                  </a>
+                                </>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="mt-2 grid gap-2 md:grid-cols-4">
+                      <input
+                        className="rounded-lg border border-border bg-cream px-2 py-1 text-xs"
+                        placeholder="repo"
+                        value={newPr.repo}
+                        onChange={(e) =>
+                          setNewPr((p) => ({ ...p, repo: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="rounded-lg border border-border bg-cream px-2 py-1 text-xs"
+                        placeholder="branch"
+                        value={newPr.branch}
+                        onChange={(e) =>
+                          setNewPr((p) => ({ ...p, branch: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="rounded-lg border border-border bg-cream px-2 py-1 text-xs"
+                        placeholder="PR #"
+                        value={newPr.pr_number}
+                        onChange={(e) =>
+                          setNewPr((p) => ({ ...p, pr_number: e.target.value }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="rounded-lg border border-border px-2 py-1 text-xs"
+                        onClick={() => {
+                          void (async () => {
+                            if (!api || !selected) return;
+                            try {
+                              await api.addGitHubLink(selected.id, {
+                                repo: newPr.repo || selected.github_repo,
+                                branch: newPr.branch,
+                                pr_number: newPr.pr_number
+                                  ? Number(newPr.pr_number)
+                                  : null,
+                                is_primary: true,
+                              });
+                              setNewPr({
+                                repo: "",
+                                branch: "",
+                                pr_number: "",
+                                pr_url: "",
+                              });
+                              await loadTask(selected.id);
+                            } catch (err) {
+                              setError(parseApiError(err));
+                            }
+                          })();
+                        }}
+                      >
+                        Add PR link
+                      </button>
+                    </div>
+                    {(selected.github_reviews || []).length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-sm font-semibold">GitHub reviews</p>
+                        <ul className="space-y-2 text-xs">
+                          {(selected.github_reviews || []).map((r) => (
+                            <li
+                              key={r.id}
+                              className="rounded-lg border border-border bg-cream p-2"
+                            >
+                              <span className="font-medium">
+                                [{r.state}] {r.author_login || "—"}
+                              </span>
+                              {r.is_resolved ? " · resolved" : " · open"}
+                              <p className="mt-1 whitespace-pre-wrap text-text-muted">
+                                {r.body || "—"}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     {selected.github_review_notes && (
                       <pre className="mt-3 overflow-x-auto rounded bg-cream p-2 text-xs">
                         {selected.github_review_notes}

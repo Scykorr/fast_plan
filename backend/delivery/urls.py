@@ -115,6 +115,11 @@ urlpatterns = [
         name="delivery-task-attach-pr",
     ),
     path(
+        "delivery/tasks/<int:task_id>/github-links/",
+        views.TaskGitHubLinkListCreateView.as_view(),
+        name="delivery-task-github-links",
+    ),
+    path(
         "delivery/tasks/<int:task_id>/meaning-changes/",
         views.MeaningChangeListView.as_view(),
         name="delivery-task-meaning-changes",

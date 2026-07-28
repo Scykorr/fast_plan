@@ -100,6 +100,81 @@ MEANING_FIELDS = frozenset(
     }
 )
 
+# Delivery / human report fields (own work + GitHub links)
+OWN_REPORT_FIELDS = frozenset(
+    {
+        "description",
+        "context",
+        "result_artifact",
+        "expected_checks",
+        "external_pack_url",
+        "github_repo",
+        "github_branch",
+        "github_commit",
+        "github_pr_url",
+        "github_pr_number",
+        "github_pr_state",
+        "github_checks_url",
+        "github_checks_status",
+        "github_review_notes",
+        "next_role",
+    }
+)
+
+DOCUMENTATION_EDITABLE_FIELDS = frozenset(
+    OWN_REPORT_FIELDS
+    | MEANING_FIELDS
+    | {
+        "description",
+        "context",
+        "task_type",
+        "priority",
+        "assignee_role",
+        "assignee",
+        "ready_criterion",
+        "done_criterion",
+        "epic",
+        "sprint",
+        "project",
+    }
+)
+
+# TZ §4 / §12 — role → editable task fields (None = unrestricted)
+ROLE_EDITABLE_FIELDS: dict[str, frozenset[str] | None] = {
+    "owner": None,
+    "planner": None,
+    "documentation": DOCUMENTATION_EDITABLE_FIELDS,
+    "smart_contract": OWN_REPORT_FIELDS | MEANING_FIELDS,
+    "backend": OWN_REPORT_FIELDS | MEANING_FIELDS,
+    "frontend": OWN_REPORT_FIELDS | MEANING_FIELDS,
+    "qa": OWN_REPORT_FIELDS | MEANING_FIELDS | {"done_criterion"},
+    "reviewer": frozenset({"github_review_notes", "description"}),
+    "human": OWN_REPORT_FIELDS | MEANING_FIELDS,
+    "observer": frozenset(),
+}
+
+
+def editable_fields_for_profile(profile: AgentProfile | None) -> frozenset[str] | None:
+    """None means unrestricted (workspace editor / owner / planner)."""
+    if profile is None:
+        return None
+    if profile.role in ("owner", "planner"):
+        return None
+    return ROLE_EDITABLE_FIELDS.get(profile.role, frozenset())
+
+
+def assert_fields_editable(profile: AgentProfile | None, field_names: set[str]):
+    allowed = editable_fields_for_profile(profile)
+    if allowed is None:
+        return
+    denied = sorted(field_names - allowed)
+    if denied:
+        from rest_framework.exceptions import PermissionDenied
+
+        raise PermissionDenied(
+            f"Role '{profile.role}' cannot edit fields: {', '.join(denied)}"
+        )
+
 TRACKED_FIELDS = (
     "title",
     "description",
@@ -511,8 +586,16 @@ def agent_may_close_epic(profile: AgentProfile | None) -> bool:
 
 
 def build_task_timeline(task: DeliveryTask) -> list[dict]:
-    """Unified §13 journal: status, fields, handoffs, blockers, comments."""
-    events: list[dict] = []
+    """Unified §13 journal: create + status, fields, handoffs, blockers, comments."""
+    events: list[dict] = [
+        {
+            "kind": "created",
+            "at": task.created_at.isoformat(),
+            "actor_id": task.created_by_id,
+            "summary": f"Task created: {task.title}",
+            "detail": "",
+        }
+    ]
     for row in task.status_history.all():
         events.append(
             {
@@ -581,6 +664,49 @@ def build_task_timeline(task: DeliveryTask) -> list[dict]:
                 "actor_id": row.author_id,
                 "summary": row.body[:200],
                 "detail": row.kind,
+            }
+        )
+    for row in task.subtasks.all():
+        events.append(
+            {
+                "kind": "subtask_created",
+                "at": row.created_at.isoformat(),
+                "actor_id": None,
+                "summary": f"Subtask: {row.title}",
+                "detail": row.status,
+            }
+        )
+    for row in task.dependencies.all():
+        events.append(
+            {
+                "kind": "dependency_created",
+                "at": row.created_at.isoformat(),
+                "actor_id": None,
+                "summary": f"Depends on #{row.depends_on_id}",
+                "detail": "",
+            }
+        )
+    for row in task.github_links.all():
+        events.append(
+            {
+                "kind": "github_link",
+                "at": row.created_at.isoformat(),
+                "actor_id": None,
+                "summary": (
+                    f"{row.repo}"
+                    + (f" PR #{row.pr_number}" if row.pr_number else f" {row.branch}")
+                ),
+                "detail": row.checks_status or row.pr_state,
+            }
+        )
+    for row in task.github_reviews.all()[:100]:
+        events.append(
+            {
+                "kind": "github_review",
+                "at": row.created_at.isoformat(),
+                "actor_id": None,
+                "summary": f"[{row.state}] {row.author_login or 'review'}",
+                "detail": (row.body or "")[:200],
             }
         )
     for row in task.meaning_change_requests.all()[:100]:

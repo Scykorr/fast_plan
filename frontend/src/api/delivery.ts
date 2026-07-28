@@ -3,6 +3,37 @@ import { request } from "./client";
 export type DeliverySettings = {
   agent_ops_enabled: boolean;
   updated_at: string;
+  github_webhook_secret_set?: boolean;
+  github_api_token_set?: boolean;
+};
+
+export type GitHubLink = {
+  id: number;
+  repo: string;
+  branch: string;
+  commit: string;
+  pr_number: number | null;
+  pr_url: string;
+  pr_state: string;
+  checks_url: string;
+  checks_status: string;
+  is_primary: boolean;
+  attached_to_pr: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GitHubReview = {
+  id: number;
+  github_link: number | null;
+  github_review_id: number | null;
+  author_login: string;
+  state: string;
+  body: string;
+  html_url: string;
+  is_resolved: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type AgentProfile = {
@@ -95,6 +126,8 @@ export type DeliveryTask = {
   ready_missing: string[];
   meaning_change_request_id?: number;
   meaning_change_pending?: boolean;
+  github_links?: GitHubLink[];
+  github_reviews?: GitHubReview[];
   dependencies?: Array<{
     id: number;
     depends_on: number;
@@ -196,7 +229,11 @@ function qs(params?: Record<string, string | number | boolean | undefined>) {
 export function createDeliveryApi() {
   return {
     getSettings: () => request<DeliverySettings>("/delivery/settings/"),
-    patchSettings: (data: { agent_ops_enabled: boolean }) =>
+    patchSettings: (data: {
+      agent_ops_enabled?: boolean;
+      github_webhook_secret?: string;
+      github_api_token?: string;
+    }) =>
       request<DeliverySettings>("/delivery/settings/", {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -433,6 +470,14 @@ export function createDeliveryApi() {
       }>(`/delivery/tasks/${taskId}/attach-pr/`, {
         method: "POST",
         body: JSON.stringify(data || {}),
+      }),
+    addGitHubLink: (
+      taskId: number,
+      data: Partial<GitHubLink> & { repo?: string },
+    ) =>
+      request<GitHubLink>(`/delivery/tasks/${taskId}/github-links/`, {
+        method: "POST",
+        body: JSON.stringify(data),
       }),
     queue: (params?: { role?: string; status?: string }) =>
       request<DeliveryTask[]>(`/delivery/queue/${qs(params)}`),

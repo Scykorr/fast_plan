@@ -14,6 +14,8 @@ from delivery.models import (
     TaskComment,
     TaskDependency,
     TaskFieldHistory,
+    TaskGitHubLink,
+    TaskGitHubReview,
     TaskHandoff,
     TaskStatusHistory,
 )
@@ -299,11 +301,52 @@ class DependencySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class GitHubLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskGitHubLink
+        fields = [
+            "id",
+            "repo",
+            "branch",
+            "commit",
+            "pr_number",
+            "pr_url",
+            "pr_state",
+            "checks_url",
+            "checks_status",
+            "is_primary",
+            "attached_to_pr",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "attached_to_pr", "created_at", "updated_at"]
+
+
+class GitHubReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskGitHubReview
+        fields = [
+            "id",
+            "github_link",
+            "github_review_id",
+            "author_login",
+            "state",
+            "body",
+            "html_url",
+            "is_resolved",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
 class DeliveryTaskSerializer(serializers.ModelSerializer):
     subtasks = SubTaskSerializer(many=True, read_only=True)
     blockers = BlockerSerializer(many=True, read_only=True)
     handoffs = HandoffSerializer(many=True, read_only=True)
     dependencies = DependencySerializer(many=True, read_only=True)
+    github_links = GitHubLinkSerializer(many=True, read_only=True)
+    github_reviews = GitHubReviewSerializer(many=True, read_only=True)
     open_blockers_count = serializers.SerializerMethodField()
     assignee_email = serializers.SerializerMethodField()
     ready_missing = serializers.SerializerMethodField()
@@ -347,6 +390,8 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
             "github_checks_url",
             "github_checks_status",
             "github_review_notes",
+            "github_links",
+            "github_reviews",
             "version",
             "subtasks",
             "blockers",
@@ -365,6 +410,8 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
             "blockers",
             "handoffs",
             "dependencies",
+            "github_links",
+            "github_reviews",
             "open_blockers_count",
             "ready_missing",
             "created_at",

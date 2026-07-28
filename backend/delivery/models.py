@@ -738,6 +738,13 @@ class TaskGitHubReview(models.Model):
     task = models.ForeignKey(
         DeliveryTask, on_delete=models.CASCADE, related_name="github_reviews"
     )
+    github_link = models.ForeignKey(
+        "TaskGitHubLink",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviews",
+    )
     github_review_id = models.BigIntegerField(null=True, blank=True)
     author_login = models.CharField(max_length=255, blank=True, default="")
     state = models.CharField(max_length=32, choices=State.choices, default=State.OPEN)
@@ -750,3 +757,40 @@ class TaskGitHubReview(models.Model):
     class Meta:
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["task", "is_resolved"])]
+
+
+class TaskGitHubLink(models.Model):
+    """TZ §10 — multiple PR/branch links per task (primary synced to task fields)."""
+
+    task = models.ForeignKey(
+        DeliveryTask, on_delete=models.CASCADE, related_name="github_links"
+    )
+    repo = models.CharField(max_length=255, blank=True, default="")
+    branch = models.CharField(max_length=255, blank=True, default="")
+    commit = models.CharField(max_length=64, blank=True, default="")
+    pr_number = models.PositiveIntegerField(null=True, blank=True)
+    pr_url = models.URLField(blank=True, default="")
+    pr_state = models.CharField(max_length=32, blank=True, default="")
+    checks_url = models.URLField(blank=True, default="")
+    checks_status = models.CharField(max_length=32, blank=True, default="")
+    is_primary = models.BooleanField(default=False)
+    attached_to_pr = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_primary", "-updated_at", "-id"]
+        indexes = [
+            models.Index(fields=["repo", "pr_number"]),
+            models.Index(fields=["repo", "branch"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["task", "repo", "pr_number"],
+                name="uniq_delivery_task_github_pr",
+                condition=models.Q(pr_number__isnull=False),
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.repo}#{self.pr_number or self.branch}"

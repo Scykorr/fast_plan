@@ -17,6 +17,7 @@
 
 ### Added
 
+- **P9 Agent Ops (TZ polish)** — multi-PR `TaskGitHubLink`, Checks webhook status, auto-attach on PR webhook; structured reviews + GitHub settings UI; role→field ACL matrix; entity creation in unified timeline
 - **P9 Agent Ops (ideal TZ)** — meaning changes only via Owner/Planner approve queue; access log on all delivery endpoints; GitHub auto-link by branch, structured `TaskGitHubReview`, optional attach-PR via PAT; create Project+meta from Agent Ops; CI typecheck fix for unified timeline
 - **P9 Agent Ops (TZ gap-close)** — enforce agent `can()` ACL; claim/assign field journal + unified timeline; dependency gates + cycle check; SubTask GET/PATCH; comment kinds on handoff/blocker; project list with §5.1 fields; GitHub webhook HMAC secret; overview awaiting from handoff/owner_request; UI projects/role filter/resolve-cancel/comments/deps
 - **P9 Agent Ops (TZ end-to-end)** — полный Ready-gate §8; `architecture_url`; task dependencies; field history + access/agent action logs; `Reviewer` role + default action sets; delivery project meta (repo/docs); service-account provisioning + API token; blocker soft-cancel with reason; claim via Assigned; GitHub review notes + PR snippet; overview/agents/task-card UI on `/agent-ops`

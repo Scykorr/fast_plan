@@ -460,6 +460,106 @@ def test_create_project_from_agent_ops(authenticated_client, enable_ops, workspa
 
 
 @pytest.mark.django_db
+def test_github_webhook_check_run_updates_status(workspace, enable_ops):
+    task = DeliveryTask.objects.create(
+        workspace=workspace,
+        title="Checks task",
+        github_repo="org/repo",
+        github_pr_number=42,
+        github_commit="abc123",
+        **{k: v for k, v in READY_FIELDS.items() if k != "title"},
+    )
+    client = APIClient()
+    resp = client.post(
+        "/api/delivery/webhooks/github/",
+        {
+            "action": "completed",
+            "check_run": {
+                "head_sha": "abc123",
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://github.com/org/repo/runs/1",
+                "pull_requests": [{"number": 42}],
+            },
+            "repository": {"full_name": "org/repo"},
+        },
+        format="json",
+        HTTP_X_GITHUB_EVENT="check_run",
+    )
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.data["updated"] == 1
+    task.refresh_from_db()
+    assert task.github_checks_status == "success"
+    assert task.github_links.exists()
+
+
+@pytest.mark.django_db
+def test_multiple_github_links(authenticated_client, enable_ops):
+    create = authenticated_client.post(
+        "/api/delivery/tasks/", READY_FIELDS, format="json"
+    )
+    task_id = create.data["id"]
+    first = authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/github-links/",
+        {"repo": "org/repo", "pr_number": 1, "branch": "a", "is_primary": True},
+        format="json",
+    )
+    second = authenticated_client.post(
+        f"/api/delivery/tasks/{task_id}/github-links/",
+        {"repo": "org/repo", "pr_number": 2, "branch": "b", "is_primary": False},
+        format="json",
+    )
+    assert first.status_code == status.HTTP_201_CREATED
+    assert second.status_code == status.HTTP_201_CREATED
+    detail = authenticated_client.get(f"/api/delivery/tasks/{task_id}/")
+    assert len(detail.data["github_links"]) == 2
+    assert detail.data["github_pr_number"] == 1
+
+
+@pytest.mark.django_db
+def test_field_acl_blocks_observer_and_delivery_priority(
+    authenticated_client, workspace, enable_ops, user
+):
+    create = authenticated_client.post(
+        "/api/delivery/tasks/", READY_FIELDS, format="json"
+    )
+    task_id = create.data["id"]
+    AgentProfile.objects.create(
+        workspace=workspace,
+        user=user,
+        role="observer",
+        actor_type=AgentProfile.ActorType.AGENT,
+        display_name="Obs",
+    )
+    denied = authenticated_client.patch(
+        f"/api/delivery/tasks/{task_id}/",
+        {"description": "nope"},
+        format="json",
+    )
+    assert denied.status_code == status.HTTP_403_FORBIDDEN
+
+    AgentProfile.objects.filter(user=user).update(role="backend")
+    denied_prio = authenticated_client.patch(
+        f"/api/delivery/tasks/{task_id}/",
+        {"priority": "critical"},
+        format="json",
+    )
+    assert denied_prio.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_timeline_includes_created(authenticated_client, enable_ops):
+    create = authenticated_client.post(
+        "/api/delivery/tasks/", READY_FIELDS, format="json"
+    )
+    task_id = create.data["id"]
+    hist = authenticated_client.get(f"/api/delivery/tasks/{task_id}/history/")
+    assert hist.status_code == status.HTTP_200_OK
+    kinds = [e["kind"] for e in hist.data["timeline"]]
+    assert "created" in kinds
+
+
+@pytest.mark.django_db
 def test_attach_pr_requires_token(authenticated_client, enable_ops, workspace):
     create = authenticated_client.post(
         "/api/delivery/tasks/",
