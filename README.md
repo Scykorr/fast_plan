@@ -2,7 +2,7 @@
 
 Личный мультипользовательский планировщик: Kanban, календарь дней рождения, проекты (WBS/Gantt), трекеры и кастомные поля.
 
-**Текущая версия:** см. [`VERSION`](VERSION) · история изменений — [`CHANGELOG.md`](CHANGELOG.md) · бэклог — [`ROADMAP.md`](ROADMAP.md) · staging — [`STAGING.md`](STAGING.md)
+**Текущая версия:** см. [`VERSION`](VERSION) · история изменений — [`CHANGELOG.md`](CHANGELOG.md) · бэклог — [`ROADMAP.md`](ROADMAP.md) · staging — [`STAGING.md`](STAGING.md) · **сервер / обновления** — [`DEPLOY.md`](DEPLOY.md)
 
 ## Стек
 
@@ -73,6 +73,8 @@ docker compose up --build
 - **PostgreSQL:** внутренняя сеть Docker
 
 Секреты **не** хардкодятся в `docker-compose.yml` — только через `.env`.
+
+Production на своём сервере (HTTPS, бэкапы, обновления **без потери данных**): см. [`DEPLOY.md`](DEPLOY.md).
 
 ## Тесты
 

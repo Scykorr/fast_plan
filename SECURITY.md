@@ -34,5 +34,6 @@ Without Redis, SSE stays in-process (fine for single worker / tests).
 
 ## Related docs
 
+- Self-hosted deploy & safe upgrades: [`DEPLOY.md`](DEPLOY.md)
 - Staging checklist: [`STAGING.md`](STAGING.md)
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md)
