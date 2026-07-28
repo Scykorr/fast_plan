@@ -1042,7 +1042,10 @@ export function createCrmApi() {
       ),
     deleteSavedReport: (id: number) =>
       request<void>(`/crm/saved-reports/${id}/`, { method: "DELETE" }),
-    runReport: (query: Record<string, unknown>, format?: "json" | "csv") => {
+    runReport: ((
+      query: Record<string, unknown>,
+      format?: "json" | "csv",
+    ) => {
       if (format === "csv") {
         return requestBlob("/crm/reports/run/?export=csv", {
           method: "POST",
@@ -1054,6 +1057,12 @@ export function createCrmApi() {
         method: "POST",
         body: JSON.stringify({ query }),
       });
+    }) as {
+      (query: Record<string, unknown>, format: "csv"): Promise<Blob>;
+      (
+        query: Record<string, unknown>,
+        format?: "json",
+      ): Promise<Record<string, unknown>>;
     },
     listSavedFilters: (target?: string) => {
       const q = target ? `?target=${encodeURIComponent(target)}` : "";

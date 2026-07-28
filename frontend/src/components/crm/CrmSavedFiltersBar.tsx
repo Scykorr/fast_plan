@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { parseApiError } from "../api/errors";
+import { parseApiError } from "../../api/errors";
 import { useCrmApi } from "../../hooks/useCrmApi";
 
 export type SavedFilterRow = {
