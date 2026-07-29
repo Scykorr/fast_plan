@@ -9,6 +9,7 @@ from crm import (
     custom_fields_views,
     deals_views,
     graphql_views,
+    inventory_views,
     leads_views,
     tasks_views,
     views,
@@ -339,6 +340,22 @@ urlpatterns = [
         "crm/<str:target>/<int:entity_id>/custom-fields/",
         custom_fields_views.CrmEntityCustomFieldsView.as_view(),
         name="crm-entity-custom-fields",
+    ),
+    path("crm/skus/", inventory_views.CrmSkuListCreateView.as_view(), name="crm-skus"),
+    path(
+        "crm/skus/<int:sku_id>/",
+        inventory_views.CrmSkuDetailView.as_view(),
+        name="crm-sku-detail",
+    ),
+    path(
+        "crm/skus/<int:sku_id>/adjust/",
+        inventory_views.CrmSkuAdjustView.as_view(),
+        name="crm-sku-adjust",
+    ),
+    path(
+        "crm/skus/<int:sku_id>/movements/",
+        inventory_views.CrmSkuMovementsView.as_view(),
+        name="crm-sku-movements",
     ),
     path(
         "crm/graphql/",

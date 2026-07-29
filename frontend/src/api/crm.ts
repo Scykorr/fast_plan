@@ -145,6 +145,20 @@ export type CrmDocument = {
   project: number | null;
   pdf_url: string | null;
   paid_total: number;
+  stock_fulfilled?: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrmSku = {
+  id: number;
+  code: string;
+  name: string;
+  unit: string;
+  unit_price: number | string;
+  qty_on_hand: number | string;
+  is_active: boolean;
+  notes: string;
   created_at: string;
   updated_at: string;
 };
@@ -993,6 +1007,30 @@ export function createCrmApi() {
       const suffix = qs.toString() ? `?${qs}` : "";
       return request<CrmDocument[]>(`/crm/documents/${suffix}`, {});
     },
+    listSkus: (params: { q?: string; active?: "0" | "1" } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.q) qs.set("q", params.q);
+      if (params.active) qs.set("active", params.active);
+      const suffix = qs.toString() ? `?${qs}` : "";
+      return request<CrmSku[]>(`/crm/skus/${suffix}`, {});
+    },
+    createSku: (body: Record<string, unknown>) =>
+      request<CrmSku>("/crm/skus/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    patchSku: (id: number, body: Record<string, unknown>) =>
+      request<CrmSku>(`/crm/skus/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    deleteSku: (id: number) =>
+      request<void>(`/crm/skus/${id}/`, { method: "DELETE" }),
+    adjustSku: (id: number, body: Record<string, unknown>) =>
+      request<CrmSku>(`/crm/skus/${id}/adjust/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     createDocument: (body: Record<string, unknown>) =>
       request<CrmDocument>("/crm/documents/", {
         method: "POST",

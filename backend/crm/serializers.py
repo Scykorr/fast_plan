@@ -13,6 +13,8 @@ from crm.models import (
     CrmDocumentPayment,
     CrmSavedFilter,
     CrmSavedReport,
+    CrmSku,
+    CrmStockMovement,
     Deal,
     DealTask,
     IntegrationConnector,
@@ -1100,6 +1102,7 @@ class CrmDocumentSerializer(serializers.ModelSerializer):
             "project",
             "pdf_url",
             "paid_total",
+            "stock_fulfilled",
             "created_at",
             "updated_at",
         ]
@@ -1215,3 +1218,40 @@ class CrmCustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CrmSkuSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CrmSku
+        fields = [
+            "id",
+            "code",
+            "name",
+            "unit",
+            "unit_price",
+            "qty_on_hand",
+            "is_active",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class CrmStockMovementSerializer(serializers.ModelSerializer):
+    sku_code = serializers.CharField(source="sku.code", read_only=True)
+
+    class Meta:
+        model = CrmStockMovement
+        fields = [
+            "id",
+            "sku",
+            "sku_code",
+            "delta",
+            "qty_after",
+            "reason",
+            "note",
+            "document",
+            "created_at",
+        ]
+        read_only_fields = fields

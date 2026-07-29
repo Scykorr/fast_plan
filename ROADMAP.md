@@ -220,7 +220,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 2 | Автоматизация (BPM / n8n-like) | **✓ P6e** + **P8** BPMN/DMN/CMMN для сложных процессов | — |
 | 3 | AI CRM-помощник | **✓ P6f** — `/crm-ai` (OpenAI / Ollama / heuristics) | — |
 | 4 | Омниканал (TG/WA/Email/… → одна лента) | **✓ P6g + IG/VK** — IMAP + Telegram + Instagram/VK → Activity; WA/SMS connectors | — |
-| 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** — Quote/Invoice/Contract/Act PDF, payments, AR lite | Склад/SKU — только по явному запросу |
+| 5 | Продажи: счета/КП/договоры/заказы/оплаты/товары/склад | **✓ P6h** + **✓ SKU MVP** | Каталог SKU/остатки; не полный WMS |
 | 6 | Финансы CRM: P&L, дебиторка/кредиторка, cashflow forecast | **✓** — AR/AP + P&L + cashflow на `/crm-commerce` | — |
 | 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h + Акт** — PDF Quote/Invoice/Contract/Act | — |
 | 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **✓ P6i + report builder** — `/crm-analytics` + CSV | — |
@@ -232,7 +232,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 + SSO** + `scripts/backup-db.sh` (opt GPG) | — |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
-**Итог:** ядро CRM + polish + custom fields / SDK / PBX (**v0.16.0**) **закрыто**. Остаётся склад/SKU только по явному запросу («делаем»); MS Project XML — при образце.
+**Итог:** ядро CRM + polish + custom fields / SDK / PBX (**v0.16.0**) + **SKU/склад MVP** **закрыто**. MS Project XML — при образце.
 
 ### CRM polish (v0.15.0) — закрыт
 
@@ -247,7 +247,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | **P3** | Backup/encryption hardening (`scripts/backup-db.sh`) | **✓** |
 | **P2** | Custom fields на карточках (блок 12) | **✓** v0.16.0 |
 | **P3** | Typed CRM SDK (`packages/crm-client`) | **✓** v0.16.0 |
-| _запрос_ | Склад / SKU / inventory | только при явном запросе |
+| ✓ | Склад / SKU / inventory (MVP) | каталог + остатки + списание с invoice |
 | _out_ | Marketing journeys, co-edit docs, native apps | не планируем |
 
 ### Что было «доделать» (архив таблицы)
@@ -257,7 +257,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | ~~P1~~ | ~~Hotkeys~~ | 12 | done |
 | ~~P2~~ | ~~Saved filters / Акт / IG-VK / report builder~~ | — | done |
 | ~~P3~~ | ~~GraphQL lite / backup script~~ | — | done |
-| _запрос_ | Склад / SKU / inventory | 5 | **L** — только при явном запросе |
+| ✓ | Склад / SKU / inventory (MVP) | 5 | **M** — CrmSku + movements; не WMS |
 | _out_ | Marketing journeys, co-edit docs, native apps | — | не планируем |
 
 ### Уже переиспользуем (не строить заново)
@@ -281,7 +281,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 - [x] **P6e Автоматизация (BPM-lite)** — declarative rules trigger→conditions→actions; templates «лид из формы» / «follow-up +2 дня»; delay via deferred queue. **L**
 - [x] **P6f AI CRM** — ассистент: «клиенты без покупок», «сделки под риском»; draft email/КП; резюме активности/переписки; auto-tasks; прогноз (поверх P6c данных). **L**
 - [x] **P6g Омниканал (этап 1)** — единая лента Activity из Email (Gmail/IMAP) + Telegram bot; WhatsApp/Instagram/VK/телефония — отдельные коннекторы после adoption. **L**
-- [x] **P6h Коммерция и документы** — Quote/Invoice/Contract templates → PDF; заказы/оплаты; AR/AP lite + cashflow forecast; **склад/SKU — только если явный запрос** (иначе out of scope). **L**
+- [x] **P6h Коммерция и документы** — Quote/Invoice/Contract templates → PDF; заказы/оплаты; AR/AP lite + cashflow forecast; **SKU/склад MVP** (каталог, остатки, списание при paid). Полный WMS — вне scope. **L**
 - [x] **P6i CRM-аналитика** — дашборд: продажи по менеджерам, конверсия, средний чек, источники; LTV/CAC при наличии затрат на лиды; конструктор отчётов (простые saved queries). **M–L**
 - [x] **P6 calendar sync** — CRM events на workspace calendar + OAuth push в Outlook/Google (2026-07-25). **M**
 
@@ -300,7 +300,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 2. ~~**CRM polish + релиз v0.15.0**~~ — Agent Ops + polish закрыты.
 3. ~~**Custom fields / SDK / Agent Ops E2E / PBX Beeline·MTS**~~ — **v0.16.0**.
 4. MS Project XML import — при наличии образца.
-5. Склад / SKU — только по явному запросу («делаем»).
+5. ~~Склад / SKU~~ — MVP в CRM (`/crm/skus/`, `/crm-commerce`); полный WMS вне scope.
 6. Ops hygiene — quarterly `scripts/restore-drill.sh` on staging.
 
 ### P6a — критерии (архив)
@@ -381,7 +381,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 ### Вне scope / партнёрский слой (явно)
 
-- Полноценный WMS и складская логистика (**склад/SKU** — только по явному запросу)  
+- Полноценный WMS и складская логистика (MVP SKU/остатки уже в CRM)  
 - Встроенная IP-телефония / dialer «как продукт» (коннекторы Asterisk/Mango/Beeline/MTS — ✓)  
 - Marketing automation (email journeys, landing builders)  
 - Process conformance / **full FEEL** / **Camunda-grade CMMN** (см. P8)  

@@ -7,6 +7,8 @@ from crm.models import (
     AutomationRun,
     CrmAttachment,
     CrmComment,
+    CrmSku,
+    CrmStockMovement,
     Deal,
     DealTask,
     IntegrationConnector,
@@ -47,3 +49,5 @@ admin.site.register(LeadAssignmentState)
 admin.site.register(AutomationRule)
 admin.site.register(AutomationRun)
 admin.site.register(AutomationDeferred)
+admin.site.register(CrmSku)
+admin.site.register(CrmStockMovement)

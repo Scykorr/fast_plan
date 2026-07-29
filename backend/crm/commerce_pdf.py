@@ -86,7 +86,7 @@ def render_crm_document_pdf(document) -> bytes:
     items = document.line_items or []
     if items:
         story.append(Paragraph("Позиции", heading))
-        rows = [["Наименование", "Кол-во", "Цена", "Сумма"]]
+        rows = [["SKU", "Наименование", "Кол-во", "Цена", "Сумма"]]
         for item in items:
             if not isinstance(item, dict):
                 continue
@@ -98,13 +98,14 @@ def render_crm_document_pdf(document) -> bytes:
                 line_sum = item.get("amount") or 0
             rows.append(
                 [
+                    _fmt(item.get("sku") or ""),
                     _fmt(item.get("title") or item.get("name")),
                     _fmt(qty),
                     _fmt(price),
                     _fmt(line_sum),
                 ]
             )
-        table = Table(rows, colWidths=[8 * cm, 2.5 * cm, 3 * cm, 3.5 * cm])
+        table = Table(rows, colWidths=[2.5 * cm, 6.5 * cm, 2.2 * cm, 2.8 * cm, 3 * cm])
         table.setStyle(
             TableStyle(
                 [

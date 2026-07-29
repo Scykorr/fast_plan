@@ -997,6 +997,10 @@ class CrmDocument(models.Model):
     pdf_file = models.FileField(
         upload_to=crm_document_upload_path, blank=True, null=True
     )
+    stock_fulfilled = models.BooleanField(
+        default=False,
+        help_text="True after SKU qty deducted for paid invoice line_items.",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1344,4 +1348,82 @@ class CalendarSyncConflict(models.Model):
         ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["connection", "status"]),
+        ]
+
+
+class CrmSku(models.Model):
+    """Workspace product / SKU with simple on-hand quantity (not a full WMS)."""
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_skus",
+    )
+    code = models.CharField(max_length=64)
+    name = models.CharField(max_length=255)
+    unit = models.CharField(max_length=32, blank=True, default="шт")
+    unit_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    qty_on_hand = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["code", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "code"],
+                name="crm_sku_ws_code_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["workspace", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.code}: {self.name}"
+
+
+class CrmStockMovement(models.Model):
+    """Audit trail for SKU quantity changes."""
+
+    class Reason(models.TextChoices):
+        ADJUST = "adjust", "Manual adjust"
+        SALE = "sale", "Sale / invoice paid"
+        VOID_RESTORE = "void_restore", "Restore on void"
+        RECEIVE = "receive", "Receive / restock"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_stock_movements",
+    )
+    sku = models.ForeignKey(
+        CrmSku, on_delete=models.CASCADE, related_name="movements"
+    )
+    delta = models.DecimalField(max_digits=14, decimal_places=3)
+    qty_after = models.DecimalField(max_digits=14, decimal_places=3)
+    reason = models.CharField(max_length=20, choices=Reason.choices)
+    note = models.CharField(max_length=255, blank=True, default="")
+    document = models.ForeignKey(
+        CrmDocument,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_movements",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crm_stock_movements",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["workspace", "sku", "-created_at"]),
         ]

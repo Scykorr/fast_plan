@@ -328,12 +328,17 @@ async function checkAuthSmoke() {
       name: "crm saved filters",
       ok: (b) => Array.isArray(b),
     },
-    {
-      path: "/api/crm/custom-fields/",
-      name: "crm custom fields",
-      ok: (b) => Array.isArray(b),
-    },
-  ];
+            {
+              path: "/api/crm/custom-fields/",
+              name: "crm custom fields",
+              ok: (b) => Array.isArray(b),
+            },
+            {
+              path: "/api/crm/skus/",
+              name: "crm skus",
+              ok: (b) => Array.isArray(b),
+            },
+          ];
   for (const check of processGets) {
     const res = await fetchJson(check.path, { headers });
     if (!res.response.ok || !check.ok(res.body)) {

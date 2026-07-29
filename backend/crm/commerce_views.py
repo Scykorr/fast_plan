@@ -26,6 +26,7 @@ from crm.channels import (
     sync_connection,
 )
 from crm.commerce_pdf import render_crm_document_pdf
+from crm.inventory import normalize_line_items, sync_document_stock_on_status_change
 from crm.models import (
     ChannelConnection,
     CrmDocument,
@@ -268,6 +269,7 @@ class CrmDocumentListCreateView(WorkspaceMixin, APIView):
                 org = deal.organization
             if person is None:
                 person = deal.person
+        line_items = normalize_line_items(workspace, data.get("line_items") or [])
         doc = CrmDocument.objects.create(
             workspace=workspace,
             doc_type=data["doc_type"],
@@ -277,13 +279,16 @@ class CrmDocumentListCreateView(WorkspaceMixin, APIView):
             amount=data.get("amount") or 0,
             currency=data.get("currency") or "RUB",
             body=data.get("body") or "",
-            line_items=data.get("line_items") or [],
+            line_items=line_items,
             issue_date=data.get("issue_date") or timezone.localdate(),
             due_date=data.get("due_date"),
             organization=org,
             person=person,
             deal=deal,
             created_by=request.user if request.user.is_authenticated else None,
+        )
+        sync_document_stock_on_status_change(
+            doc, previous_status=CrmDocument.Status.DRAFT, user=request.user
         )
         return Response(CrmDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
@@ -304,6 +309,7 @@ class CrmDocumentDetailView(WorkspaceMixin, APIView):
 
     def patch(self, request, document_id):
         doc = self.get_object(document_id)
+        previous_status = doc.status
         serializer = CrmDocumentWriteSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -315,12 +321,13 @@ class CrmDocumentDetailView(WorkspaceMixin, APIView):
             "amount",
             "currency",
             "body",
-            "line_items",
             "issue_date",
             "due_date",
         ):
             if field in data:
                 setattr(doc, field, data[field])
+        if "line_items" in data:
+            doc.line_items = normalize_line_items(doc.workspace, data["line_items"] or [])
         if "organization_id" in data:
             oid = data["organization_id"]
             doc.organization = (
@@ -343,6 +350,10 @@ class CrmDocumentDetailView(WorkspaceMixin, APIView):
                 else None
             )
         doc.save()
+        sync_document_stock_on_status_change(
+            doc, previous_status=previous_status, user=request.user
+        )
+        doc.refresh_from_db()
         return Response(CrmDocumentSerializer(doc).data)
 
     def delete(self, request, document_id):

@@ -7,6 +7,7 @@ import type {
   CrmDocument,
   CrmIntegrationConnector,
   CrmPnl,
+  CrmSku,
 } from "../api/crm";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useCrmApi } from "../hooks/useCrmApi";
@@ -28,6 +29,7 @@ export function CrmCommercePage() {
   const [channels, setChannels] = useState<CrmChannelConnection[]>([]);
   const [connectors, setConnectors] = useState<CrmIntegrationConnector[]>([]);
   const [documents, setDocuments] = useState<CrmDocument[]>([]);
+  const [skus, setSkus] = useState<CrmSku[]>([]);
   const [arAp, setArAp] = useState<Awaited<
     ReturnType<NonNullable<typeof crmApi>["getArAp"]>
   > | null>(null);
@@ -66,7 +68,17 @@ export function CrmCommercePage() {
     number: "",
     body: "",
     due_date: "",
+    sku_id: "",
+    sku_qty: "1",
   });
+  const [skuForm, setSkuForm] = useState({
+    code: "",
+    name: "",
+    unit: "шт",
+    unit_price: "",
+    qty_on_hand: "0",
+  });
+  const [skuAdjust, setSkuAdjust] = useState({ id: "", delta: "" });
   const [imapForm, setImapForm] = useState({
     name: "IMAP inbox",
     host: "",
@@ -94,13 +106,14 @@ export function CrmCommercePage() {
   const load = useCallback(async () => {
     if (!crmApi) return;
     try {
-      const [ch, docs, ar, cf, pnlRow, cons] = await Promise.all([
+      const [ch, docs, ar, cf, pnlRow, cons, skuRows] = await Promise.all([
         crmApi.listChannels(),
         crmApi.listDocuments(),
         crmApi.getArAp(),
         crmApi.getCashflowForecast(90),
         crmApi.getPnl(),
         crmApi.listConnectors(),
+        crmApi.listSkus(),
       ]);
       setChannels(ch);
       setDocuments(docs);
@@ -108,6 +121,7 @@ export function CrmCommercePage() {
       setCashflow(cf);
       setPnl(pnlRow);
       setConnectors(cons);
+      setSkus(skuRows);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить коммерцию/каналы"));
     }
@@ -187,6 +201,15 @@ export function CrmCommercePage() {
     event.preventDefault();
     if (!crmApi || !docForm.title.trim()) return;
     try {
+      const line_items =
+        docForm.sku_id.trim() !== ""
+          ? [
+              {
+                sku_id: Number(docForm.sku_id),
+                qty: Number(docForm.sku_qty) || 1,
+              },
+            ]
+          : undefined;
       await crmApi.createDocument({
         doc_type: docForm.doc_type,
         title: docForm.title.trim(),
@@ -197,6 +220,7 @@ export function CrmCommercePage() {
         status: docForm.doc_type === "bill" || docForm.doc_type === "invoice"
           ? "sent"
           : "draft",
+        ...(line_items ? { line_items } : {}),
       });
       setDocForm({
         doc_type: docForm.doc_type,
@@ -205,11 +229,54 @@ export function CrmCommercePage() {
         number: "",
         body: "",
         due_date: "",
+        sku_id: "",
+        sku_qty: "1",
       });
       setMessage("Документ создан");
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось создать документ"));
+    }
+  };
+
+  const createSku = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!crmApi || !skuForm.code.trim() || !skuForm.name.trim()) return;
+    try {
+      await crmApi.createSku({
+        code: skuForm.code.trim(),
+        name: skuForm.name.trim(),
+        unit: skuForm.unit.trim() || "шт",
+        unit_price: skuForm.unit_price || 0,
+        qty_on_hand: skuForm.qty_on_hand || 0,
+      });
+      setSkuForm({
+        code: "",
+        name: "",
+        unit: "шт",
+        unit_price: "",
+        qty_on_hand: "0",
+      });
+      setMessage("SKU создан");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать SKU"));
+    }
+  };
+
+  const adjustSkuQty = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!crmApi || !skuAdjust.id || !skuAdjust.delta) return;
+    try {
+      await crmApi.adjustSku(Number(skuAdjust.id), {
+        delta: skuAdjust.delta,
+        note: "manual",
+      });
+      setSkuAdjust({ id: "", delta: "" });
+      setMessage("Остаток обновлён");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось скорректировать остаток"));
     }
   };
 
@@ -381,6 +448,120 @@ export function CrmCommercePage() {
       )}
 
       <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-text">Склад / SKU</h2>
+        <p className="text-xs text-text-muted">
+          Каталог товаров и остатки. При статусе счёта «paid» количество по
+          позициям с sku_id списывается (не полноценный WMS).
+        </p>
+        <form
+          onSubmit={(e) => void createSku(e)}
+          className="grid gap-2 sm:grid-cols-5"
+        >
+          <input
+            value={skuForm.code}
+            onChange={(e) => setSkuForm({ ...skuForm, code: e.target.value })}
+            placeholder="Код SKU"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            required
+          />
+          <input
+            value={skuForm.name}
+            onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })}
+            placeholder="Название"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
+            required
+          />
+          <input
+            value={skuForm.unit_price}
+            onChange={(e) =>
+              setSkuForm({ ...skuForm, unit_price: e.target.value })
+            }
+            placeholder="Цена"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          />
+          <input
+            value={skuForm.qty_on_hand}
+            onChange={(e) =>
+              setSkuForm({ ...skuForm, qty_on_hand: e.target.value })
+            }
+            placeholder="Остаток"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white sm:col-span-5 sm:w-fit"
+          >
+            Добавить SKU
+          </button>
+        </form>
+        <form
+          onSubmit={(e) => void adjustSkuQty(e)}
+          className="flex flex-wrap items-end gap-2"
+        >
+          <select
+            value={skuAdjust.id}
+            onChange={(e) => setSkuAdjust({ ...skuAdjust, id: e.target.value })}
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          >
+            <option value="">SKU для корректировки…</option>
+            {skus.map((sku) => (
+              <option key={sku.id} value={sku.id}>
+                {sku.code} · {sku.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={skuAdjust.delta}
+            onChange={(e) =>
+              setSkuAdjust({ ...skuAdjust, delta: e.target.value })
+            }
+            placeholder="Δ (+/−)"
+            className="w-28 rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded border border-border px-3 py-1.5 text-sm"
+          >
+            Скорректировать
+          </button>
+        </form>
+        <ul className="space-y-2">
+          {skus.length === 0 && (
+            <li className="text-xs text-text-muted">Пока нет SKU</li>
+          )}
+          {skus.map((sku) => (
+            <li
+              key={sku.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+            >
+              <div>
+                <p className="font-medium text-text">
+                  {sku.code} · {sku.name}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {sku.qty_on_hand} {sku.unit} · {formatMoney(Number(sku.unit_price))}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded border border-border px-2 py-1 text-xs"
+                onClick={() =>
+                  void crmApi
+                    ?.deleteSku(sku.id)
+                    .then(load)
+                    .catch((err) =>
+                      setError(parseApiError(err, "Не удалось архивировать SKU")),
+                    )
+                }
+              >
+                Архив
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
         <h2 className="text-sm font-semibold text-text">Документы</h2>
         <form onSubmit={(e) => void createDoc(e)} className="grid gap-2 sm:grid-cols-4">
           <select
@@ -425,6 +606,24 @@ export function CrmCommercePage() {
             onChange={(e) => setDocForm({ ...docForm, body: e.target.value })}
             placeholder="Текст"
             className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
+          />
+          <select
+            value={docForm.sku_id}
+            onChange={(e) => setDocForm({ ...docForm, sku_id: e.target.value })}
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
+          >
+            <option value="">Позиция без SKU</option>
+            {skus.map((sku) => (
+              <option key={sku.id} value={sku.id}>
+                {sku.code} · {sku.name} ({sku.qty_on_hand})
+              </option>
+            ))}
+          </select>
+          <input
+            value={docForm.sku_qty}
+            onChange={(e) => setDocForm({ ...docForm, sku_qty: e.target.value })}
+            placeholder="Кол-во SKU"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
           />
           <button
             type="submit"

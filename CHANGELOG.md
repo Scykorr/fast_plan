@@ -15,9 +15,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Склад / SKU** — `CrmSku` + `CrmStockMovement`; CRUD `/api/crm/skus/`, adjust/movements; `sku_id` в `line_items`; списание при invoice→paid и возврат при void; UI на `/crm-commerce`
+
 ### Changed
 
-- **Staging smoke** — CRM custom fields create/list + auto-enable Agent Ops delivery APIs; `FRONTEND_HOST_PORT` for compose when host `:8080` is taken
+- **Staging smoke** — CRM custom fields create/list + auto-enable Agent Ops delivery APIs; `GET /api/crm/skus/`; `FRONTEND_HOST_PORT` for compose when host `:8080` is taken
 - **Health** — expose `settings.REDIS_URL` so `GET /api/health/?extended=1` reports redis ok when configured
 
 ### Ops
@@ -26,7 +30,7 @@
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) — MS Project XML (нужен sample); склад/SKU только по явному запросу («делаем»).
+См. [ROADMAP.md](ROADMAP.md) — MS Project XML (нужен sample).
 
 ## [0.16.0] — 2026-07-29
 

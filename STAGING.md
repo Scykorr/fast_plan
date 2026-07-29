@@ -69,6 +69,7 @@ docker compose --profile ai up -d ollama ollama-init backend
 - [x] `GET /api/crm/custom-fields/` → массив; `POST` definition + list includes key
 - [x] `PATCH /api/delivery/settings/` → `agent_ops_enabled: true` (если было false)
 - [x] `GET /api/delivery/overview|queue|agents/` → 200
+- [x] `GET /api/crm/skus/` → массив
 
 Ручная проверка:
 
