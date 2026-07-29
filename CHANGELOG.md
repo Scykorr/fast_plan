@@ -29,6 +29,11 @@
 - **Telephony PBX polish** — Beeline Cloud / MTS backends (dial + webhook normalize, recording_url)
 - **Ops** — `scripts/restore-drill.sh` non-destructive staging restore drill (see DEPLOY.md §5.3)
 
+### Fixed
+
+- **CRM calendar test** — mid-month fixture dates (end-of-month flake when `close_date` crossed into next month)
+- **Agent Ops E2E** — set task `ready` + pass `version` before claim
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md).

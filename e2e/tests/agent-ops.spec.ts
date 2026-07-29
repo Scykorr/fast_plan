@@ -109,9 +109,22 @@ test.describe("agent ops", () => {
     expect(create.ok(), `create HTTP ${create.status()} ${await create.text()}`).toBeTruthy();
     const task = await create.json();
 
+    const toReady = await page.request.post(`/api/delivery/tasks/${task.id}/status/`, {
+      headers,
+      data: { status: "ready" },
+    });
+    expect(
+      toReady.ok(),
+      `ready HTTP ${toReady.status()} ${await toReady.text()}`,
+    ).toBeTruthy();
+
+    const detail = await page.request.get(`/api/delivery/tasks/${task.id}/`, { headers });
+    expect(detail.ok()).toBeTruthy();
+    const detailBody = await detail.json();
+
     const claim = await page.request.post(`/api/delivery/tasks/${task.id}/claim/`, {
       headers,
-      data: {},
+      data: { version: detailBody.version },
     });
     expect(claim.ok(), `claim HTTP ${claim.status()} ${await claim.text()}`).toBeTruthy();
 

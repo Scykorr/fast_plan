@@ -1,6 +1,6 @@
 """CRM calendar events + Outlook/Google sync (mocked)."""
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -21,6 +21,10 @@ from crm.services import ensure_default_pipeline
 def deal_with_task(workspace, user):
     pipeline = ensure_default_pipeline(workspace)
     org = Organization.objects.create(workspace=workspace, name="Acme")
+    today = timezone.localdate()
+    # Anchor mid-month so task/meeting/close stay in the queried month
+    # (avoids end-of-month flake when today+N crosses into next month).
+    anchor = today.replace(day=15)
     deal = Deal.objects.create(
         workspace=workspace,
         pipeline=pipeline,
@@ -28,18 +32,18 @@ def deal_with_task(workspace, user):
         title="Big deal",
         organization=org,
         owner=user,
-        close_date=timezone.localdate() + timedelta(days=3),
+        close_date=anchor,
     )
     task = DealTask.objects.create(
         deal=deal,
         title="Call client",
-        due_date=timezone.localdate() + timedelta(days=1),
+        due_date=anchor,
     )
     Activity.objects.create(
         workspace=workspace,
         kind=Activity.Kind.MEETING,
         subject="Kickoff",
-        occurred_at=timezone.now() + timedelta(days=2),
+        occurred_at=timezone.make_aware(datetime.combine(anchor, time(12, 0))),
         organization=org,
         deal=deal,
         created_by=user,
