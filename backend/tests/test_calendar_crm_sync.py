@@ -22,9 +22,12 @@ def deal_with_task(workspace, user):
     pipeline = ensure_default_pipeline(workspace)
     org = Organization.objects.create(workspace=workspace, name="Acme")
     today = timezone.localdate()
-    # Anchor mid-month so task/meeting/close stay in the queried month
-    # (avoids end-of-month flake when today+N crosses into next month).
-    anchor = today.replace(day=15)
+    # Stay in the current calendar month AND inside the sync horizon
+    # (push uses roughly now-7d .. now+90d). Prefer tomorrow when possible.
+    from calendar import monthrange
+
+    last = monthrange(today.year, today.month)[1]
+    anchor = today if today.day >= last else today + timedelta(days=1)
     deal = Deal.objects.create(
         workspace=workspace,
         pipeline=pipeline,
