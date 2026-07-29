@@ -295,22 +295,24 @@ VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
 VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:noreply@localhost").strip()
 
+REDIS_URL = os.environ.get("REDIS_URL", "").strip()
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1"),
+        "LOCATION": REDIS_URL or "redis://127.0.0.1:6379/1",
     }
-    if os.environ.get("REDIS_URL")
+    if REDIS_URL
     else {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "fast-plan-local",
     }
 }
 
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", os.environ.get("REDIS_URL", ""))
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.environ.get(
     "CELERY_RESULT_BACKEND",
-    os.environ.get("REDIS_URL", ""),
+    REDIS_URL,
 )
 CELERY_TASK_ALWAYS_EAGER = (
     os.environ.get("CELERY_TASK_ALWAYS_EAGER", "true" if DEBUG else "false").lower()

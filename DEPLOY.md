@@ -389,6 +389,12 @@ HEALTH_URL=https://staging.example/api/health/ ./scripts/restore-drill.sh
 
 Критерий успеха: скрипт печатает `ok restore drill passed` и live `/api/health/` (если задан `HEALTH_URL`) остаётся зелёным.
 
+### Restore-drill log
+
+| Date | Env | Dump | Tables in drill DB | Notes |
+|------|-----|------|--------------------|-------|
+| 2026-07-29 | local compose staging stand-in (`HEALTH_URL=http://127.0.0.1:8000/api/health/`) | `backups/fast_plan_20260729_204836.dump` | 123 | Passed; live DB untouched. Full ops row in [`STAGING.md`](STAGING.md) § Ops log. |
+
 ---
 
 ## 6. Операционные команды

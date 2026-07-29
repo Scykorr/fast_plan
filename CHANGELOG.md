@@ -15,6 +15,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Staging smoke** — CRM custom fields create/list + auto-enable Agent Ops delivery APIs; `FRONTEND_HOST_PORT` for compose when host `:8080` is taken
+- **Health** — expose `settings.REDIS_URL` so `GET /api/health/?extended=1` reports redis ok when configured
+
+### Ops
+
+- **2026-07-29 staging drill** — migrate `0013_custom_fields_016`, smoke 33/33 (custom fields + Agent Ops), restore-drill 123 tables — see [`STAGING.md`](STAGING.md) § Ops log
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — MS Project XML (нужен sample); склад/SKU только по явному запросу («делаем»).

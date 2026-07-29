@@ -328,6 +328,11 @@ async function checkAuthSmoke() {
       name: "crm saved filters",
       ok: (b) => Array.isArray(b),
     },
+    {
+      path: "/api/crm/custom-fields/",
+      name: "crm custom fields",
+      ok: (b) => Array.isArray(b),
+    },
   ];
   for (const check of processGets) {
     const res = await fetchJson(check.path, { headers });
@@ -338,22 +343,73 @@ async function checkAuthSmoke() {
     pass(check.name);
   }
 
-  // Agent Ops delivery smoke (optional feature flag)
-  const deliverySettings = await fetchJson("/api/delivery/settings/", { headers });
+  // CRM custom fields write smoke (definition round-trip)
+  const mutHeaders = {
+    ...headers,
+    "Content-Type": "application/json",
+    ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+  };
+  const cfKey = `smoke_cf_${Date.now().toString(36)}`;
+  const cfCreate = await fetchJson("/api/crm/custom-fields/", {
+    method: "POST",
+    headers: mutHeaders,
+    body: JSON.stringify({
+      target: "deal",
+      key: cfKey,
+      label: "Smoke CF",
+      field_type: "text",
+    }),
+  });
+  if (!cfCreate.response.ok || !cfCreate.body?.id) {
+    fail("crm custom fields create", `HTTP ${cfCreate.response.status}`);
+    return false;
+  }
+  pass("crm custom fields create", cfKey);
+  const cfList = await fetchJson("/api/crm/custom-fields/?target=deal&active=0", {
+    headers,
+  });
+  if (
+    !cfList.response.ok ||
+    !Array.isArray(cfList.body) ||
+    !cfList.body.some((row) => row?.key === cfKey)
+  ) {
+    fail("crm custom fields list", "created key not found");
+    return false;
+  }
+  pass("crm custom fields list", "includes created key");
+
+  // Agent Ops delivery smoke — enable if needed, then hit overview/queue/agents
+  let deliverySettings = await fetchJson("/api/delivery/settings/", { headers });
   if (!deliverySettings.response.ok) {
-    warn("delivery settings", `HTTP ${deliverySettings.response.status}`);
-  } else if (!deliverySettings.body?.agent_ops_enabled) {
-    warn("delivery api", "agent_ops_enabled=false — skipped overview/queue");
+    fail("delivery settings", `HTTP ${deliverySettings.response.status}`);
+    return false;
+  }
+  if (!deliverySettings.body?.agent_ops_enabled) {
+    const enable = await fetchJson("/api/delivery/settings/", {
+      method: "PATCH",
+      headers: mutHeaders,
+      body: JSON.stringify({ agent_ops_enabled: true }),
+    });
+    if (!enable.response.ok || !enable.body?.agent_ops_enabled) {
+      fail("delivery enable agent ops", `HTTP ${enable.response.status}`);
+      return false;
+    }
+    pass("delivery enable agent ops");
+    deliverySettings = enable;
   } else {
     pass("delivery settings", "agent_ops_enabled");
-    for (const path of ["/api/delivery/overview/", "/api/delivery/queue/", "/api/delivery/agents/"]) {
-      const res = await fetchJson(path, { headers });
-      if (!res.response.ok) {
-        fail(`delivery ${path}`, `HTTP ${res.response.status}`);
-        return false;
-      }
-      pass(`delivery ${path}`);
+  }
+  for (const path of [
+    "/api/delivery/overview/",
+    "/api/delivery/queue/",
+    "/api/delivery/agents/",
+  ]) {
+    const res = await fetchJson(path, { headers });
+    if (!res.response.ok) {
+      fail(`delivery ${path}`, `HTTP ${res.response.status}`);
+      return false;
     }
+    pass(`delivery ${path}`);
   }
 
   return true;

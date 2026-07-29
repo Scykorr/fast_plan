@@ -158,6 +158,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local DB dumps from backup / restore-drill
+/backups/
+
 # Spyder project settings
 .spyderproject
 .spyproject

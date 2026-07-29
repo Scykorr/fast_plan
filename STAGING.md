@@ -62,6 +62,14 @@ docker compose --profile ai up -d ollama ollama-init backend
 - [ ] `GET /api/crm/calendar/conflicts/` → массив
 - [ ] `GET /api/crm/connectors/catalog/` содержит `telephony`
 
+### Custom fields + Agent Ops (0.16 smoke)
+
+Автоматически в `staging-smoke-check.mjs` (при auth):
+
+- [x] `GET /api/crm/custom-fields/` → массив; `POST` definition + list includes key
+- [x] `PATCH /api/delivery/settings/` → `agent_ops_enabled: true` (если было false)
+- [x] `GET /api/delivery/overview|queue|agents/` → 200
+
 Ручная проверка:
 
 - [ ] Settings → Calendar: Sync both / Pull, политика конфликтов ours/theirs/manual, resolve конфликтов
@@ -134,6 +142,16 @@ CI: job `e2e` в `.github/workflows/ci.yml` (login, manifest/SW, SSE toast smoke
 - [ ] Создание проекта, WBS-узел, риск, транзакция Finance
 - [ ] SSE toast при изменении Kanban/WBS (два браузера)
 - [ ] Guest share link `/share/:token` открывается без авторизации
+
+---
+
+## Ops log
+
+| Date | Env | Actions | Result |
+|------|-----|---------|--------|
+| 2026-07-29 | local docker-compose (staging stand-in; frontend host port **8088** — host `:8080` occupied by EDB PEM) | `migrate` (incl. `crm.0013_custom_fields_016`); `ensure_smoke_fixtures`; `node scripts/staging-smoke-check.mjs` (custom fields + Agent Ops); `HEALTH_URL=…/api/health/ ./scripts/restore-drill.sh` | Smoke **33/33** (warnings: console email, Microsoft SSO unset). Extended health: database/redis **ok**, celery not eager. Restore-drill **ok** — dump → `fast_plan_restore_drill`, **123** public tables, live health ok, drill DB dropped. Live `POSTGRES_DB` untouched. |
+
+If host port 8080 is busy: set `FRONTEND_HOST_PORT=8088` (and matching `FRONTEND_BASE_URL` / CORS / CSRF) in `.env`.
 
 ---
 
