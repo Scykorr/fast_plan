@@ -145,6 +145,9 @@ export function CrmCommercePage() {
       if (connectorForm.ari_user) config.ari_user = connectorForm.ari_user;
       if (connectorForm.ari_password) config.ari_password = connectorForm.ari_password;
       if (connectorForm.endpoint) config.endpoint = connectorForm.endpoint;
+      if (connectorForm.endpoint && (connectorForm.pbx === "beeline" || connectorForm.pbx === "mts" || connectorForm.pbx === "generic")) {
+        config.dial_url = connectorForm.endpoint;
+      }
       if (connectorForm.context) config.context = connectorForm.context;
       if (connectorForm.ari_app) config.ari_app = connectorForm.ari_app;
     }
@@ -737,9 +740,11 @@ export function CrmCommercePage() {
                 }
                 className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
               >
-                <option value="generic">generic (dial_url)</option>
                 <option value="asterisk">Asterisk ARI</option>
                 <option value="mango">Mango Office</option>
+                <option value="beeline">Beeline Cloud</option>
+                <option value="mts">MTS / Communicator</option>
+                <option value="generic">Generic dial_url</option>
               </select>
               {connectorForm.pbx === "mango" && (
                 <>
@@ -862,6 +867,43 @@ export function CrmCommercePage() {
                   placeholder="from_number (опц.)"
                   className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
                 />
+              )}
+              {(connectorForm.pbx === "beeline" || connectorForm.pbx === "mts") && (
+                <>
+                  <input
+                    value={connectorForm.extension}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        extension: e.target.value,
+                      })
+                    }
+                    placeholder="extension"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={connectorForm.from_number}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        from_number: e.target.value,
+                      })
+                    }
+                    placeholder="from_number"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={connectorForm.endpoint}
+                    onChange={(e) =>
+                      setConnectorForm({
+                        ...connectorForm,
+                        endpoint: e.target.value,
+                      })
+                    }
+                    placeholder="dial_url"
+                    className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
+                  />
+                </>
               )}
             </>
           )}

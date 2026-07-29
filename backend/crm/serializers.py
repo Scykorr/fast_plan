@@ -8,6 +8,7 @@ from crm.models import (
     ChannelConnection,
     CrmAttachment,
     CrmComment,
+    CrmCustomFieldDefinition,
     CrmDocument,
     CrmDocumentPayment,
     CrmSavedFilter,
@@ -1191,6 +1192,25 @@ class CrmSavedFilterSerializer(serializers.ModelSerializer):
             "target",
             "name",
             "params",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class CrmCustomFieldDefinitionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CrmCustomFieldDefinition
+        fields = [
+            "id",
+            "target",
+            "key",
+            "label",
+            "field_type",
+            "options",
+            "required",
+            "position",
+            "is_active",
             "created_at",
             "updated_at",
         ]

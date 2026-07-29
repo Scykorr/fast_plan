@@ -325,21 +325,40 @@ class AgentProfileListCreateView(DeliveryOpsMixin, APIView):
         self.require_editor()
         ws = self.get_workspace()
         _ensure_ops_enabled(ws)
-        ser = AgentProfileSerializer(data=request.data)
+        payload = dict(request.data)
+        if "user" not in payload and "user_id" not in payload:
+            payload["user"] = request.user.id
+        ser = AgentProfileSerializer(data=payload)
         ser.is_valid(raise_exception=True)
         data = dict(ser.validated_data)
+        user = data.get("user") or request.user
+        data["user"] = user
         project_ids = request.data.get("allowed_project_ids") or []
-        row = AgentProfile.objects.create(workspace=ws, **data)
+        existing = AgentProfile.objects.filter(workspace=ws, user=user).first()
+        if existing:
+            for key, value in data.items():
+                if key == "user":
+                    continue
+                setattr(existing, key, value)
+            existing.save()
+            row = existing
+            action = "agent_profile.update"
+        else:
+            row = AgentProfile.objects.create(workspace=ws, **data)
+            action = "agent_profile.create"
         if project_ids:
             row.allowed_projects.set(project_ids)
         log_agent_action(
             workspace=ws,
             user=request.user,
-            action="agent_profile.create",
+            action=action,
             entity_type="AgentProfile",
             entity_id=row.id,
         )
-        return Response(AgentProfileSerializer(row).data, status=201)
+        return Response(
+            AgentProfileSerializer(row).data,
+            status=200 if action.endswith("update") else 201,
+        )
 
 
 class AgentServiceAccountCreateView(DeliveryOpsMixin, APIView):

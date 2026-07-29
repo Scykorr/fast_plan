@@ -877,7 +877,20 @@ export function AgentOpsPage() {
                     Проверьте ACL роли на карточке агента (effective_actions) и field
                     ACL при PATCH.
                   </li>
+                  <li>
+                    Полный runbook:{" "}
+                    <code className="text-xs">docs/AGENT_OPS.md</code> (очередь,
+                    Idempotency-Key, GitHub webhook HMAC).
+                  </li>
                 </ol>
+                <pre className="overflow-x-auto rounded-lg border border-border bg-cream p-2 text-[11px] leading-relaxed text-text-muted">
+{`# queue
+GET /api/delivery/queue/?role=backend&status=ready
+# claim
+POST /api/delivery/tasks/{id}/claim/
+# handoff
+POST /api/delivery/tasks/{id}/handoffs/`}
+                </pre>
               </div>
               <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-surface p-4">
                 <label className="text-sm">

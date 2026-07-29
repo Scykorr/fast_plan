@@ -1117,6 +1117,109 @@ class CrmSavedFilter(models.Model):
         return f"{self.target}:{self.name}"
 
 
+class CrmCustomFieldDefinition(models.Model):
+    """Workspace-scoped custom field schema for CRM cards (org/person/deal/lead)."""
+
+    class Target(models.TextChoices):
+        ORGANIZATION = "organization", "Organization"
+        PERSON = "person", "Person"
+        DEAL = "deal", "Deal"
+        LEAD = "lead", "Lead"
+
+    class FieldType(models.TextChoices):
+        TEXT = "text", "Text"
+        NUMBER = "number", "Number"
+        BOOL = "bool", "Boolean"
+        DATE = "date", "Date"
+        SELECT = "select", "Select"
+        MULTI_SELECT = "multi_select", "Multi select"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="crm_custom_field_defs",
+    )
+    target = models.CharField(max_length=20, choices=Target.choices)
+    key = models.SlugField(max_length=64)
+    label = models.CharField(max_length=120)
+    field_type = models.CharField(
+        max_length=20, choices=FieldType.choices, default=FieldType.TEXT
+    )
+    options = models.JSONField(default=list, blank=True)  # select choices
+    required = models.BooleanField(default=False)
+    position = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["target", "position", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "target", "key"],
+                name="crm_cfield_ws_target_key_uniq",
+            )
+        ]
+        indexes = [models.Index(fields=["workspace", "target", "is_active"])]
+
+    def __str__(self):
+        return f"{self.target}.{self.key}"
+
+
+class CrmCustomFieldValue(models.Model):
+    """Per-entity value for a custom field definition."""
+
+    definition = models.ForeignKey(
+        CrmCustomFieldDefinition,
+        on_delete=models.CASCADE,
+        related_name="values",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="custom_field_values",
+    )
+    person = models.ForeignKey(
+        Person,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="custom_field_values",
+    )
+    deal = models.ForeignKey(
+        "Deal",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="custom_field_values",
+    )
+    lead = models.ForeignKey(
+        "Lead",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="custom_field_values",
+    )
+    value = models.JSONField(default=None, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["definition"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(organization__isnull=False, person__isnull=True, deal__isnull=True, lead__isnull=True)
+                    | models.Q(organization__isnull=True, person__isnull=False, deal__isnull=True, lead__isnull=True)
+                    | models.Q(organization__isnull=True, person__isnull=True, deal__isnull=False, lead__isnull=True)
+                    | models.Q(organization__isnull=True, person__isnull=True, deal__isnull=True, lead__isnull=False)
+                ),
+                name="crm_cfield_value_one_entity",
+            ),
+        ]
+
+
 class CalendarConnection(models.Model):
     """OAuth connection for two-way CRM ↔ Google / Outlook calendar sync."""
 

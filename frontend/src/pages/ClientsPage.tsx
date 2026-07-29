@@ -15,6 +15,7 @@ import type {
 import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
+import { CrmCustomFieldsPanel } from "../components/crm/CrmCustomFieldsPanel";
 import { CrmSavedFiltersBar } from "../components/crm/CrmSavedFiltersBar";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useCrmHotkeys } from "../hooks/useCrmHotkeys";
@@ -949,6 +950,12 @@ export function ClientsPage() {
                       )}
                     </div>
                   )}
+                  {selectedPerson && (
+                    <CrmCustomFieldsPanel
+                      target="person"
+                      entityId={selectedPerson.id}
+                    />
+                  )}
                   {selectedOrg && (
                     <div className="space-y-1 text-sm text-text-muted">
                       {selectedOrg.website && (
@@ -968,6 +975,12 @@ export function ClientsPage() {
                         </p>
                       )}
                     </div>
+                  )}
+                  {selectedOrg && (
+                    <CrmCustomFieldsPanel
+                      target="organization"
+                      entityId={selectedOrg.id}
+                    />
                   )}
 
                   <div>

@@ -1091,6 +1091,80 @@ export function createCrmApi() {
       }),
     deleteSavedFilter: (id: number) =>
       request<void>(`/crm/saved-filters/${id}/`, { method: "DELETE" }),
+    listCustomFields: (target?: string) => {
+      const q = target ? `?target=${encodeURIComponent(target)}` : "";
+      return request<
+        Array<{
+          id: number;
+          target: string;
+          key: string;
+          label: string;
+          field_type: string;
+          options: string[];
+          required: boolean;
+          position: number;
+          is_active: boolean;
+        }>
+      >(`/crm/custom-fields/${q}`, {});
+    },
+    createCustomField: (body: {
+      target: string;
+      key: string;
+      label: string;
+      field_type?: string;
+      options?: string[];
+      required?: boolean;
+      position?: number;
+    }) =>
+      request<{
+        id: number;
+        target: string;
+        key: string;
+        label: string;
+        field_type: string;
+        options: string[];
+        required: boolean;
+        position: number;
+        is_active: boolean;
+      }>("/crm/custom-fields/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    deleteCustomField: (id: number) =>
+      request<void>(`/crm/custom-fields/${id}/`, { method: "DELETE" }),
+    getEntityCustomFields: (
+      target: "organization" | "person" | "deal" | "lead",
+      entityId: number,
+    ) =>
+      request<{
+        target: string;
+        entity_id: number;
+        values: Record<string, unknown>;
+        definitions: Array<{
+          id: number;
+          target: string;
+          key: string;
+          label: string;
+          field_type: string;
+          options: string[];
+          required: boolean;
+          position: number;
+          is_active: boolean;
+        }>;
+      }>(`/crm/${target}/${entityId}/custom-fields/`, {}),
+    putEntityCustomFields: (
+      target: "organization" | "person" | "deal" | "lead",
+      entityId: number,
+      values: Record<string, unknown>,
+    ) =>
+      request<{
+        target: string;
+        entity_id: number;
+        values: Record<string, unknown>;
+      }>(`/crm/${target}/${entityId}/custom-fields/`, {
+        method: "PUT",
+        body: JSON.stringify({ values }),
+      }),
     graphql: (query: string) =>
       request<{ data: Record<string, unknown> }>("/crm/graphql/", {
         method: "POST",

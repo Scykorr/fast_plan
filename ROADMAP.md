@@ -128,10 +128,11 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 
 1. ~~**P9 Agent Ops**~~ — закрыт по ТЗ (P9a–h); **релизён в v0.15.0**.
 2. ~~**CRM polish**~~ — hotkeys, saved filters, акт PDF, Instagram/VK, report builder, GraphQL lite — **в v0.15.0**.
-3. **MS Project XML import** — при появлении подтверждённого формата/образца.
-4. Process conformance / full FEEL / Camunda-grade CMMN — out of current scope (см. P8 ADR).
+3. ~~**CRM custom fields + typed SDK + Agent Ops hardening + PBX polish**~~ — **релизён в v0.16.0**.
+4. **MS Project XML import** — при появлении подтверждённого формата/образца.
+5. ~~**Process conformance / full FEEL / Camunda-grade CMMN**~~ — **явный out of scope** (см. P8 ADR / таблицу «Не цель» ниже). Не планируем как спринт.
 
-~~Ранее закрыто:~~ P5 чаты · Redis SSE · **P6 CRM (ядро + polish)** · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · telephony/connectors · staging smoke · **P9 Agent Ops (TZ)**.
+~~Ранее закрыто:~~ P5 чаты · Redis SSE · **P6 CRM (ядро + polish + custom fields)** · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · telephony (Asterisk/Mango/Beeline/MTS) · staging smoke · **P9 Agent Ops (TZ + CI E2E)** · **v0.16.0 SDK/OpenAPI/restore-drill**.
 
 ---
 
@@ -142,13 +143,15 @@ _ADR:_ [`docs/adr-p8-process.md`](docs/adr-p8-process.md) — SpiffWorkflow + bp
 
 ### Позиционирование
 
-| Делаем | Не цель |
-|--------|---------|
+| Делаем | Не цель (out of scope) |
+|--------|-------------------------|
 | BPMN 2.0 моделирование + исполнение | Замена Camunda/Signavio «из коробки» |
-| DMN таблицы решений + FEEL-lite tables | Сертификация ISO/SOC как продукт |
-| CMMN кейсы (depends_on / required) | Camunda CMMN engine / full process mining SaaS |
-| Packs ISO 9001/PDCA, ITIL/COBIT, ISO 27001/NIST CSF как шаблоны | Compliance SaaS |
-| Mining lite (DFG / bottlenecks) | Celonis-класс discovery |
+| DMN таблицы решений + FEEL-lite tables | **Full FEEL** / DMN-стандарт целиком |
+| CMMN кейсы (depends_on / required) | **Camunda-grade CMMN** engine |
+| Packs ISO 9001/PDCA, ITIL/COBIT, ISO 27001/NIST CSF как шаблоны | Compliance SaaS / сертификация ISO как продукт |
+| Mining lite (DFG / bottlenecks) | Celonis-класс discovery / process conformance SaaS |
+
+**Закрыто решением (не бэклог):** Process conformance / full FEEL / Camunda-grade CMMN — не берём в спринты; достаточно P8a–g + FEEL-lite.
 
 ### Фазы
 
@@ -201,7 +204,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 |--------------------|------------------|
 | Карточка клиента + сделки + задачи в контексте проектов | Маркетинг-автоматизация уровня HubSpot Marketing Hub |
 | BPM-lite (P6e) + полноценный BPMN/DMN/CMMN (P8) + AI | Полноценный WMS / встроенный dialer «из коробки» |
-| REST + webhooks + OAuth (SSO + calendar) точечно | GraphQL + SDK + native apps на старте |
+| REST + webhooks + OAuth (SSO + calendar) + GraphQL lite + `@fast-plan/crm-client` | Native apps на старте |
 | Переиспользование Finance, Calendar, Kanban, Audit, PWA, RBAC | Дублировать отдельный «второй продукт» рядом с PM |
 
 ### CRM requirements roadmap — матрица 15 блоков
@@ -222,14 +225,14 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 7 | Документы по шаблонам (договор/счёт/акт/КП) | **✓ P6h + Акт** — PDF Quote/Invoice/Contract/Act | — |
 | 8 | Аналитика: конверсия, LTV, CAC, источники, конструктор отчётов | **✓ P6i + report builder** — `/crm-analytics` + CSV | — |
 | 9 | Роли: admin / sales lead / sales / support / accounting / marketing | **✓** — `crm_role` + accounting/marketing в Settings | workspace owner = admin |
-| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **✓** — Calendar OAuth 2-way; IMAP/TG/IG/VK; Stripe/1C/WA/SMS; telephony | carrier-specific PBX polish |
-| 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **✓ REST + GraphQL read lite** + JWT + webhooks + API tokens + OAuth | официальный SDK — later |
-| 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **✓** themes, PWA, search, DnD, CRM hotkeys + saved filters | custom fields — later |
+| 10 | Интеграции (Calendar, Gmail, TG, WA, SMS, telephony, Stripe, 1C…) | **✓** — Calendar OAuth 2-way; IMAP/TG/IG/VK; Stripe/1C/WA/SMS; telephony Asterisk/Mango/**Beeline/MTS**/generic | — |
+| 11 | API: REST, GraphQL, webhooks, OAuth, SDK | **✓** REST + GraphQL lite + **`@fast-plan/crm-client`** + OpenAPI `/api/schema/` | — |
+| 12 | UI: темы, adaptive, search, hotkeys, DnD, saved filters, custom fields | **✓** themes, PWA, search, DnD, CRM hotkeys + saved filters + **custom fields** | — |
 | 13 | Collab: comments @, notify, chat, audit, co-edit | **Сильно** — comments, mentions, SSE, chats, audit; CRM comments/files ✓ | Co-edit docs — out of scope |
 | 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 + SSO** + `scripts/backup-db.sh` (opt GPG) | — |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
-**Итог:** ядро CRM + polish (v0.15.0) **закрыто**. Остаётся склад/SKU только по запросу и typed SDK.
+**Итог:** ядро CRM + polish + custom fields / SDK / PBX (**v0.16.0**) **закрыто**. Остаётся склад/SKU только по явному запросу («делаем»); MS Project XML — при образце.
 
 ### CRM polish (v0.15.0) — закрыт
 
@@ -242,6 +245,8 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | **P2** | Расширенный report builder | **✓** |
 | **P3** | GraphQL read API lite | **✓** |
 | **P3** | Backup/encryption hardening (`scripts/backup-db.sh`) | **✓** |
+| **P2** | Custom fields на карточках (блок 12) | **✓** v0.16.0 |
+| **P3** | Typed CRM SDK (`packages/crm-client`) | **✓** v0.16.0 |
 | _запрос_ | Склад / SKU / inventory | только при явном запросе |
 | _out_ | Marketing journeys, co-edit docs, native apps | не планируем |
 
@@ -293,7 +298,10 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 1. ~~**CRM backlog**~~ — 1f / 6 / 9 / 10 / 1e 2-way / telephony закрыты.
 2. ~~**CRM polish + релиз v0.15.0**~~ — Agent Ops + polish закрыты.
-3. MS Project XML import — при наличии образца.
+3. ~~**Custom fields / SDK / Agent Ops E2E / PBX Beeline·MTS**~~ — **v0.16.0**.
+4. MS Project XML import — при наличии образца.
+5. Склад / SKU — только по явному запросу («делаем»).
+6. Ops hygiene — quarterly `scripts/restore-drill.sh` on staging.
 
 ### P6a — критерии (архив)
 
@@ -373,12 +381,14 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 
 ### Вне scope / партнёрский слой (явно)
 
-- Полноценный WMS и складская логистика  
-- Встроенная IP-телефония / dialer (интеграция через коннектор)  
+- Полноценный WMS и складская логистика (**склад/SKU** — только по явному запросу)  
+- Встроенная IP-телефония / dialer «как продукт» (коннекторы Asterisk/Mango/Beeline/MTS — ✓)  
 - Marketing automation (email journeys, landing builders)  
-- GraphQL + официальный SDK — после стабилизации REST  
+- Process conformance / **full FEEL** / **Camunda-grade CMMN** (см. P8)  
 - Нативные iOS/Android (достаточно усиленного PWA)  
 - Co-edit документов уровня Google Docs  
+
+~~Ранее «позже»:~~ GraphQL lite + `@fast-plan/crm-client` + OpenAPI — сделано.
 
 ---
 
@@ -411,11 +421,11 @@ _Границы:_ CryptoGamp/любой repo = канон; Fast Plan = испо�
 
 Проект → эпик → спринт → задача с обязательными полями → назначение роли/исполнителя → статусы → handoff → блокер → links docs/GitHub → история → фильтр очереди по агенту.
 
-### Опционально после TZ (не блокер)
+### Опционально после TZ
 
-- [ ] E2E Playwright сценарии Agent Ops (claim → handoff → meaning approve)
-- [ ] Staging smoke для `delivery/` endpoints
-- [ ] UI polish: PAT/webhook secret уже в Agent Ops; расширить onboarding агентов
+- [x] E2E Playwright сценарии Agent Ops (claim → handoff → meaning approve) — CI `E2E_AGENT_OPS=1`
+- [x] Staging smoke для `delivery/` endpoints
+- [x] UI polish / onboarding агентов + [`docs/AGENT_OPS.md`](docs/AGENT_OPS.md)
 
 ---
 

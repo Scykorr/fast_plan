@@ -7,6 +7,7 @@ import type { CrmLead, CrmLeadStatus, CrmLeadTask } from "../api/crm";
 import type { WorkspaceMember } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
+import { CrmCustomFieldsPanel } from "../components/crm/CrmCustomFieldsPanel";
 import { CrmSavedFiltersBar } from "../components/crm/CrmSavedFiltersBar";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useCrmHotkeys } from "../hooks/useCrmHotkeys";
@@ -403,6 +404,9 @@ export function LeadsPage() {
                 )}
                 {selected.company_name && <p>Компания: {selected.company_name}</p>}
                 {selected.source && <p>Источник: {selected.source}</p>}
+                <div className="pt-2">
+                  <CrmCustomFieldsPanel target="lead" entityId={selected.id} />
+                </div>
               </div>
 
               <div>

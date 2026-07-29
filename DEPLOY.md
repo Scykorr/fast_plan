@@ -370,6 +370,25 @@ docker compose exec backend python manage.py migrate --noinput
 
 При несовместимости флагов `pg_restore` используйте plain SQL dump (`pg_dump` без `-Fc`) и `psql < dump.sql`.
 
+### 5.3. Restore drill (staging, без порчи боевых данных)
+
+Раз в квартал (или после крупного релиза) прогоняйте [`scripts/restore-drill.sh`](scripts/restore-drill.sh):
+
+1. Делает свежий `pg_dump` живой БД (или берёт `DUMP_PATH`).
+2. Создаёт отдельную БД `fast_plan_restore_drill`.
+3. Восстанавливает dump туда и проверяет число таблиц.
+4. Удаляет drill-БД. **Живая `POSTGRES_DB` не перезаписывается.**
+
+```bash
+cd /opt/fast_plan
+chmod +x scripts/restore-drill.sh
+HEALTH_URL=https://staging.example/api/health/ ./scripts/restore-drill.sh
+# или только проверка существующего dump:
+# SKIP_BACKUP=1 DUMP_PATH=backups/fast_plan_YYYYMMDD_HHMMSS.dump ./scripts/restore-drill.sh
+```
+
+Критерий успеха: скрипт печатает `ok restore drill passed` и live `/api/health/` (если задан `HEALTH_URL`) остаётся зелёным.
+
 ---
 
 ## 6. Операционные команды

@@ -1,0 +1,28 @@
+{
+  "name": "@fast-plan/crm-client",
+  "version": "0.16.0",
+  "description": "Typed CRM client for Fast Plan REST API (OpenAPI-compatible).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./generated/schema.d.ts"
+    }
+  },
+  "files": ["dist", "src", "generated", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "generate": "node ./scripts/generate.mjs",
+    "generate:types": "openapi-typescript generated/openapi-schema.json -o generated/schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.4",
+    "typescript": "^5.8.2"
+  },
+  "license": "UNLICENSED"
+}

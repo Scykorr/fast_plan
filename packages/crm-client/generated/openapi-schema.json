@@ -1,0 +1,5242 @@
+openapi: 3.0.3
+info:
+  title: Fast Plan API
+  version: 0.16.0
+  description: 'REST API for Fast Plan PM/CRM (typed client: packages/crm-client).'
+paths:
+  /api/activities/{activity_id}/:
+    patch:
+      operationId: api_activities_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: activity_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/attachments/{attachment_id}/:
+    delete:
+      operationId: api_attachments_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/auth/2fa/disable/:
+    post:
+      operationId: api_auth_2fa_disable_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/2fa/enable/:
+    post:
+      operationId: api_auth_2fa_enable_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/2fa/setup/:
+    post:
+      operationId: api_auth_2fa_setup_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/2fa/verify/:
+    post:
+      operationId: api_auth_2fa_verify_create
+      description: Complete login after password step when 2FA is required.
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/csrf/:
+    get:
+      operationId: api_auth_csrf_retrieve
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/email/resend/:
+    post:
+      operationId: api_auth_email_resend_create
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/email/verify/:
+    post:
+      operationId: api_auth_email_verify_create
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/login/:
+    post:
+      operationId: api_auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailTokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailTokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailTokenObtainPair'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailTokenObtainPair'
+          description: ''
+  /api/auth/logout/:
+    post:
+      operationId: api_auth_logout_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/me/:
+    get:
+      operationId: api_auth_me_retrieve
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_auth_me_partial_update
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/oauth/{provider}/:
+    get:
+      operationId: api_auth_oauth_retrieve
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/oauth/{provider}/callback/:
+    get:
+      operationId: api_auth_oauth_callback_retrieve
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/oauth/providers/:
+    get:
+      operationId: api_auth_oauth_providers_retrieve
+      description: List which IdPs are configured (for UI buttons).
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/password/change/:
+    post:
+      operationId: api_auth_password_change_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/password/forgot/:
+    post:
+      operationId: api_auth_password_forgot_create
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/password/reset/:
+    post:
+      operationId: api_auth_password_reset_create
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/refresh/:
+    post:
+      operationId: api_auth_refresh_create
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/register/:
+    post:
+      operationId: api_auth_register_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+          description: ''
+  /api/auth/sessions/:
+    get:
+      operationId: api_auth_sessions_retrieve
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/sessions/{session_id}/revoke/:
+    post:
+      operationId: api_auth_sessions_revoke_create
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/auth/sessions/revoke-others/:
+    post:
+      operationId: api_auth_sessions_revoke_others_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/baselines/{baseline_id}/:
+    get:
+      operationId: api_baselines_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: baseline_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_baselines_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: baseline_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_baselines_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: baseline_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/boards/:
+    get:
+      operationId: api_boards_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_boards_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/boards/{board_id}/:
+    get:
+      operationId: api_boards_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: board_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_boards_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: board_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_boards_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: board_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/boards/{board_id}/analytics/:
+    get:
+      operationId: api_boards_analytics_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: board_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/boards/{board_id}/columns/:
+    post:
+      operationId: api_boards_columns_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: board_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/calendar/birthdays/:
+    get:
+      operationId: api_calendar_birthdays_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/calendar/crm/:
+    get:
+      operationId: api_calendar_crm_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/calendar/milestones/:
+    get:
+      operationId: api_calendar_milestones_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/calendar/upcoming/:
+    get:
+      operationId: api_calendar_upcoming_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/cards/{card_id}/:
+    patch:
+      operationId: api_cards_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: card_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_cards_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: card_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/cards/{card_id}/attachments/:
+    get:
+      operationId: api_cards_attachments_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: card_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_cards_attachments_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: card_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/cards/{card_id}/comments/:
+    get:
+      operationId: api_cards_comments_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: card_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_cards_comments_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: card_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/cards/{card_id}/move/:
+    post:
+      operationId: api_cards_move_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: card_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/:
+    get:
+      operationId: api_chats_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/{room_id}/:
+    get:
+      operationId: api_chats_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_chats_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/{room_id}/e2e/:
+    get:
+      operationId: api_chats_e2e_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: api_chats_e2e_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/{room_id}/messages/:
+    get:
+      operationId: api_chats_messages_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_chats_messages_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/{room_id}/messages/{message_id}/:
+    patch:
+      operationId: api_chats_messages_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: message_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_chats_messages_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: message_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/chats/{room_id}/messages/{message_id}/forward/:
+    post:
+      operationId: api_chats_messages_forward_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: message_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/{room_id}/messages/{message_id}/reactions/:
+    post:
+      operationId: api_chats_messages_reactions_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: message_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/{room_id}/mutes/:
+    get:
+      operationId: api_chats_mutes_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_chats_mutes_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/{room_id}/mutes/{user_id}/:
+    delete:
+      operationId: api_chats_mutes_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: room_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/chats/crypto/me/:
+    get:
+      operationId: api_chats_crypto_me_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: api_chats_crypto_me_update
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/crypto/users/{user_id}/:
+    get:
+      operationId: api_chats_crypto_users_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/dm/:
+    post:
+      operationId: api_chats_dm_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/chats/mine/:
+    get:
+      operationId: api_chats_mine_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/columns/{column_id}/:
+    patch:
+      operationId: api_columns_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: column_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_columns_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: column_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/columns/{column_id}/cards/:
+    post:
+      operationId: api_columns_cards_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: column_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/comments/{comment_id}/:
+    delete:
+      operationId: api_comments_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/contacts/:
+    get:
+      operationId: api_contacts_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_contacts_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/contacts/{contact_id}/:
+    get:
+      operationId: api_contacts_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: contact_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_contacts_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: contact_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_contacts_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: contact_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/{target}/{entity_id}/custom-fields/:
+    get:
+      operationId: api_crm_custom_fields_retrieve_2
+      description: 'GET/PUT values for a CRM entity: /api/crm/<target>/<id>/custom-fields/'
+      parameters:
+      - in: path
+        name: entity_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: target
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: api_crm_custom_fields_update
+      description: 'GET/PUT values for a CRM entity: /api/crm/<target>/<id>/custom-fields/'
+      parameters:
+      - in: path
+        name: entity_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: target
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/activities/:
+    get:
+      operationId: api_crm_activities_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_activities_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/activities/{activity_id}/:
+    delete:
+      operationId: api_crm_activities_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: activity_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/ai/activity-summary/:
+    post:
+      operationId: api_crm_ai_activity_summary_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/ai/draft-email/:
+    post:
+      operationId: api_crm_ai_draft_email_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/ai/draft-kp/:
+    post:
+      operationId: api_crm_ai_draft_kp_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/ai/insights/:
+    get:
+      operationId: api_crm_ai_insights_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/ai/suggest-tasks/:
+    post:
+      operationId: api_crm_ai_suggest_tasks_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/analytics/:
+    get:
+      operationId: api_crm_analytics_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/ar-ap/:
+    get:
+      operationId: api_crm_ar_ap_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/attachments/:
+    get:
+      operationId: api_crm_attachments_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_attachments_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/attachments/{attachment_id}/:
+    delete:
+      operationId: api_crm_attachments_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/automations/:
+    get:
+      operationId: api_crm_automations_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_automations_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/automations/{rule_id}/:
+    get:
+      operationId: api_crm_automations_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: rule_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_automations_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: rule_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_automations_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: rule_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/automations/runs/:
+    get:
+      operationId: api_crm_automations_runs_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/automations/templates/:
+    get:
+      operationId: api_crm_automations_templates_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/automations/templates/apply/:
+    post:
+      operationId: api_crm_automations_templates_apply_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/automations/test/:
+    post:
+      operationId: api_crm_automations_test_create
+      description: Dry-fire a trigger against current workspace (optional lead_id/deal_id).
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/calendar/conflicts/:
+    get:
+      operationId: api_crm_calendar_conflicts_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/calendar/conflicts/{id}/resolve/:
+    post:
+      operationId: api_crm_calendar_conflicts_resolve_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/calendar/connections/:
+    get:
+      operationId: api_crm_calendar_connections_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/calendar/connections/{id}/:
+    patch:
+      operationId: api_crm_calendar_connections_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_calendar_connections_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/calendar/connections/{id}/sync/:
+    post:
+      operationId: api_crm_calendar_connections_sync_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/calendar/oauth/{provider}/:
+    get:
+      operationId: api_crm_calendar_oauth_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/calendar/oauth/{provider}/callback/:
+    get:
+      operationId: api_crm_calendar_oauth_callback_retrieve
+      description: Callback is unauthenticated; state cache binds user/workspace.
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/crm/calendar/providers/:
+    get:
+      operationId: api_crm_calendar_providers_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/cashflow-forecast/:
+    get:
+      operationId: api_crm_cashflow_forecast_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/channels/:
+    get:
+      operationId: api_crm_channels_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_channels_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/channels/{connection_id}/:
+    get:
+      operationId: api_crm_channels_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_channels_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_channels_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/channels/{connection_id}/sync/:
+    post:
+      operationId: api_crm_channels_sync_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/channels/instagram/{secret}/:
+    get:
+      operationId: api_crm_channels_instagram_retrieve
+      description: |-
+        Public Meta Instagram webhook: GET verify + POST events.
+
+        URL secret is `config.webhook_secret` (same pattern as Telegram).
+        Meta hub.verify_token must match `config.verify_token`.
+      parameters:
+      - in: path
+        name: secret
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_channels_instagram_create
+      description: |-
+        Public Meta Instagram webhook: GET verify + POST events.
+
+        URL secret is `config.webhook_secret` (same pattern as Telegram).
+        Meta hub.verify_token must match `config.verify_token`.
+      parameters:
+      - in: path
+        name: secret
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/crm/channels/telegram/{secret}/:
+    post:
+      operationId: api_crm_channels_telegram_create
+      description: 'Public webhook: POST /api/crm/channels/telegram/<secret>/'
+      parameters:
+      - in: path
+        name: secret
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/crm/channels/vk/{secret}/:
+    post:
+      operationId: api_crm_channels_vk_create
+      description: 'Public VK Callback API: POST /api/crm/channels/vk/<secret>/'
+      parameters:
+      - in: path
+        name: secret
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/crm/comments/:
+    get:
+      operationId: api_crm_comments_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_comments_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/comments/{comment_id}/:
+    delete:
+      operationId: api_crm_comments_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: comment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/connectors/:
+    get:
+      operationId: api_crm_connectors_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_connectors_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/connectors/{connector_id}/:
+    get:
+      operationId: api_crm_connectors_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connector_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_connectors_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connector_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_connectors_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connector_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/connectors/{connector_id}/ari-bridge/:
+    get:
+      operationId: api_crm_connectors_ari_bridge_retrieve
+      description: Status + config check for live Asterisk ARI WebSocket bridge.
+      parameters:
+      - in: path
+        name: connector_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/connectors/{connector_id}/send/:
+    post:
+      operationId: api_crm_connectors_send_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connector_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/connectors/{connector_id}/sync/:
+    post:
+      operationId: api_crm_connectors_sync_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: connector_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/connectors/catalog/:
+    get:
+      operationId: api_crm_connectors_catalog_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/connectors/webhooks/{provider}/{token}/:
+    get:
+      operationId: api_crm_connectors_webhooks_retrieve
+      description: WhatsApp / Meta webhook verification challenge.
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_connectors_webhooks_create
+      description: Public webhook endpoint keyed by connector.webhook_token.
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/crm/custom-fields/:
+    get:
+      operationId: api_crm_custom_fields_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_custom_fields_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/custom-fields/{field_id}/:
+    patch:
+      operationId: api_crm_custom_fields_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: field_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_custom_fields_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: field_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/deals/:
+    get:
+      operationId: api_crm_deals_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_deals_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/deals/{deal_id}/:
+    get:
+      operationId: api_crm_deals_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_deals_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_deals_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/deals/{deal_id}/move/:
+    post:
+      operationId: api_crm_deals_move_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/deals/{deal_id}/tasks/:
+    get:
+      operationId: api_crm_deals_tasks_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_deals_tasks_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/deals/{deal_id}/tasks/{task_id}/:
+    patch:
+      operationId: api_crm_deals_tasks_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_deals_tasks_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: deal_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/deals/forecast/:
+    get:
+      operationId: api_crm_deals_forecast_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/documents/:
+    get:
+      operationId: api_crm_documents_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_documents_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/documents/{document_id}/:
+    get:
+      operationId: api_crm_documents_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_documents_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_documents_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/documents/{document_id}/payments/:
+    get:
+      operationId: api_crm_documents_payments_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_documents_payments_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/documents/{document_id}/pdf/:
+    post:
+      operationId: api_crm_documents_pdf_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/finance/pnl/:
+    get:
+      operationId: api_crm_finance_pnl_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/graphql/:
+    post:
+      operationId: api_crm_graphql_create
+      description: |-
+        POST /api/crm/graphql/
+        Body: { "query": "{ organizations { id name } deals { id title amount } }" }
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/import-legacy/:
+    post:
+      operationId: api_crm_import_legacy_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/leads/:
+    get:
+      operationId: api_crm_leads_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_leads_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/leads/{lead_id}/:
+    get:
+      operationId: api_crm_leads_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_leads_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_leads_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/leads/{lead_id}/assign/:
+    post:
+      operationId: api_crm_leads_assign_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/leads/{lead_id}/convert/:
+    post:
+      operationId: api_crm_leads_convert_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/leads/{lead_id}/tasks/:
+    get:
+      operationId: api_crm_leads_tasks_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_leads_tasks_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/leads/{lead_id}/tasks/{task_id}/:
+    patch:
+      operationId: api_crm_leads_tasks_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_leads_tasks_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: lead_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/leads/import/:
+    post:
+      operationId: api_crm_leads_import_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/organizations/:
+    get:
+      operationId: api_crm_organizations_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_organizations_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/organizations/{org_id}/:
+    get:
+      operationId: api_crm_organizations_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: org_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_organizations_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: org_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_organizations_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: org_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/organizations/{org_id}/tags/:
+    post:
+      operationId: api_crm_organizations_tags_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: org_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_organizations_tags_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: org_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/organizations/{org_id}/tags/{tag_id}/:
+    post:
+      operationId: api_crm_organizations_tags_create_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: org_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: tag_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_organizations_tags_destroy_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: org_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: tag_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/people/:
+    get:
+      operationId: api_crm_people_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_people_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/people/{person_id}/:
+    get:
+      operationId: api_crm_people_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_people_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_people_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/people/{person_id}/tags/:
+    post:
+      operationId: api_crm_people_tags_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_people_tags_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/people/{person_id}/tags/{tag_id}/:
+    post:
+      operationId: api_crm_people_tags_create_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: tag_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_people_tags_destroy_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: person_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: tag_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/pipeline/:
+    get:
+      operationId: api_crm_pipeline_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/projects/{project_id}/people/:
+    get:
+      operationId: api_crm_projects_people_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_projects_people_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/reports/run/:
+    post:
+      operationId: api_crm_reports_run_create
+      description: POST run builder query; GET ?format=csv exports last-style query
+        from body not available — use POST.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/saved-filters/:
+    get:
+      operationId: api_crm_saved_filters_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_saved_filters_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/saved-filters/{filter_id}/:
+    patch:
+      operationId: api_crm_saved_filters_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: filter_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_saved_filters_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: filter_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/saved-reports/:
+    get:
+      operationId: api_crm_saved_reports_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_saved_reports_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/saved-reports/{report_id}/:
+    delete:
+      operationId: api_crm_saved_reports_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: report_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/segments/:
+    get:
+      operationId: api_crm_segments_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_segments_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/segments/{segment_id}/:
+    get:
+      operationId: api_crm_segments_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: segment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_crm_segments_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: segment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_segments_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: segment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/segments/{segment_id}/members/:
+    get:
+      operationId: api_crm_segments_members_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: segment_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/tags/:
+    get:
+      operationId: api_crm_tags_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_crm_tags_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/tags/{tag_id}/:
+    patch:
+      operationId: api_crm_tags_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: tag_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_crm_tags_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: tag_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/crm/tasks/board/:
+    get:
+      operationId: api_crm_tasks_board_retrieve
+      description: Unified Deal + Lead task board for Kanban.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/crm/tasks/board/{kind}/{task_id}/:
+    patch:
+      operationId: api_crm_tasks_board_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/access-log/:
+    get:
+      operationId: api_delivery_access_log_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/agents/:
+    get:
+      operationId: api_delivery_agents_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_agents_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/agents/actions/:
+    get:
+      operationId: api_delivery_agents_actions_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/agents/service-accounts/:
+    post:
+      operationId: api_delivery_agents_service_accounts_create
+      description: TZ §9.1 / §15.4 — provision a dedicated agent user + API token.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/epics/:
+    get:
+      operationId: api_delivery_epics_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_epics_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/epics/{epic_id}/:
+    patch:
+      operationId: api_delivery_epics_partial_update
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: epic_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/overview/:
+    get:
+      operationId: api_delivery_overview_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/projects/:
+    get:
+      operationId: api_delivery_projects_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_projects_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/queue/:
+    get:
+      operationId: api_delivery_queue_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/settings/:
+    get:
+      operationId: api_delivery_settings_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_delivery_settings_partial_update
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/sprints/:
+    get:
+      operationId: api_delivery_sprints_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_sprints_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/sprints/{sprint_id}/:
+    patch:
+      operationId: api_delivery_sprints_partial_update
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: sprint_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/:
+    get:
+      operationId: api_delivery_tasks_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_tasks_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/:
+    get:
+      operationId: api_delivery_tasks_retrieve_2
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_delivery_tasks_partial_update
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/assign/:
+    post:
+      operationId: api_delivery_tasks_assign_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/attach-pr/:
+    post:
+      operationId: api_delivery_tasks_attach_pr_create
+      description: TZ §10 desirable — append task link snippet to GitHub PR body via
+        PAT.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/blockers/:
+    get:
+      operationId: api_delivery_tasks_blockers_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_tasks_blockers_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/blockers/{blocker_id}/cancel/:
+    post:
+      operationId: api_delivery_tasks_blockers_cancel_create
+      description: Soft-cancel with required reason — no hard delete (TZ §12).
+      parameters:
+      - in: path
+        name: blocker_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/blockers/{blocker_id}/resolve/:
+    post:
+      operationId: api_delivery_tasks_blockers_resolve_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: blocker_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/claim/:
+    post:
+      operationId: api_delivery_tasks_claim_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/comments/:
+    get:
+      operationId: api_delivery_tasks_comments_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_tasks_comments_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/dependencies/:
+    get:
+      operationId: api_delivery_tasks_dependencies_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_tasks_dependencies_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/github-links/:
+    get:
+      operationId: api_delivery_tasks_github_links_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_tasks_github_links_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/handoffs/:
+    post:
+      operationId: api_delivery_tasks_handoffs_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/history/:
+    get:
+      operationId: api_delivery_tasks_history_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/meaning-changes/:
+    get:
+      operationId: api_delivery_tasks_meaning_changes_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/meaning-changes/{request_id}/review/:
+    post:
+      operationId: api_delivery_tasks_meaning_changes_review_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: request_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/pr-snippet/:
+    get:
+      operationId: api_delivery_tasks_pr_snippet_retrieve
+      description: TZ §10 — markdown to paste into PR body linking back to the task.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/status/:
+    post:
+      operationId: api_delivery_tasks_status_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/subtasks/:
+    get:
+      operationId: api_delivery_tasks_subtasks_retrieve
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_delivery_tasks_subtasks_create
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/tasks/{task_id}/subtasks/{subtask_id}/:
+    patch:
+      operationId: api_delivery_tasks_subtasks_partial_update
+      description: TZ §9.1 — log every delivery API response for authenticated callers.
+      parameters:
+      - in: path
+        name: subtask_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/delivery/webhooks/github/:
+    post:
+      operationId: api_delivery_webhooks_github_create
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/finance/transactions/:
+    get:
+      operationId: api_finance_transactions_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_finance_transactions_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/finance/transactions/{transaction_id}/:
+    patch:
+      operationId: api_finance_transactions_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: transaction_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_finance_transactions_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: transaction_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/finance/transactions/export/:
+    get:
+      operationId: api_finance_transactions_export_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/finance/transactions/import/:
+    post:
+      operationId: api_finance_transactions_import_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/health/:
+    get:
+      operationId: api_health_retrieve
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/notifications/:
+    get:
+      operationId: api_notifications_retrieve
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/notifications/{notification_id}/:
+    patch:
+      operationId: api_notifications_partial_update
+      parameters:
+      - in: path
+        name: notification_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_notifications_destroy
+      parameters:
+      - in: path
+        name: notification_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/notifications/mark-all-read/:
+    post:
+      operationId: api_notifications_mark_all_read_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/cases/:
+    get:
+      operationId: api_process_cases_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_process_cases_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/cases/{id}/close/:
+    post:
+      operationId: api_process_cases_close_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/cases/{id}/complete-item/:
+    post:
+      operationId: api_process_cases_complete_item_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/cases/definitions/:
+    get:
+      operationId: api_process_cases_definitions_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_process_cases_definitions_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/decisions/:
+    get:
+      operationId: api_process_decisions_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_process_decisions_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/decisions/{id}/evaluate/:
+    post:
+      operationId: api_process_decisions_evaluate_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/definitions/:
+    get:
+      operationId: api_process_definitions_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_process_definitions_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/definitions/{id}/:
+    get:
+      operationId: api_process_definitions_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_process_definitions_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_process_definitions_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/process/definitions/{id}/export/:
+    get:
+      operationId: api_process_definitions_export_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/definitions/{id}/publish/:
+    post:
+      operationId: api_process_definitions_publish_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/definitions/{id}/start/:
+    post:
+      operationId: api_process_definitions_start_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/instances/:
+    get:
+      operationId: api_process_instances_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/instances/{id}/:
+    get:
+      operationId: api_process_instances_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/metrics/:
+    get:
+      operationId: api_process_metrics_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/migrate-automation/:
+    post:
+      operationId: api_process_migrate_automation_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/mining/:
+    get:
+      operationId: api_process_mining_retrieve
+      description: 'Lite process mining: DFG, top paths, bottlenecks from ActivityInstance
+        log.'
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/packs/:
+    get:
+      operationId: api_process_packs_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/packs/import/:
+    post:
+      operationId: api_process_packs_import_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/tasks/:
+    get:
+      operationId: api_process_tasks_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/process/tasks/{id}/complete/:
+    post:
+      operationId: api_process_tasks_complete_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/project-templates/:
+    get:
+      operationId: api_project_templates_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_project_templates_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/project-templates/{template_id}/:
+    delete:
+      operationId: api_project_templates_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: template_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/projects/:
+    get:
+      operationId: api_projects_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/:
+    get:
+      operationId: api_projects_retrieve_2
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_projects_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_projects_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/projects/{project_id}/ai-draft/:
+    get:
+      operationId: api_projects_ai_draft_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_ai_draft_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/ai-draft/apply/:
+    post:
+      operationId: api_projects_ai_draft_apply_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/baselines/:
+    get:
+      operationId: api_projects_baselines_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_baselines_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/calendar/:
+    get:
+      operationId: api_projects_calendar_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/charter/:
+    get:
+      operationId: api_projects_charter_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_projects_charter_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/critical-path/:
+    get:
+      operationId: api_projects_critical_path_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/dashboard/:
+    get:
+      operationId: api_projects_dashboard_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/dependencies/:
+    post:
+      operationId: api_projects_dependencies_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/export/:
+    get:
+      operationId: api_projects_export_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/finance/:
+    get:
+      operationId: api_projects_finance_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/import/:
+    post:
+      operationId: api_projects_import_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/members/:
+    get:
+      operationId: api_projects_members_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_members_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/members/{member_id}/:
+    delete:
+      operationId: api_projects_members_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/projects/{project_id}/milestones.ics:
+    get:
+      operationId: api_projects_milestones.ics_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/pert/:
+    get:
+      operationId: api_projects_pert_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/raci/:
+    get:
+      operationId: api_projects_raci_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_raci_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/risks/:
+    get:
+      operationId: api_projects_risks_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_risks_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/schedule/:
+    get:
+      operationId: api_projects_schedule_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/share-links/:
+    get:
+      operationId: api_projects_share_links_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_share_links_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/share-links/{link_id}/:
+    delete:
+      operationId: api_projects_share_links_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: link_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/projects/{project_id}/stakeholders/:
+    get:
+      operationId: api_projects_stakeholders_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_stakeholders_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/projects/{project_id}/wbs/:
+    get:
+      operationId: api_projects_wbs_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_projects_wbs_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/push/subscribe/:
+    post:
+      operationId: api_push_subscribe_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/push/unsubscribe/:
+    post:
+      operationId: api_push_unsubscribe_create
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/push/vapid-public-key/:
+    get:
+      operationId: api_push_vapid_public_key_retrieve
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/raci/{raci_id}/:
+    delete:
+      operationId: api_raci_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: raci_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/risks/{risk_id}/:
+    patch:
+      operationId: api_risks_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: risk_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_risks_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: risk_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/share/{token}/:
+    get:
+      operationId: api_share_retrieve
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/share/{token}/chat/:
+    get:
+      operationId: api_share_chat_retrieve
+      description: Public guest access to project chat via share link.
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_share_chat_create
+      description: Public guest access to project chat via share link.
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/stakeholders/{stakeholder_id}/:
+    patch:
+      operationId: api_stakeholders_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: stakeholder_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_stakeholders_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: stakeholder_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/tracking/custom-fields/:
+    get:
+      operationId: api_tracking_custom_fields_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_tracking_custom_fields_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/tracking/custom-fields/{field_id}/:
+    patch:
+      operationId: api_tracking_custom_fields_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: field_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_tracking_custom_fields_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: field_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/tracking/custom-fields/{field_id}/enumerations/:
+    post:
+      operationId: api_tracking_custom_fields_enumerations_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: field_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/tracking/enumerations/{item_id}/:
+    patch:
+      operationId: api_tracking_enumerations_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_tracking_enumerations_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/tracking/metadata/:
+    get:
+      operationId: api_tracking_metadata_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/tracking/statuses/:
+    get:
+      operationId: api_tracking_statuses_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_tracking_statuses_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/tracking/statuses/{status_id}/:
+    patch:
+      operationId: api_tracking_statuses_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: status_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_tracking_statuses_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: status_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/tracking/trackers/:
+    get:
+      operationId: api_tracking_trackers_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_tracking_trackers_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/tracking/trackers/{tracker_id}/:
+    patch:
+      operationId: api_tracking_trackers_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: tracker_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_tracking_trackers_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: tracker_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/wbs/{wbs_id}/:
+    patch:
+      operationId: api_wbs_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: wbs_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_wbs_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: wbs_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/wbs/{wbs_id}/attachments/:
+    get:
+      operationId: api_wbs_attachments_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: wbs_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_wbs_attachments_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: wbs_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/wbs/{wbs_id}/comments/:
+    get:
+      operationId: api_wbs_comments_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: wbs_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_wbs_comments_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: wbs_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/api-tokens/:
+    get:
+      operationId: api_workspace_api_tokens_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_workspace_api_tokens_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/api-tokens/{token_id}/:
+    delete:
+      operationId: api_workspace_api_tokens_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: token_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/workspace/audit/:
+    get:
+      operationId: api_workspace_audit_list
+      description: Shared workspace resolution for API views.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogEntryList'
+          description: ''
+  /api/workspace/calendar.ics:
+    get:
+      operationId: api_workspace_calendar.ics_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/capacity/:
+    get:
+      operationId: api_workspace_capacity_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_workspace_capacity_partial_update
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/dashboard/:
+    get:
+      operationId: api_workspace_dashboard_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/events/:
+    get:
+      operationId: api_workspace_events_retrieve
+      description: |-
+        SSE stream of realtime workspace events (Kanban moves, WBS edits, comments).
+
+        In-process pub/sub only (see ``workspaces.events`` docstring) — works for
+        a single Django process; use cookie auth so ``EventSource`` (which can't
+        set custom headers) authenticates the same way as regular GET requests.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/exchange-rates/:
+    get:
+      operationId: api_workspace_exchange_rates_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_workspace_exchange_rates_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/exchange-rates/{rate_id}/:
+    delete:
+      operationId: api_workspace_exchange_rates_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: rate_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/workspace/fx/convert/:
+    get:
+      operationId: api_workspace_fx_convert_retrieve
+      description: Convert amounts from workspace base currency to a target currency.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/invitations/:
+    get:
+      operationId: api_workspace_invitations_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_workspace_invitations_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/invitations/{invitation_id}/:
+    post:
+      operationId: api_workspace_invitations_create_2
+      description: Resend invitation email (also used via .../resend/ route).
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_workspace_invitations_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/workspace/invitations/{invitation_id}/resend/:
+    post:
+      operationId: api_workspace_invitations_resend_create
+      description: Resend invitation email (also used via .../resend/ route).
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_workspace_invitations_resend_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/workspace/invitations/{token}/accept/:
+    post:
+      operationId: api_workspace_invitations_accept_create
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/ip-allowlist/:
+    get:
+      operationId: api_workspace_ip_allowlist_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_workspace_ip_allowlist_partial_update
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/members/:
+    get:
+      operationId: api_workspace_members_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/members/{member_id}/:
+    patch:
+      operationId: api_workspace_members_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_workspace_members_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/workspace/my-tasks/:
+    get:
+      operationId: api_workspace_my_tasks_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/search/:
+    get:
+      operationId: api_workspace_search_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/settings/:
+    get:
+      operationId: api_workspace_settings_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: api_workspace_settings_partial_update
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/time-entries/:
+    get:
+      operationId: api_workspace_time_entries_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_workspace_time_entries_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/time-entries/{entry_id}/:
+    patch:
+      operationId: api_workspace_time_entries_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_workspace_time_entries_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/workspace/webhooks/:
+    get:
+      operationId: api_workspace_webhooks_retrieve
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: api_workspace_webhooks_create
+      description: Shared workspace resolution for API views.
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/webhooks/{endpoint_id}/:
+    patch:
+      operationId: api_workspace_webhooks_partial_update
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: endpoint_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: api_workspace_webhooks_destroy
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: endpoint_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '204':
+          description: No response body
+  /api/workspace/webhooks/{endpoint_id}/deliveries/:
+    get:
+      operationId: api_workspace_webhooks_deliveries_retrieve
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: endpoint_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspace/webhooks/{endpoint_id}/test/:
+    post:
+      operationId: api_workspace_webhooks_test_create
+      description: Shared workspace resolution for API views.
+      parameters:
+      - in: path
+        name: endpoint_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspaces/:
+    get:
+      operationId: api_workspaces_retrieve
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+  /api/workspaces/{workspace_id}/activate/:
+    post:
+      operationId: api_workspaces_activate_create
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        action:
+          type: string
+          readOnly: true
+        entity_type:
+          type: string
+          readOnly: true
+        entity_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        summary:
+          type: string
+          readOnly: true
+        changes:
+          readOnly: true
+        actor:
+          type: integer
+          readOnly: true
+          nullable: true
+        actor_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor
+      - actor_name
+      - changes
+      - created_at
+      - entity_id
+      - entity_type
+      - id
+      - summary
+    EmailTokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    PaginatedAuditLogEntryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+    Register:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        username:
+          type: string
+          title: Имя пользователя
+          description: Обязательное поле. Не более 150 символов. Только буквы, цифры
+            и символы @/./+/-/_.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        first_name:
+          type: string
+          title: Имя
+          maxLength: 150
+        last_name:
+          type: string
+          title: Фамилия
+          maxLength: 150
+      required:
+      - email
+      - password
+      - username

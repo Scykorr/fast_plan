@@ -80,7 +80,20 @@ CONNECTOR_CATALOG = [
         "supports_webhook": True,
         "supports_send": True,
         "supports_ari_bridge": True,
-        "pbx_backends": ["asterisk", "mango", "generic"],
+        "pbx_backends": [
+            "asterisk",
+            "mango",
+            "beeline",
+            "mts",
+            "generic",
+        ],
+        "pbx_notes": {
+            "asterisk": "ARI originate + AMI/ARI webhook ingest; optional run_ari_bridge",
+            "mango": "Mango Office VPBX callback + signed webhook",
+            "beeline": "Beeline Cloud PBX: dial_url JSON {to,from,ext} + webhook CDR",
+            "mts": "MTS / Communicator: dial_url + form/json webhook with call_id",
+            "generic": "Arbitrary dial_url Bearer callback + free-form webhook",
+        },
     },
 ]
 
@@ -627,7 +640,7 @@ def _unwrap_asterisk_event(data: dict) -> dict | None:
 
 
 def normalize_telephony_payload(payload: dict) -> dict:
-    """Normalize generic / Asterisk AMI·ARI / CDR / Mango Office call events."""
+    """Normalize generic / Asterisk AMI·ARI / CDR / Mango / Beeline / MTS call events."""
     data = dict(payload or {})
     # Mango often posts form fields: json + vpbx_api_key + sign
     raw_json = data.get("json")
@@ -642,6 +655,57 @@ def normalize_telephony_payload(payload: dict) -> dict:
     asterisk = _unwrap_asterisk_event(data)
     if asterisk is not None:
         return asterisk
+
+    # Beeline Cloud PBX / MTS Communicator style envelopes
+    carrier = str(
+        data.get("pbx")
+        or data.get("carrier")
+        or data.get("provider")
+        or data.get("vendor")
+        or ""
+    ).lower()
+    if "beeline" in carrier or data.get("beeline_call_id"):
+        call_id = str(
+            data.get("beeline_call_id")
+            or data.get("callId")
+            or data.get("call_id")
+            or data.get("id")
+            or ""
+        )
+        return {
+            "call_id": call_id,
+            "from": _party_number(
+                data.get("ani") or data.get("from") or data.get("callerNumber")
+            ),
+            "to": _party_number(
+                data.get("dnis") or data.get("to") or data.get("calledNumber")
+            ),
+            "status": str(data.get("state") or data.get("status") or ""),
+            "duration": data.get("duration") or data.get("talkDuration") or "",
+            "direction": str(data.get("direction") or "inbound").lower(),
+            "recording_url": data.get("recordingUrl") or data.get("record_url") or "",
+            "source": "beeline",
+            "event": str(data.get("event") or ""),
+        }
+    if "mts" in carrier or data.get("mts_call_id"):
+        call_id = str(
+            data.get("mts_call_id")
+            or data.get("call_id")
+            or data.get("session_id")
+            or data.get("id")
+            or ""
+        )
+        return {
+            "call_id": call_id,
+            "from": _party_number(data.get("caller") or data.get("from") or data.get("A")),
+            "to": _party_number(data.get("callee") or data.get("to") or data.get("B")),
+            "status": str(data.get("status") or data.get("result") or ""),
+            "duration": data.get("duration") or data.get("billsec") or "",
+            "direction": str(data.get("direction") or "inbound").lower(),
+            "recording_url": data.get("record") or data.get("recording_url") or "",
+            "source": "mts",
+            "event": str(data.get("event") or ""),
+        }
 
     call_id = str(
         data.get("call_id")
@@ -699,6 +763,7 @@ def normalize_telephony_payload(payload: dict) -> dict:
         "status": status,
         "duration": duration,
         "direction": direction_raw,
+        "recording_url": data.get("recording_url") or data.get("record_url") or "",
         "source": "generic",
         "event": "",
     }
@@ -730,6 +795,7 @@ def _ingest_one_telephony_event(connector: IntegrationConnector, payload: dict) 
         f"duration={duration}s" if duration != "" else "",
         f"via={norm.get('source')}" if norm.get("source") else "",
         f"event={norm.get('event')}" if norm.get("event") else "",
+        f"recording={norm.get('recording_url')}" if norm.get("recording_url") else "",
     ]
     body = "; ".join(p for p in body_parts if p)
     person = find_person_by_phone(connector.workspace, peer) if peer else None
@@ -875,6 +941,53 @@ def _dial_generic(config: dict, *, to: str, note: str = "") -> dict:
     return {"remote": True, "pbx": "generic"}
 
 
+def _dial_beeline(config: dict, *, to: str, note: str = "") -> dict:
+    """Beeline Cloud PBX click-to-call via dial_url (JSON)."""
+    endpoint = config.get("dial_url") or ""
+    api_key = config.get("api_key") or ""
+    extension = config.get("extension") or ""
+    from_number = config.get("from_number") or extension
+    if not endpoint:
+        return {"remote": False, "queued_locally": True, "pbx": "beeline"}
+    headers = {"X-MPBX-API-AUTH-TOKEN": api_key} if api_key else {}
+    _http_json(
+        endpoint,
+        headers=headers,
+        data={
+            "to": to,
+            "from": from_number,
+            "ext": extension,
+            "pattern": to,
+            "note": note,
+        },
+    )
+    return {"remote": True, "pbx": "beeline"}
+
+
+def _dial_mts(config: dict, *, to: str, note: str = "") -> dict:
+    """MTS / Communicator style dial_url callback."""
+    endpoint = config.get("dial_url") or ""
+    api_key = config.get("api_key") or ""
+    extension = config.get("extension") or ""
+    from_number = config.get("from_number") or extension
+    if not endpoint:
+        return {"remote": False, "queued_locally": True, "pbx": "mts"}
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    _http_json(
+        endpoint,
+        headers=headers,
+        data={
+            "callee": to,
+            "caller": from_number,
+            "extension": extension,
+            "comment": note,
+        },
+    )
+    return {"remote": True, "pbx": "mts"}
+
+
 def dial_telephony(
     connector: IntegrationConnector,
     *,
@@ -921,6 +1034,10 @@ def dial_telephony(
             remote = _dial_asterisk_ari(config, to=to, note=note)
         elif pbx in ("mango", "mango_office", "vpbx"):
             remote = _dial_mango(config, to=to, note=note)
+        elif pbx in ("beeline", "beeline_cloud"):
+            remote = _dial_beeline(config, to=to, note=note)
+        elif pbx in ("mts", "mts_communicator"):
+            remote = _dial_mts(config, to=to, note=note)
         else:
             remote = _dial_generic(config, to=to, note=note)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:

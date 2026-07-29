@@ -6,6 +6,7 @@ from crm import (
     calendar_views,
     commerce_views,
     connectors_views,
+    custom_fields_views,
     deals_views,
     graphql_views,
     leads_views,
@@ -323,6 +324,21 @@ urlpatterns = [
         "crm/saved-filters/<int:filter_id>/",
         commerce_views.CrmSavedFilterDetailView.as_view(),
         name="crm-saved-filter-detail",
+    ),
+    path(
+        "crm/custom-fields/",
+        custom_fields_views.CrmCustomFieldDefinitionListCreateView.as_view(),
+        name="crm-custom-fields",
+    ),
+    path(
+        "crm/custom-fields/<int:field_id>/",
+        custom_fields_views.CrmCustomFieldDefinitionDetailView.as_view(),
+        name="crm-custom-field-detail",
+    ),
+    path(
+        "crm/<str:target>/<int:entity_id>/custom-fields/",
+        custom_fields_views.CrmEntityCustomFieldsView.as_view(),
+        name="crm-entity-custom-fields",
     ),
     path(
         "crm/graphql/",

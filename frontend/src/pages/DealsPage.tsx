@@ -39,6 +39,7 @@ import type {
 import type { Project } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
+import { CrmCustomFieldsPanel } from "../components/crm/CrmCustomFieldsPanel";
 import { CrmSavedFiltersBar } from "../components/crm/CrmSavedFiltersBar";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useCrmHotkeys } from "../hooks/useCrmHotkeys";
@@ -706,6 +707,10 @@ export function DealsPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="mt-3">
+            <CrmCustomFieldsPanel target="deal" entityId={selected.id} />
           </div>
 
           <div className="mt-3">

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Agent Ops UI smoke. Full claim→handoff→meaning is covered by backend pytest
- * (test_delivery_p9). Optional deep API flow: set E2E_AGENT_OPS=1.
+ * Agent Ops UI smoke + optional deep claim→handoff→meaning (E2E_AGENT_OPS=1).
+ * See docs/AGENT_OPS.md.
  */
 const email = process.env.E2E_EMAIL || process.env.STAGING_EMAIL || "smoke@fast-plan.ci";
 const password =
@@ -11,7 +11,7 @@ const workspaceId =
   process.env.E2E_WORKSPACE_ID || process.env.STAGING_WORKSPACE_ID || "";
 
 test.describe("agent ops", () => {
-  test("opens /agent-ops with heading and toggle", async ({ page }) => {
+  test("opens /agent-ops with heading and onboarding", async ({ page }) => {
     test.skip(!email || !password, "E2E_EMAIL/E2E_PASSWORD not set");
 
     await page.goto("/login");
@@ -28,7 +28,6 @@ test.describe("agent ops", () => {
       page.getByRole("button", { name: /Включить Agent Ops|Выключить/i }),
     ).toBeVisible();
 
-    // When enabled, agents tab shows onboarding copy.
     const enableBtn = page.getByRole("button", { name: "Включить Agent Ops" });
     if (await enableBtn.isVisible().catch(() => false)) {
       await enableBtn.click();
@@ -40,6 +39,7 @@ test.describe("agent ops", () => {
     if (await agentsTab.isVisible().catch(() => false)) {
       await agentsTab.click();
       await expect(page.getByText("Onboarding агента")).toBeVisible();
+      await expect(page.getByText(/Authorization: Token/i)).toBeVisible();
     }
   });
 
@@ -70,6 +70,22 @@ test.describe("agent ops", () => {
       data: { agent_ops_enabled: true },
     });
 
+    // Ensure human has a backend agent profile for claim ACL (upsert by user)
+    const me = await page.request.get("/api/auth/me/", { headers });
+    expect(me.ok()).toBeTruthy();
+    const meBody = await me.json();
+    const userId = meBody.id as number;
+
+    await page.request.post("/api/delivery/agents/", {
+      headers,
+      data: {
+        user: userId,
+        role: "backend",
+        display_name: "e2e-backend",
+        actor_type: "human",
+      },
+    });
+
     const create = await page.request.post("/api/delivery/tasks/", {
       headers,
       data: {
@@ -90,14 +106,14 @@ test.describe("agent ops", () => {
         acceptance_url: "https://example.com/acc",
       },
     });
-    expect(create.ok(), `create HTTP ${create.status()}`).toBeTruthy();
+    expect(create.ok(), `create HTTP ${create.status()} ${await create.text()}`).toBeTruthy();
     const task = await create.json();
 
     const claim = await page.request.post(`/api/delivery/tasks/${task.id}/claim/`, {
       headers,
       data: {},
     });
-    expect(claim.ok(), `claim HTTP ${claim.status()}`).toBeTruthy();
+    expect(claim.ok(), `claim HTTP ${claim.status()} ${await claim.text()}`).toBeTruthy();
 
     const handoff = await page.request.post(
       `/api/delivery/tasks/${task.id}/handoffs/`,
@@ -114,8 +130,32 @@ test.describe("agent ops", () => {
         },
       },
     );
-    expect(handoff.ok(), `handoff HTTP ${handoff.status()}`).toBeTruthy();
+    expect(
+      handoff.ok(),
+      `handoff HTTP ${handoff.status()} ${await handoff.text()}`,
+    ).toBeTruthy();
 
+    // Upsert profile to owner for meaning approve
+    await page.request.post("/api/delivery/agents/", {
+      headers,
+      data: {
+        user: userId,
+        role: "owner",
+        display_name: "e2e-owner",
+        actor_type: "human",
+      },
+    });
+
+    // Re-create as backend agent meaning queue: flip back to backend briefly
+    await page.request.post("/api/delivery/agents/", {
+      headers,
+      data: {
+        user: userId,
+        role: "backend",
+        display_name: "e2e-backend",
+        actor_type: "human",
+      },
+    });
     const meaning = await page.request.patch(`/api/delivery/tasks/${task.id}/`, {
       headers,
       data: { business_outcome: "e2e meaning updated", title: "e2e meaning title" },
@@ -123,6 +163,16 @@ test.describe("agent ops", () => {
     expect(meaning.ok(), `meaning HTTP ${meaning.status()}`).toBeTruthy();
     const meaningBody = await meaning.json();
     const reqId = meaningBody.meaning_change_request_id;
+
+    await page.request.post("/api/delivery/agents/", {
+      headers,
+      data: {
+        user: userId,
+        role: "owner",
+        display_name: "e2e-owner",
+        actor_type: "human",
+      },
+    });
     if (reqId) {
       const approve = await page.request.post(
         `/api/delivery/tasks/${task.id}/meaning-changes/${reqId}/review/`,

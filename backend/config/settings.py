@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "crm",
     "process",
     "delivery",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
@@ -140,6 +141,16 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Fast Plan API",
+    "DESCRIPTION": "REST API for Fast Plan PM/CRM (typed client: packages/crm-client).",
+    "VERSION": open(BASE_DIR.parent / "VERSION", encoding="utf-8").read().strip()
+    if (BASE_DIR.parent / "VERSION").exists()
+    else "0.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 SIMPLE_JWT = {

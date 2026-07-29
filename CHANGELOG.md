@@ -17,6 +17,20 @@
 
 ### Planned
 
+См. [ROADMAP.md](ROADMAP.md) — MS Project XML (нужен sample); склад/SKU только по явному запросу («делаем»).
+
+## [0.16.0] — 2026-07-29
+
+### Added
+
+- **CRM custom fields** — definitions + values for organization/person/deal/lead; UI on CRM cards; `GET/POST /api/crm/custom-fields/`, `PUT /api/crm/{target}/{id}/custom-fields/`
+- **Typed CRM SDK** — `packages/crm-client` (`@fast-plan/crm-client`); OpenAPI via `drf-spectacular` (`GET /api/schema/`, `/api/docs/`); CI `openapi-typescript` codegen
+- **Agent Ops hardening** — `docs/AGENT_OPS.md`; richer Agents onboarding + curl snippets; CI `E2E_AGENT_OPS=1` claim→handoff→meaning; agent profile upsert
+- **Telephony PBX polish** — Beeline Cloud / MTS backends (dial + webhook normalize, recording_url)
+- **Ops** — `scripts/restore-drill.sh` non-destructive staging restore drill (see DEPLOY.md §5.3)
+
+### Planned
+
 См. [ROADMAP.md](ROADMAP.md).
 
 ## [0.15.0] — 2026-07-28
