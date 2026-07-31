@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { api, ApiError } from "../api/client";
+import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export function RegisterPage() {
@@ -16,7 +16,6 @@ export function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [registered, setRegistered] = useState(false);
-  const [resendMessage, setResendMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -52,11 +51,6 @@ export function RegisterPage() {
             Можно сразу войти с адресом <strong>{email}</strong>.
             Подтверждение email по почте временно отключено (до настройки SMTP).
           </p>
-          {resendMessage && (
-            <p className="mt-3 text-sm text-secondary" role="status">
-              {resendMessage}
-            </p>
-          )}
           <div className="mt-6 flex justify-center gap-3">
             <Link
               to={loginHref}
