@@ -252,6 +252,47 @@ class DealDetailView(WorkspaceMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class DealCreateProjectView(WorkspaceMixin, APIView):
+    """Create a project (optionally from template) and link it to the deal."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, deal_id):
+        self.require_editor()
+        deal = get_object_or_404(
+            _deal_queryset(self.get_workspace()).select_related("stage", "organization"),
+            pk=deal_id,
+        )
+        template_id = request.data.get("template_id")
+        if template_id in ("", None):
+            template_id = None
+        else:
+            try:
+                template_id = int(template_id)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"template_id": "Invalid id."}) from exc
+
+        require_won = request.data.get("require_won")
+        if require_won is None:
+            require_won = False
+        else:
+            require_won = str(require_won).lower() in ("1", "true", "yes")
+
+        from crm.handoff import create_project_from_deal, serialize_handoff
+
+        deal, project = create_project_from_deal(
+            deal,
+            user=request.user,
+            template_id=template_id,
+            require_won=require_won,
+        )
+        deal = get_object_or_404(_deal_queryset(self.get_workspace()), pk=deal.id)
+        return Response(
+            serialize_handoff(deal, project),
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class DealMoveView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 

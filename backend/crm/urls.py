@@ -106,6 +106,11 @@ urlpatterns = [
         name="crm-deal-detail",
     ),
     path(
+        "crm/deals/<int:deal_id>/create-project/",
+        deals_views.DealCreateProjectView.as_view(),
+        name="crm-deal-create-project",
+    ),
+    path(
         "crm/deals/<int:deal_id>/move/",
         deals_views.DealMoveView.as_view(),
         name="crm-deal-move",

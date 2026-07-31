@@ -1,4 +1,5 @@
 import { request, requestBlob, requestForm } from "./client";
+import type { Project } from "./projects";
 
 export type CrmTag = {
   id: number;
@@ -764,6 +765,17 @@ export function createCrmApi() {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    createProjectFromDeal: (
+      id: number,
+      body: { template_id?: number | null; require_won?: boolean } = {},
+    ) =>
+      request<{ deal: CrmDeal; project: Project }>(
+        `/crm/deals/${id}/create-project/`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
     deleteDeal: (id: number) =>
       request<void>(`/crm/deals/${id}/`, { method: "DELETE" }),
     getDealForecast: () => request<CrmDealForecast>("/crm/deals/forecast/", {}),

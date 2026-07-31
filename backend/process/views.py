@@ -20,6 +20,7 @@ from process.engine import (
 )
 from process.metrics import build_process_metrics
 from process.mining import build_process_mining
+from process.ops import build_process_ops
 from process.migration_tools import automation_rule_to_bpmn
 from process.cases import (
     find_plan_item,
@@ -505,6 +506,26 @@ class ProcessMetricsView(WorkspaceMixin, APIView):
 
     def get(self, request):
         return Response(build_process_metrics(self.get_workspace()))
+
+
+class ProcessOpsView(WorkspaceMixin, APIView):
+    """Stuck instances, aging open tasks, SLA breaches."""
+
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        try:
+            stuck_hours = int(request.query_params.get("stuck_hours") or 72)
+            aging_hours = int(request.query_params.get("aging_hours") or 48)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"detail": "Invalid hours."}) from exc
+        return Response(
+            build_process_ops(
+                self.get_workspace(),
+                stuck_hours=stuck_hours,
+                aging_hours=aging_hours,
+            )
+        )
 
 
 class ProcessMiningView(WorkspaceMixin, APIView):

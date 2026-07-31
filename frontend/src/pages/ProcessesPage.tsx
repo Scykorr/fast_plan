@@ -10,6 +10,7 @@ import type {
   ProcessInstance,
   ProcessMetrics,
   ProcessMining,
+  ProcessOps,
   ProcessPack,
 } from "../api/process";
 import { BpmnModelerEditor } from "../components/process/BpmnModelerEditor";
@@ -68,6 +69,7 @@ export function ProcessesPage() {
   const [instances, setInstances] = useState<ProcessInstance[]>([]);
   const [packs, setPacks] = useState<ProcessPack[]>([]);
   const [metrics, setMetrics] = useState<ProcessMetrics | null>(null);
+  const [ops, setOps] = useState<ProcessOps | null>(null);
   const [mining, setMining] = useState<ProcessMining | null>(null);
   const [cases, setCases] = useState<CaseInstance[]>([]);
   const [caseDefs, setCaseDefs] = useState<CaseDefinition[]>([]);
@@ -87,18 +89,19 @@ export function ProcessesPage() {
     active_element_ids: string[];
   } | null>(null);
   const [tab, setTab] = useState<
-    "defs" | "instances" | "packs" | "cases" | "dmn" | "metrics"
+    "defs" | "instances" | "packs" | "cases" | "dmn" | "ops" | "metrics"
   >("defs");
 
   const load = useCallback(async () => {
     if (!api) return;
     try {
-      const [defs, inst, packList, m, mine, caseList, caseDefList, decisionList] =
+      const [defs, inst, packList, m, opsData, mine, caseList, caseDefList, decisionList] =
         await Promise.all([
           api.listDefinitions(),
           api.listInstances(),
           api.listPacks(),
           api.metrics(),
+          api.ops(),
           api.mining(),
           api.listCases(),
           api.listCaseDefinitions(),
@@ -108,6 +111,7 @@ export function ProcessesPage() {
       setInstances(inst);
       setPacks(packList);
       setMetrics(m);
+      setOps(opsData);
       setMining(mine);
       setCases(caseList);
       setCaseDefs(caseDefList);
@@ -184,6 +188,7 @@ export function ProcessesPage() {
             ["packs", "Пакеты"],
             ["cases", "Кейсы CMMN"],
             ["dmn", "DMN"],
+            ["ops", "Ops"],
             ["metrics", "Метрики / Mining"],
           ] as const
         ).map(([id, label]) => (
@@ -627,6 +632,115 @@ export function ProcessesPage() {
               {dmnResult}
             </pre>
           )}
+        </div>
+      )}
+
+      {tab === "ops" && ops && (
+        <div className="space-y-4">
+          <div className="grid gap-3 rounded-xl border border-border bg-surface p-4 text-sm sm:grid-cols-4">
+            <div>
+              Stuck: <strong>{ops.counts.stuck_instances}</strong>
+              <span className="ml-1 text-xs text-text-muted">
+                (&gt;{ops.thresholds.stuck_hours}ч / error)
+              </span>
+            </div>
+            <div>
+              Aging tasks: <strong>{ops.counts.aging_tasks}</strong>
+              <span className="ml-1 text-xs text-text-muted">
+                (&gt;{ops.thresholds.aging_hours}ч)
+              </span>
+            </div>
+            <div>
+              SLA breaches: <strong>{ops.counts.sla_breaches}</strong>
+            </div>
+            <div>
+              Open tasks: <strong>{ops.counts.open_user_tasks}</strong>
+              <Link
+                to="/process-tasks"
+                className="ml-2 text-xs text-primary"
+              >
+                Inbox →
+              </Link>
+            </div>
+          </div>
+
+          <section className="rounded-xl border border-border bg-surface p-4 text-sm">
+            <h3 className="font-semibold text-text">Зависшие инстансы</h3>
+            <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto text-xs">
+              {ops.stuck_instances.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1.5"
+                >
+                  <span>
+                    #{row.id} · {row.definition_name || "—"} · {row.status}
+                    {row.age_hours != null ? ` · ${row.age_hours}ч` : ""}
+                    {row.reasons?.length ? ` · ${row.reasons.join(",")}` : ""}
+                  </span>
+                  <span className="flex gap-2">
+                    {row.deal ? (
+                      <Link to={`/deals?deal=${row.deal}`} className="text-primary">
+                        Deal
+                      </Link>
+                    ) : null}
+                    {row.project ? (
+                      <Link to={`/projects/${row.project}`} className="text-primary">
+                        Project
+                      </Link>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+              {ops.stuck_instances.length === 0 && (
+                <li className="text-text-muted">Нет зависших инстансов</li>
+              )}
+            </ul>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-4 text-sm">
+            <h3 className="font-semibold text-text">Старые open tasks</h3>
+            <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto text-xs">
+              {ops.aging_tasks.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1.5"
+                >
+                  <span>
+                    {row.name} · instance #{row.instance_id} · {row.age_hours}ч
+                  </span>
+                  <Link to="/process-tasks" className="text-primary">
+                    Inbox
+                  </Link>
+                </li>
+              ))}
+              {ops.aging_tasks.length === 0 && (
+                <li className="text-text-muted">Нет aging tasks</li>
+              )}
+            </ul>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-4 text-sm">
+            <h3 className="font-semibold text-text">SLA / просроченные</h3>
+            <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto text-xs">
+              {ops.sla_breaches.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1.5"
+                >
+                  <span>
+                    {row.name} · overdue {row.overdue_hours}ч
+                    {row.due_at ? ` · due ${row.due_at.slice(0, 16)}` : ""}
+                  </span>
+                  <Link to="/process-tasks" className="text-primary">
+                    Inbox
+                  </Link>
+                </li>
+              ))}
+              {ops.sla_breaches.length === 0 && (
+                <li className="text-text-muted">Нет просроченных задач</li>
+              )}
+            </ul>
+          </section>
         </div>
       )}
 

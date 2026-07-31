@@ -286,6 +286,7 @@ async function checkAuthSmoke() {
   // P8 process + CRM calendar smoke (authenticated)
   const processGets = [
     { path: "/api/process/metrics/", name: "process metrics", ok: (b) => typeof b?.instance_count === "number" },
+    { path: "/api/process/ops/", name: "process ops", ok: (b) => Array.isArray(b?.stuck_instances) },
     { path: "/api/process/mining/", name: "process mining", ok: (b) => Array.isArray(b?.dfg) },
     { path: "/api/process/decisions/", name: "process decisions", ok: (b) => Array.isArray(b) },
     { path: "/api/process/cases/", name: "process cases", ok: (b) => Array.isArray(b) },

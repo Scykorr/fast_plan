@@ -15,9 +15,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Deal → Project handoff** — `POST /api/crm/deals/<id>/create-project/` (optional `template_id`); UI на `/deals`
+- **Process ops dashboard** — `GET /api/process/ops/` (stuck / aging / SLA); вкладка Ops на `/processes`
+
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы** (P10: Deal→Project, Process↔WBS, guest portal…); MS Project XML — нужен sample.
+См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P1: UserTask↔WBS, guest portal…).
 
 ## [0.17.0] — 2026-07-31
 

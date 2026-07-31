@@ -36,7 +36,7 @@ import type {
   CrmPipeline,
   CrmPipelineStage,
 } from "../api/crm";
-import type { Project } from "../api/projects";
+import type { Project, ProjectTemplate } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
 import { CrmCustomFieldsPanel } from "../components/crm/CrmCustomFieldsPanel";
@@ -161,6 +161,8 @@ export function DealsPage() {
   const [deals, setDeals] = useState<CrmDeal[]>([]);
   const [orgs, setOrgs] = useState<CrmOrganization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [handoffTemplateId, setHandoffTemplateId] = useState<number | "">("");
   const [forecast, setForecast] = useState<CrmDealForecast | null>(null);
   const [selected, setSelected] = useState<CrmDeal | null>(null);
   const [tasks, setTasks] = useState<CrmDealTask[]>([]);
@@ -198,18 +200,21 @@ export function DealsPage() {
     setLoading(true);
     setError("");
     try {
-      const [pipe, dealRows, orgRows, forecastRow, projectRows] = await Promise.all([
-        crmApi.getPipeline(),
-        crmApi.listDeals(),
-        crmApi.listOrganizations(),
-        crmApi.getDealForecast(),
-        projectsApi ? projectsApi.getProjects() : Promise.resolve([]),
-      ]);
+      const [pipe, dealRows, orgRows, forecastRow, projectRows, templateRows] =
+        await Promise.all([
+          crmApi.getPipeline(),
+          crmApi.listDeals(),
+          crmApi.listOrganizations(),
+          crmApi.getDealForecast(),
+          projectsApi ? projectsApi.getProjects() : Promise.resolve([]),
+          projectsApi ? projectsApi.getProjectTemplates() : Promise.resolve([]),
+        ]);
       setPipeline(pipe);
       setDeals(dealRows);
       setOrgs(orgRows);
       setForecast(forecastRow);
       setProjects(projectRows);
+      setTemplates(templateRows);
       const queryDealId = Number(
         new URLSearchParams(window.location.search).get("deal") || 0,
       );
@@ -437,6 +442,24 @@ export function DealsPage() {
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось привязать проект"));
+    }
+  };
+
+  const createProjectFromDeal = async () => {
+    if (!crmApi || !selected || selected.project) {
+      return;
+    }
+    try {
+      const result = await crmApi.createProjectFromDeal(selected.id, {
+        template_id: handoffTemplateId === "" ? null : Number(handoffTemplateId),
+        require_won: false,
+      });
+      setSelected(result.deal);
+      setMessage(`Проект «${result.project.name}» создан из сделки`);
+      setHandoffTemplateId("");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать проект из сделки"));
     }
   };
 
@@ -730,6 +753,56 @@ export function DealsPage() {
                 </option>
               ))}
             </select>
+            {!selected.project && (
+              <div className="mt-2 flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-border bg-cream/40 p-2">
+                <div className="min-w-[10rem] flex-1">
+                  <label className="text-xs text-text-muted">
+                    Создать проект из шаблона
+                  </label>
+                  <select
+                    value={handoffTemplateId}
+                    onChange={(e) =>
+                      setHandoffTemplateId(
+                        e.target.value ? Number(e.target.value) : "",
+                      )
+                    }
+                    className="mt-0.5 block w-full rounded-lg border border-border bg-surface px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Без шаблона (пустой проект)</option>
+                    {templates.map((tpl) => (
+                      <option key={tpl.id} value={tpl.id}>
+                        {tpl.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void createProjectFromDeal()}
+                  className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+                >
+                  {pipeline?.stages.find((s) => s.id === selected.stage)?.is_won
+                    ? "Сделка выиграна → проект"
+                    : "Создать проект"}
+                </button>
+                {selected.project_name && (
+                  <a
+                    href={`/projects/${selected.project}`}
+                    className="text-xs text-primary"
+                  >
+                    Открыть
+                  </a>
+                )}
+              </div>
+            )}
+            {selected.project && (
+              <a
+                href={`/projects/${selected.project}`}
+                className="mt-1 inline-block text-xs text-primary"
+              >
+                Открыть проект →
+              </a>
+            )}
           </div>
 
           <form

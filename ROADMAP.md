@@ -13,9 +13,9 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.17.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
+| **Текущая версия** | **v0.17.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)); Unreleased: Deal→Project + Process ops |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы (P10)](#планы--что-делаем-дальше) |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — sprint 2: UserTask↔WBS + guest portal |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---

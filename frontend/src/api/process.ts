@@ -100,6 +100,37 @@ export type ProcessMetrics = {
   by_status: Record<string, number>;
 };
 
+export type ProcessOpsRow = {
+  id: number;
+  name?: string;
+  definition_name?: string;
+  business_key?: string;
+  status?: string;
+  error_message?: string;
+  started_at?: string | null;
+  created_at?: string | null;
+  due_at?: string | null;
+  age_hours?: number | null;
+  overdue_hours?: number | null;
+  instance_id?: number;
+  deal?: number | null;
+  project?: number | null;
+  reasons?: string[];
+};
+
+export type ProcessOps = {
+  thresholds: { stuck_hours: number; aging_hours: number };
+  stuck_instances: ProcessOpsRow[];
+  aging_tasks: ProcessOpsRow[];
+  sla_breaches: ProcessOpsRow[];
+  counts: {
+    stuck_instances: number;
+    aging_tasks: number;
+    sla_breaches: number;
+    open_user_tasks: number;
+  };
+};
+
 export type ProcessMining = {
   instance_sample: number;
   event_count: number;
@@ -177,6 +208,13 @@ export function createProcessApi() {
         { method: "POST", body: JSON.stringify({ pack_id: packId }) },
       ),
     metrics: () => request<ProcessMetrics>("/process/metrics/", {}),
+    ops: (params: { stuck_hours?: number; aging_hours?: number } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.stuck_hours != null) qs.set("stuck_hours", String(params.stuck_hours));
+      if (params.aging_hours != null) qs.set("aging_hours", String(params.aging_hours));
+      const suffix = qs.toString() ? `?${qs}` : "";
+      return request<ProcessOps>(`/process/ops/${suffix}`, {});
+    },
     mining: () => request<ProcessMining>("/process/mining/", {}),
     listCaseDefinitions: () =>
       request<CaseDefinition[]>("/process/cases/definitions/", {}),
