@@ -17,7 +17,7 @@
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **P10** — PM / Process / CRM (Deal→Project, Process↔WBS, guest portal, capacity hints…); MS Project XML (нужен sample).
+См. [ROADMAP.md](ROADMAP.md) § **Планы** (P10: Deal→Project, Process↔WBS, guest portal…); MS Project XML — нужен sample.
 
 ## [0.17.0] — 2026-07-31
 
