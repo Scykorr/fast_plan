@@ -98,6 +98,26 @@ export type ProjectBaseline = {
   activities: BaselineActivity[];
 };
 
+export type ProjectChangeRequest = {
+  id: number;
+  project: number;
+  title: string;
+  description: string;
+  change_type: "scope" | "schedule" | "cost" | "other" | string;
+  status: "draft" | "submitted" | "approved" | "rejected" | string;
+  impact_notes: string;
+  decision_note: string;
+  baseline: number | null;
+  baseline_name: string | null;
+  requested_by: number | null;
+  requested_by_email: string | null;
+  decided_by: number | null;
+  decided_by_email: string | null;
+  created_at: string;
+  updated_at: string;
+  decided_at: string | null;
+};
+
 export type EvmLite = {
   budget: number;
   earned_value: number;
@@ -553,6 +573,34 @@ export function createProjectsApi() {
 
     deleteBaseline: (baselineId: number) =>
       request<void>(`/baselines/${baselineId}/`, { method: "DELETE" }),
+
+    getChangeRequests: (projectId: number) =>
+      request<ProjectChangeRequest[]>(
+        `/projects/${projectId}/change-requests/`,
+        {},
+      ),
+    createChangeRequest: (
+      projectId: number,
+      body: {
+        title: string;
+        description?: string;
+        change_type?: string;
+        impact_notes?: string;
+        status?: string;
+      },
+    ) =>
+      request<ProjectChangeRequest>(`/projects/${projectId}/change-requests/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    decideChangeRequest: (
+      crId: number,
+      body: { action: "approve" | "reject"; note?: string; create_baseline?: boolean },
+    ) =>
+      request<ProjectChangeRequest>(`/change-requests/${crId}/decide/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
 
     getCriticalPath: (projectId: number) =>
       request<CriticalPath>(`/projects/${projectId}/critical-path/`, {}),

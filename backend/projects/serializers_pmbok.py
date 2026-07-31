@@ -3,6 +3,7 @@ from rest_framework import serializers
 from projects.models import (
     BaselineActivity,
     ProjectBaseline,
+    ProjectChangeRequest,
     ProjectCharter,
     RACIEntry,
     Risk,
@@ -172,3 +173,36 @@ class ProjectBaselineSerializer(serializers.ModelSerializer):
         model = ProjectBaseline
         fields = ("id", "name", "created_at", "created_by", "activities")
         read_only_fields = ("id", "created_at", "created_by", "activities")
+
+
+class ProjectChangeRequestSerializer(serializers.ModelSerializer):
+    baseline_name = serializers.CharField(source="baseline.name", read_only=True, allow_null=True)
+    requested_by_email = serializers.EmailField(
+        source="requested_by.email", read_only=True, allow_null=True
+    )
+    decided_by_email = serializers.EmailField(
+        source="decided_by.email", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = ProjectChangeRequest
+        fields = (
+            "id",
+            "project",
+            "title",
+            "description",
+            "change_type",
+            "status",
+            "impact_notes",
+            "decision_note",
+            "baseline",
+            "baseline_name",
+            "requested_by",
+            "requested_by_email",
+            "decided_by",
+            "decided_by_email",
+            "created_at",
+            "updated_at",
+            "decided_at",
+        )
+        read_only_fields = fields

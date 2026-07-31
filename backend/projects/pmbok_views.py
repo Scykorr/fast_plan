@@ -15,6 +15,7 @@ from projects.exports import (
 )
 from projects.models import (
     ProjectBaseline,
+    ProjectChangeRequest,
     ProjectCharter,
     RACIEntry,
     Risk,
@@ -24,6 +25,7 @@ from projects.pdf import render_status_report_pdf
 from projects.reports import build_status_report
 from projects.serializers_pmbok import (
     ProjectBaselineSerializer,
+    ProjectChangeRequestSerializer,
     ProjectCharterSerializer,
     RACIEntrySerializer,
     RACIWriteSerializer,
@@ -290,6 +292,114 @@ class BaselineDetailView(WorkspaceMixin, APIView):
         baseline = self.get_baseline(baseline_id)
         baseline.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChangeRequestListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        rows = project.change_requests.select_related(
+            "baseline", "requested_by", "decided_by"
+        )
+        return Response(ProjectChangeRequestSerializer(rows, many=True).data)
+
+    def post(self, request, project_id):
+        from projects.change_requests import create_change_request
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        cr = create_change_request(
+            project,
+            title=request.data.get("title"),
+            user=request.user,
+            description=request.data.get("description"),
+            change_type=request.data.get("change_type"),
+            status=request.data.get("status") or ProjectChangeRequest.Status.SUBMITTED,
+            impact_notes=request.data.get("impact_notes"),
+        )
+        log_audit(
+            project.workspace,
+            request.user,
+            "change_request.create",
+            "ProjectChangeRequest",
+            cr.id,
+            summary=f"Created CR: {cr.title}",
+        )
+        return Response(
+            ProjectChangeRequestSerializer(cr).data, status=status.HTTP_201_CREATED
+        )
+
+
+class ChangeRequestDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get_object(self, cr_id):
+        return get_object_or_404(
+            ProjectChangeRequest.objects.filter(
+                project__workspace=self.get_workspace()
+            ).select_related("baseline", "requested_by", "decided_by"),
+            pk=cr_id,
+        )
+
+    def get(self, request, cr_id):
+        return Response(ProjectChangeRequestSerializer(self.get_object(cr_id)).data)
+
+    def patch(self, request, cr_id):
+        cr = self.get_object(cr_id)
+        if cr.status not in (
+            ProjectChangeRequest.Status.DRAFT,
+            ProjectChangeRequest.Status.SUBMITTED,
+        ):
+            raise ValidationError({"detail": "Only open CRs can be edited."})
+        for field in ("title", "description", "impact_notes"):
+            if field in request.data:
+                setattr(cr, field, str(request.data.get(field) or ""))
+        if "change_type" in request.data:
+            change_type = request.data.get("change_type")
+            if change_type not in ProjectChangeRequest.ChangeType.values:
+                raise ValidationError({"change_type": "Invalid change type."})
+            cr.change_type = change_type
+        if "status" in request.data:
+            status_value = request.data.get("status")
+            if status_value not in (
+                ProjectChangeRequest.Status.DRAFT,
+                ProjectChangeRequest.Status.SUBMITTED,
+            ):
+                raise ValidationError({"status": "Use decide endpoint for approve/reject."})
+            cr.status = status_value
+        cr.save()
+        return Response(ProjectChangeRequestSerializer(cr).data)
+
+
+class ChangeRequestDecideView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, cr_id):
+        from projects.change_requests import decide_change_request
+
+        cr = get_object_or_404(
+            ProjectChangeRequest.objects.filter(project__workspace=self.get_workspace()),
+            pk=cr_id,
+        )
+        create_bl = request.data.get("create_baseline", True)
+        if isinstance(create_bl, str):
+            create_bl = create_bl.lower() not in ("0", "false", "no")
+        cr = decide_change_request(
+            cr,
+            action=request.data.get("action"),
+            user=request.user,
+            note=request.data.get("note") or "",
+            create_baseline_on_approve=bool(create_bl),
+        )
+        log_audit(
+            cr.project.workspace,
+            request.user,
+            f"change_request.{cr.status}",
+            "ProjectChangeRequest",
+            cr.id,
+            summary=f"CR {cr.status}: {cr.title}",
+        )
+        return Response(ProjectChangeRequestSerializer(cr).data)
 
 
 class CriticalPathView(WorkspaceMixin, APIView):

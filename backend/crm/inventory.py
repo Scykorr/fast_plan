@@ -82,6 +82,20 @@ def normalize_line_items(workspace, line_items: list | None) -> list:
     return out
 
 
+def line_items_total(line_items: list | None) -> Decimal:
+    total = Decimal("0")
+    for item in line_items or []:
+        if not isinstance(item, dict):
+            continue
+        qty = _as_decimal(item.get("qty") if item.get("qty") is not None else item.get("quantity"), "0")
+        price = _as_decimal(
+            item.get("price") if item.get("price") is not None else item.get("unit_price"),
+            "0",
+        )
+        total += qty * price
+    return total.quantize(Decimal("0.01"))
+
+
 def fulfill_document_stock(document: CrmDocument, user=None) -> list[CrmStockMovement]:
     """Decrement SKU qty for invoice line_items when marking paid (once)."""
     if document.stock_fulfilled:

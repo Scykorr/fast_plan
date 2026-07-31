@@ -1143,6 +1143,7 @@ class CrmDocumentWriteSerializer(serializers.Serializer):
     currency = serializers.CharField(required=False, max_length=3)
     body = serializers.CharField(required=False, allow_blank=True)
     line_items = serializers.ListField(required=False, allow_empty=True)
+    recompute_amount = serializers.BooleanField(required=False, default=False)
     issue_date = serializers.DateField(required=False, allow_null=True)
     due_date = serializers.DateField(required=False, allow_null=True)
     organization_id = serializers.IntegerField(required=False, allow_null=True)

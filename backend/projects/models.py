@@ -340,6 +340,68 @@ class ProjectBaseline(models.Model):
         return f"{self.project.name} — {self.name}"
 
 
+class ProjectChangeRequest(models.Model):
+    """Formal PM change request; approve can create a linked baseline."""
+
+    class ChangeType(models.TextChoices):
+        SCOPE = "scope", "Scope"
+        SCHEDULE = "schedule", "Schedule"
+        COST = "cost", "Cost"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SUBMITTED = "submitted", "Submitted"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="change_requests",
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    change_type = models.CharField(
+        max_length=20, choices=ChangeType.choices, default=ChangeType.OTHER
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    impact_notes = models.TextField(blank=True, default="")
+    decision_note = models.TextField(blank=True, default="")
+    baseline = models.ForeignKey(
+        ProjectBaseline,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="change_requests",
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_change_requests",
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decided_project_change_requests",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"CR-{self.id}: {self.title}"
+
+
 class BaselineActivity(models.Model):
     baseline = models.ForeignKey(
         ProjectBaseline,

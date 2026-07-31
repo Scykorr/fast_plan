@@ -26,7 +26,7 @@ from crm.channels import (
     sync_connection,
 )
 from crm.commerce_pdf import render_crm_document_pdf
-from crm.inventory import normalize_line_items, sync_document_stock_on_status_change
+from crm.inventory import line_items_total, normalize_line_items, sync_document_stock_on_status_change
 from crm.models import (
     ChannelConnection,
     CrmDocument,
@@ -270,13 +270,20 @@ class CrmDocumentListCreateView(WorkspaceMixin, APIView):
             if person is None:
                 person = deal.person
         line_items = normalize_line_items(workspace, data.get("line_items") or [])
+        amount = data.get("amount")
+        if amount in (None, "") or data.get("recompute_amount"):
+            computed = line_items_total(line_items)
+            if computed > 0 or data.get("recompute_amount"):
+                amount = computed
+            else:
+                amount = data.get("amount") or 0
         doc = CrmDocument.objects.create(
             workspace=workspace,
             doc_type=data["doc_type"],
             number=data.get("number") or "",
             title=data["title"],
             status=data.get("status") or CrmDocument.Status.DRAFT,
-            amount=data.get("amount") or 0,
+            amount=amount or 0,
             currency=data.get("currency") or "RUB",
             body=data.get("body") or "",
             line_items=line_items,
@@ -328,6 +335,8 @@ class CrmDocumentDetailView(WorkspaceMixin, APIView):
                 setattr(doc, field, data[field])
         if "line_items" in data:
             doc.line_items = normalize_line_items(doc.workspace, data["line_items"] or [])
+            if "amount" not in data or data.get("recompute_amount"):
+                doc.amount = line_items_total(doc.line_items)
         if "organization_id" in data:
             oid = data["organization_id"]
             doc.organization = (

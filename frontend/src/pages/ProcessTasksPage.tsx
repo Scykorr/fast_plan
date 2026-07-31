@@ -45,7 +45,7 @@ export function ProcessTasksPage() {
         await Promise.all(
           projectIds.map(async (projectId) => {
             try {
-              next[projectId] = await projectsApi.listWbs(projectId);
+              next[projectId] = await projectsApi.getWBS(projectId);
             } catch {
               next[projectId] = [];
             }

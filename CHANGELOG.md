@@ -23,10 +23,12 @@
 - **Guest commercial portal** — `CrmDocumentShareLink`, публичные `GET/POST /api/crm/share/<token>/` (+ `/approve/`, `/pdf/`); UI `/commerce/:token` и кнопка «Ссылка гостю» на `/crm-commerce`
 - **Capacity-aware schedule hints** — `capacity_hint` в `GET …/schedule/` и WBS; подсветка перегруза на Gantt/WBS
 - **Org/Person merge** — `GET …/duplicates/`, `POST …/merge/`; панель дублей на `/clients`
+- **Project change requests** — `GET/POST …/change-requests/`, `POST …/decide/` (approve → linked baseline); UI на вкладке Baseline
+- **Quote/Invoice line editor** — multi-line SKU picker, `recompute_amount`, PATCH строк на `/crm-commerce`
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P2: change requests, PERT, service adapters…).
+См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P2: PERT P10/P50/P90, service-adapter catalog, ARR lite…).
 
 ## [0.17.0] — 2026-07-31
 

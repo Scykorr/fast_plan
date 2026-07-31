@@ -19,6 +19,9 @@ from projects.p4_views import (
 from projects.pmbok_views import (
     BaselineDetailView,
     BaselineListCreateView,
+    ChangeRequestDecideView,
+    ChangeRequestDetailView,
+    ChangeRequestListCreateView,
     CriticalPathView,
     ProjectCharterView,
     ProjectExportView,
@@ -172,6 +175,21 @@ urlpatterns = [
         "baselines/<int:baseline_id>/",
         BaselineDetailView.as_view(),
         name="baseline-detail",
+    ),
+    path(
+        "projects/<int:project_id>/change-requests/",
+        ChangeRequestListCreateView.as_view(),
+        name="project-change-requests",
+    ),
+    path(
+        "change-requests/<int:cr_id>/",
+        ChangeRequestDetailView.as_view(),
+        name="change-request-detail",
+    ),
+    path(
+        "change-requests/<int:cr_id>/decide/",
+        ChangeRequestDecideView.as_view(),
+        name="change-request-decide",
     ),
     path(
         "calendar/milestones/",

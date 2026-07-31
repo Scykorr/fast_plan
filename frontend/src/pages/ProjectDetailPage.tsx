@@ -9,6 +9,7 @@ import type {
   PertNetwork,
   Project,
   ProjectBaseline,
+  ProjectChangeRequest,
   ProjectDashboard,
   ProjectSchedule,
   ProjectStatusReport,
@@ -133,6 +134,7 @@ export function ProjectDetailPage() {
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [raci, setRaci] = useState<RACIEntry[]>([]);
   const [baselines, setBaselines] = useState<ProjectBaseline[]>([]);
+  const [changeRequests, setChangeRequests] = useState<ProjectChangeRequest[]>([]);
   const [criticalPath, setCriticalPath] = useState<CriticalPath | null>(null);
   const [pertNetwork, setPertNetwork] = useState<PertNetwork | null>(null);
   const [importMessage, setImportMessage] = useState("");
@@ -197,6 +199,7 @@ export function ProjectDetailPage() {
         stakeholdersData,
         raciData,
         baselinesData,
+        changeRequestsData,
         cpmData,
         exportData,
         financeData,
@@ -209,6 +212,7 @@ export function ProjectDetailPage() {
         projectsApi.getStakeholders(id),
         projectsApi.getRACI(id),
         projectsApi.getBaselines(id),
+        projectsApi.getChangeRequests(id),
         projectsApi.getCriticalPath(id),
         projectsApi.exportProject(id),
         financeApi ? financeApi.getProjectFinance(id) : Promise.resolve(null),
@@ -221,6 +225,7 @@ export function ProjectDetailPage() {
       setStakeholders(stakeholdersData);
       setRaci(raciData);
       setBaselines(baselinesData);
+      setChangeRequests(changeRequestsData);
       setCriticalPath(cpmData);
       setStatusReport(exportData);
       setProjectFinance(financeData);
@@ -1276,6 +1281,7 @@ export function ProjectDetailPage() {
         <BaselineView
           baselines={baselines}
           schedule={schedule}
+          changeRequests={changeRequests}
           onCreate={async (name) => {
             if (!projectsApi) {
               return;
@@ -1290,6 +1296,33 @@ export function ProjectDetailPage() {
           }}
           onRename={(baselineId, name) => handleUpdateBaseline(baselineId, name)}
           onDelete={(baselineId) => handleDeleteBaseline(baselineId)}
+          onCreateChangeRequest={async (body) => {
+            if (!projectsApi) return;
+            try {
+              await projectsApi.createChangeRequest(id, body);
+              setChangeRequests(await projectsApi.getChangeRequests(id));
+            } catch (err) {
+              setError(parseApiError(err, "Не удалось создать change request"));
+              throw err;
+            }
+          }}
+          onDecideChangeRequest={async (crId, action) => {
+            if (!projectsApi) return;
+            try {
+              await projectsApi.decideChangeRequest(crId, {
+                action,
+                create_baseline: true,
+              });
+              const [crs, bls] = await Promise.all([
+                projectsApi.getChangeRequests(id),
+                projectsApi.getBaselines(id),
+              ]);
+              setChangeRequests(crs);
+              setBaselines(bls);
+            } catch (err) {
+              setError(parseApiError(err, "Не удалось решить change request"));
+            }
+          }}
         />
       )}
 

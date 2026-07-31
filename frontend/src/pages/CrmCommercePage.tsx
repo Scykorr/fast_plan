@@ -10,6 +10,13 @@ import type {
   CrmSku,
 } from "../api/crm";
 import { ErrorMessage } from "../components/ErrorMessage";
+import {
+  DocumentLineEditor,
+  emptyDocumentLines,
+  linesToPayload,
+  linesTotal,
+  type DocumentLineDraft,
+} from "../components/crm/DocumentLineEditor";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useLocale } from "../context/LocaleContext";
 import { useWorkspace } from "../context/WorkspaceContext";
@@ -68,9 +75,10 @@ export function CrmCommercePage() {
     number: "",
     body: "",
     due_date: "",
-    sku_id: "",
-    sku_qty: "1",
   });
+  const [docLines, setDocLines] = useState<DocumentLineDraft[]>(emptyDocumentLines());
+  const [editingDocId, setEditingDocId] = useState<number | null>(null);
+  const [editLines, setEditLines] = useState<DocumentLineDraft[]>(emptyDocumentLines());
   const [skuForm, setSkuForm] = useState({
     code: "",
     name: "",
@@ -201,26 +209,20 @@ export function CrmCommercePage() {
     event.preventDefault();
     if (!crmApi || !docForm.title.trim()) return;
     try {
-      const line_items =
-        docForm.sku_id.trim() !== ""
-          ? [
-              {
-                sku_id: Number(docForm.sku_id),
-                qty: Number(docForm.sku_qty) || 1,
-              },
-            ]
-          : undefined;
+      const line_items = linesToPayload(docLines);
+      const total = linesTotal(docLines);
       await crmApi.createDocument({
         doc_type: docForm.doc_type,
         title: docForm.title.trim(),
         number: docForm.number,
-        amount: docForm.amount || 0,
+        amount: docForm.amount || total || 0,
+        recompute_amount: line_items.length > 0,
         body: docForm.body,
         due_date: docForm.due_date || null,
         status: docForm.doc_type === "bill" || docForm.doc_type === "invoice"
           ? "sent"
           : "draft",
-        ...(line_items ? { line_items } : {}),
+        ...(line_items.length ? { line_items } : {}),
       });
       setDocForm({
         doc_type: docForm.doc_type,
@@ -229,9 +231,8 @@ export function CrmCommercePage() {
         number: "",
         body: "",
         due_date: "",
-        sku_id: "",
-        sku_qty: "1",
       });
+      setDocLines(emptyDocumentLines());
       setMessage("Документ создан");
       await load();
     } catch (err) {
@@ -607,24 +608,9 @@ export function CrmCommercePage() {
             placeholder="Текст"
             className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
           />
-          <select
-            value={docForm.sku_id}
-            onChange={(e) => setDocForm({ ...docForm, sku_id: e.target.value })}
-            className="rounded border border-border bg-surface px-2 py-1.5 text-sm sm:col-span-2"
-          >
-            <option value="">Позиция без SKU</option>
-            {skus.map((sku) => (
-              <option key={sku.id} value={sku.id}>
-                {sku.code} · {sku.name} ({sku.qty_on_hand})
-              </option>
-            ))}
-          </select>
-          <input
-            value={docForm.sku_qty}
-            onChange={(e) => setDocForm({ ...docForm, sku_qty: e.target.value })}
-            placeholder="Кол-во SKU"
-            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
-          />
+          <div className="sm:col-span-4">
+            <DocumentLineEditor lines={docLines} skus={skus} onChange={setDocLines} />
+          </div>
           <button
             type="submit"
             className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
@@ -648,6 +634,25 @@ export function CrmCommercePage() {
                 </p>
               </div>
               <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-xs"
+                  onClick={() => {
+                    setEditingDocId(doc.id);
+                    const existing = (doc.line_items || []).map((item, index) => ({
+                      key: `edit-${doc.id}-${index}`,
+                      sku_id: item.sku_id != null ? String(item.sku_id) : "",
+                      title: String(item.title || item.name || ""),
+                      qty: String(item.qty ?? item.quantity ?? 1),
+                      price: String(item.price ?? item.unit_price ?? ""),
+                    }));
+                    setEditLines(
+                      existing.length ? existing : emptyDocumentLines(),
+                    );
+                  }}
+                >
+                  Строки
+                </button>
                 <button
                   type="button"
                   className="rounded border border-border px-2 py-1 text-xs"
@@ -717,6 +722,47 @@ export function CrmCommercePage() {
                   </button>
                 )}
               </div>
+              {editingDocId === doc.id && (
+                <div className="mt-3 w-full space-y-2 border-t border-border pt-3">
+                  <DocumentLineEditor
+                    lines={editLines}
+                    skus={skus}
+                    onChange={setEditLines}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                      onClick={() =>
+                        void crmApi
+                          ?.patchDocument(doc.id, {
+                            line_items: linesToPayload(editLines),
+                            recompute_amount: true,
+                          })
+                          .then(() => {
+                            setEditingDocId(null);
+                            setMessage("Строки документа обновлены");
+                            return load();
+                          })
+                          .catch((err) =>
+                            setError(
+                              parseApiError(err, "Не удалось обновить строки"),
+                            ),
+                          )
+                      }
+                    >
+                      Сохранить строки
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-border px-3 py-1.5 text-xs"
+                      onClick={() => setEditingDocId(null)}
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>

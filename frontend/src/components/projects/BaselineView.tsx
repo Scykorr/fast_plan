@@ -1,13 +1,29 @@
 import { useEffect, useState, type FormEvent } from "react";
 
-import type { CriticalPath, ProjectBaseline, ProjectSchedule } from "../../api/projects";
+import type {
+  CriticalPath,
+  ProjectBaseline,
+  ProjectChangeRequest,
+  ProjectSchedule,
+} from "../../api/projects";
 
 type BaselineViewProps = {
   baselines: ProjectBaseline[];
   schedule: ProjectSchedule | null;
+  changeRequests?: ProjectChangeRequest[];
   onCreate: (name?: string) => Promise<void> | void;
   onRename: (id: number, name: string) => Promise<void> | void;
   onDelete: (id: number) => Promise<void> | void;
+  onCreateChangeRequest?: (body: {
+    title: string;
+    change_type: string;
+    description?: string;
+    impact_notes?: string;
+  }) => Promise<void> | void;
+  onDecideChangeRequest?: (
+    id: number,
+    action: "approve" | "reject",
+  ) => Promise<void> | void;
 };
 
 const inputClass =
@@ -16,9 +32,12 @@ const inputClass =
 export function BaselineView({
   baselines,
   schedule,
+  changeRequests = [],
   onCreate,
   onRename,
   onDelete,
+  onCreateChangeRequest,
+  onDecideChangeRequest,
 }: BaselineViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -29,6 +48,13 @@ export function BaselineView({
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState("");
   const [renameLoading, setRenameLoading] = useState(false);
+  const [crForm, setCrForm] = useState({
+    title: "",
+    change_type: "scope",
+    description: "",
+    impact_notes: "",
+  });
+  const [crBusy, setCrBusy] = useState(false);
 
   useEffect(() => {
     if (baselines.length === 0) {
@@ -266,6 +292,118 @@ export function BaselineView({
             </table>
           </div>
         </div>
+      )}
+
+      {onCreateChangeRequest && (
+        <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
+          <h3 className="text-base font-semibold text-text">Change requests</h3>
+          <p className="text-xs text-text-muted">
+            Approve создаёт linked baseline со снимком текущего расписания.
+          </p>
+          <form
+            className="grid gap-2 sm:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!crForm.title.trim() || !onCreateChangeRequest) return;
+              setCrBusy(true);
+              void Promise.resolve(
+                onCreateChangeRequest({
+                  title: crForm.title.trim(),
+                  change_type: crForm.change_type,
+                  description: crForm.description.trim() || undefined,
+                  impact_notes: crForm.impact_notes.trim() || undefined,
+                }),
+              )
+                .then(() =>
+                  setCrForm({
+                    title: "",
+                    change_type: "scope",
+                    description: "",
+                    impact_notes: "",
+                  }),
+                )
+                .finally(() => setCrBusy(false));
+            }}
+          >
+            <input
+              className={inputClass}
+              placeholder="Название CR"
+              value={crForm.title}
+              onChange={(e) => setCrForm({ ...crForm, title: e.target.value })}
+              required
+            />
+            <select
+              className={inputClass}
+              value={crForm.change_type}
+              onChange={(e) => setCrForm({ ...crForm, change_type: e.target.value })}
+            >
+              <option value="scope">Scope</option>
+              <option value="schedule">Schedule</option>
+              <option value="cost">Cost</option>
+              <option value="other">Other</option>
+            </select>
+            <input
+              className={`${inputClass} sm:col-span-2`}
+              placeholder="Описание"
+              value={crForm.description}
+              onChange={(e) => setCrForm({ ...crForm, description: e.target.value })}
+            />
+            <input
+              className={`${inputClass} sm:col-span-2`}
+              placeholder="Impact notes"
+              value={crForm.impact_notes}
+              onChange={(e) => setCrForm({ ...crForm, impact_notes: e.target.value })}
+            />
+            <button
+              type="submit"
+              disabled={crBusy}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2"
+            >
+              Создать CR
+            </button>
+          </form>
+          <ul className="space-y-2">
+            {changeRequests.map((cr) => (
+              <li
+                key={cr.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                <div>
+                  <p className="font-medium text-text">
+                    #{cr.id} {cr.title} · {cr.change_type} · {cr.status}
+                  </p>
+                  {cr.baseline_name && (
+                    <p className="text-xs text-text-muted">
+                      Baseline: {cr.baseline_name}
+                    </p>
+                  )}
+                </div>
+                {(cr.status === "draft" || cr.status === "submitted") &&
+                  onDecideChangeRequest && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded border border-border px-2 py-1 text-xs"
+                        onClick={() => void onDecideChangeRequest(cr.id, "approve")}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded border border-border px-2 py-1 text-xs"
+                        onClick={() => void onDecideChangeRequest(cr.id, "reject")}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+              </li>
+            ))}
+            {changeRequests.length === 0 && (
+              <li className="text-sm text-text-muted">Пока нет change requests</li>
+            )}
+          </ul>
+        </section>
       )}
     </div>
   );
