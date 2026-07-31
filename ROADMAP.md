@@ -130,10 +130,61 @@ _Выполнено (2026-07-20): staging checklist, AI WBS/schedule, per-projec
 1. ~~**P9 Agent Ops**~~ — закрыт по ТЗ (P9a–h); **релизён в v0.15.0**.
 2. ~~**CRM polish**~~ — hotkeys, saved filters, акт PDF, Instagram/VK, report builder, GraphQL lite — **в v0.15.0**.
 3. ~~**CRM custom fields + typed SDK + Agent Ops hardening + PBX polish**~~ — **релизён в v0.16.0**.
-4. **MS Project XML import** — при появлении подтверждённого формата/образца.
-5. ~~**Process conformance / full FEEL / Camunda-grade CMMN**~~ — **явный out of scope** (см. P8 ADR / таблицу «Не цель» ниже). Не планируем как спринт.
+4. ~~**Склад / SKU MVP**~~ — **релизён в v0.17.0**.
+5. **MS Project XML import** — при появлении подтверждённого формата/образца (см. ниже + блок «Отложено»).
+6. **P10 backlog** — PM / Process / CRM усиления (см. секцию **P10** ниже). Берём сверху вниз внутри доменов.
+7. ~~**Process conformance / full FEEL / Camunda-grade CMMN**~~ — **явный out of scope** (см. P8 ADR / таблицу «Не цель» ниже). Не планируем как спринт.
 
-~~Ранее закрыто:~~ P5 чаты · Redis SSE · **P6 CRM (ядро + polish + custom fields)** · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · telephony (Asterisk/Mango/Beeline/MTS) · staging smoke · **P9 Agent Ops (TZ + CI E2E)** · **v0.16.0 SDK/OpenAPI/restore-drill**.
+~~Ранее закрыто:~~ P5 чаты · Redis SSE · **P6 CRM (ядро + polish + custom fields + SKU)** · P7 Security+SSO · P7 Mobile · P8 Process MVP+UX+P8g · telephony · staging smoke · **P9 Agent Ops** · **v0.16–0.17**.
+
+---
+
+## P10 — следующий бэклог (PM / Process / CRM)
+
+_Добавлено 2026-07-31 после v0.17.0._ Ядро закрыто; ниже — усиления «sell → deliver → run» без выхода в out-of-scope (WMS, full FEEL, Camunda CMMN, marketing journeys, native apps, co-edit).
+
+Приоритет: **P1** (высокий ROI / закрывает дыру) → **P2** → **P3** (nice-to-have). Оценка: **S** / **M** / **L**.
+
+### PM — управление проектами
+
+| Pri | Пункт | Оценка | Зачем |
+|-----|-------|--------|-------|
+| **P1** | **Deal won → Project from template** — кнопка/автоматизация: проект из шаблона, связь Deal↔Project, опционально старт Process | **M** | Главный handoff «продажа → исполнение»; связь уже есть, продуктового момента нет |
+| **P1** | **Capacity-aware schedule hints** — перегрузка людей на Gantt/WBS по capacity + time entries; подсветка / предложение сдвига (не полный leveling) | **M** | Capacity и Gantt уже есть; замыкает «план vs люди» |
+| **P2** | **Change requests + baseline** — журнал CR, approve/reject, опциональный re-baseline | **M** | Baselines/EVM есть; не хватает контура управления изменениями |
+| **P2** | **PERT probabilistic finish** — P10/P50/P90 (Monte Carlo lite) по 3-точечным оценкам на сети | **M** | PERT-структура есть; нужны вероятностные сроки для обязательств клиенту |
+| **P3** | **Cross-project / program dependencies** — связи вех между проектами; program critical path на Portfolio | **L** | Portfolio сейчас сводка; у delivery часто несколько проектов на одного клиента |
+| **P3** | **MS Project XML import** — WBS/связи/даты из `.xml` (нужен sample) | **M–L** | Отложено до образца; см. кандидаты выше |
+
+### Process — управление процессами
+
+| Pri | Пункт | Оценка | Зачем |
+|-----|-------|--------|-------|
+| **P1** | **UserTask ↔ WBS/Kanban binding** — открыть/закрыть work package или карточку из process task; синхрон статуса | **M** | Deep-links есть; binding делает Process оркестратором PM (дифференциатор) |
+| **P1** | **Process ops dashboard** — зависшие токены, aging inbox, SLA, стык с DFG bottlenecks | **S–M** | Mining + inbox есть; нужна дневная операционка для лидов продаж/ops |
+| **P2** | **Service-adapter catalog** — типизированные действия: создать Deal/Project/task, Activity, webhook, notify | **M** | ServiceTask есть; каталог снижает кастомный glue |
+| **P2** | **BPMN executable expansion** — SubProcess/CallActivity, InclusiveGateway, boundary timer/error (whitelist Spiff) | **L** | Нужно для реальных ISO/ITIL packs; не Camunda |
+| **P3** | **Message/signal start from CRM events** — старт instance по Deal stage / invoice paid / lead converted (поверх существующих hooks) | **M** | Связка CRM↔Process без отдельного iPaaS |
+
+### CRM
+
+| Pri | Пункт | Оценка | Зачем |
+|-----|-------|--------|-------|
+| **P1** | **Guest commercial portal** — share-link: просмотр КП/счёта/акта, approve quote, статус оплаты (без co-edit) | **M** | Guest status уже есть; коммерческий край для клиента |
+| **P1** | **Org/Person merge + dedupe UI** — слияние дублей, подсказки по email/phone/activity | **S–M** | Lead dedupe есть; org/person копятся из каналов |
+| **P2** | **Contract renewals / ARR lite** — renewal date, notice, reminders, простой recurring на Organization | **M** | Contract PDF + reminders есть; retention для services без marketing journeys |
+| **P2** | **Quote/Invoice line editor UX** — полноценный редактор позиций + picker SKU (сейчас минимальный) | **S–M** | SKU MVP есть; UX документов отстаёт |
+| **P3** | **1С ↔ SKU sync lite** — импорт номенклатуры/остатков через существующий 1C connector | **M** | Connector есть; складский контур для RU B2B |
+| **P3** | **CRM activity → Process / Project task** — из timeline создать process task или WBS item одним кликом | **S** | Склейка доменов в UI |
+
+### Рекомендуемый порядок спринтов (P10)
+
+1. **P1 bundle A** — Deal→Project template + Process ops dashboard (**M + S–M**).  
+2. **P1 bundle B** — UserTask↔WBS/Kanban + Guest commercial portal (**M + M**).  
+3. **P1/P2** — Capacity hints + Org/Person merge (**M + S–M**).  
+4. Дальше по таблицам (CR/baseline, renewals, adapters, BPMN expansion…).  
+5. **MS Project XML** — только после sample.  
+6. Ops: quarterly `restore-drill` (уже в hygiene).
 
 ---
 
@@ -233,7 +284,7 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 | 14 | Security: 2FA, SSO, audit, backup, encryption, sessions, IP | **✓ P7 + SSO** + `scripts/backup-db.sh` (opt GPG) | — |
 | 15 | Mobile: PWA + offline + push | **✓ P7 Mobile** — Web Push + offline CRM queue | — |
 
-**Итог:** ядро CRM + polish + custom fields / SDK / PBX (**v0.16.0**) + **SKU/склад MVP** **закрыто**. MS Project XML — при образце.
+**Итог:** ядро CRM + polish + custom fields / SDK / PBX (**v0.16.0**) + SKU/склад MVP (**v0.17.0**) **закрыто**. Следующий продуктовый слой — **[P10](#p10--следующий-бэклог-pm--process--crm)**; MS Project XML — при образце.
 
 ### CRM polish (v0.15.0) — закрыт
 
@@ -302,7 +353,8 @@ _Старт:_ 2026-07-22 · _требования заказчика свере�
 3. ~~**Custom fields / SDK / Agent Ops E2E / PBX Beeline·MTS**~~ — **v0.16.0**.
 4. MS Project XML import — при наличии образца.
 5. ~~Склад / SKU~~ — MVP в CRM (`/crm/skus/`, `/crm-commerce`); полный WMS вне scope.
-6. Ops hygiene — quarterly `scripts/restore-drill.sh` on staging.
+6. **P10** — PM / Process / CRM усиления (Deal→Project, Process↔PM binding, guest portal, capacity hints…) — см. секцию P10.
+7. Ops hygiene — quarterly `scripts/restore-drill.sh` on staging.
 
 ### P6a — критерии (архив)
 
