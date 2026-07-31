@@ -67,6 +67,9 @@ class ProcessInstanceSerializer(serializers.ModelSerializer):
             "status",
             "data",
             "error_message",
+            "parent",
+            "parent_spiff_task_id",
+            "subprocess_bpmn_id",
             "started_at",
             "completed_at",
         )

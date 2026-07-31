@@ -11,7 +11,11 @@ from SpiffWorkflow.bpmn.parser.BpmnParser import BpmnParser
 from SpiffWorkflow.bpmn.serializer.config import DEFAULT_CONFIG
 from SpiffWorkflow.bpmn.serializer.default.task_spec import BpmnTaskSpecConverter
 from SpiffWorkflow.bpmn.serializer.workflow import BpmnWorkflowSerializer
-from SpiffWorkflow.bpmn.specs.defaults import ServiceTask, UserTask as SpiffUserTask
+from SpiffWorkflow.bpmn.specs.defaults import (
+    ServiceTask,
+    SubWorkflowTask,
+    UserTask as SpiffUserTask,
+)
 from SpiffWorkflow.bpmn.workflow import BpmnWorkflow
 from SpiffWorkflow.task import TaskState
 
@@ -43,7 +47,11 @@ def _as_bytes(bpmn_xml: str | bytes) -> bytes:
 def load_spec(bpmn_xml: str, process_id: str):
     parser = BpmnParser()
     parser.add_bpmn_str(_as_bytes(bpmn_xml))
-    return parser.get_spec(process_id)
+    spec = parser.get_spec(process_id)
+    subprocess_specs = parser.get_subprocess_specs(
+        process_id, require_call_activity_specs=False
+    )
+    return spec, subprocess_specs
 
 
 def serialize_workflow(workflow: BpmnWorkflow) -> str:
@@ -75,8 +83,8 @@ def active_bpmn_element_ids(instance: ProcessInstance) -> list[str]:
 
 def start_instance(instance: ProcessInstance) -> ProcessInstance:
     deployment = instance.deployment
-    spec = load_spec(deployment.bpmn_xml, deployment.process_id)
-    workflow = BpmnWorkflow(spec)
+    spec, subprocess_specs = load_spec(deployment.bpmn_xml, deployment.process_id)
+    workflow = BpmnWorkflow(spec, subprocess_specs=subprocess_specs or None)
     workflow.data.update(instance.data or {})
     _advance(instance, workflow)
     return instance
@@ -165,7 +173,10 @@ def _advance(instance: ProcessInstance, workflow: BpmnWorkflow) -> None:
                 "error_message",
             ]
         )
+        _sync_subprocess_children(instance, workflow)
         _sync_ready_tasks(instance, workflow)
+        if instance.status == ProcessInstance.Status.COMPLETED:
+            _resume_parent_if_needed(instance)
         _publish(instance)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Process instance %s failed", instance.id)
@@ -214,6 +225,80 @@ def _run_engine_loop(instance: ProcessInstance, workflow: BpmnWorkflow) -> None:
             activity.payload = {**activity.payload, "result_keys": list(result.keys())}
             activity.save(update_fields=["status", "completed_at", "payload"])
 
+
+
+def _sync_subprocess_children(
+    instance: ProcessInstance, workflow: BpmnWorkflow
+) -> None:
+    """Mirror Spiff embedded SubWorkflowTask tokens as child ProcessInstance rows."""
+    if instance.parent_id:
+        # Nested tracking is only rooted at top-level Fast Plan instances.
+        return
+    top = getattr(workflow, "top_workflow", None) or workflow
+    subprocesses = getattr(top, "subprocesses", None) or {}
+    seen_ids: set[str] = set()
+    for task in list(workflow.get_tasks(state=TaskState.STARTED)) + list(
+        workflow.get_tasks(state=TaskState.READY)
+    ):
+        if not isinstance(task.task_spec, SubWorkflowTask):
+            continue
+        tid = str(task.id)
+        seen_ids.add(tid)
+        bpmn_id = getattr(task.task_spec, "bpmn_id", None) or task.task_spec.name or ""
+        child, _ = ProcessInstance.objects.get_or_create(
+            parent=instance,
+            parent_spiff_task_id=tid,
+            defaults={
+                "workspace": instance.workspace,
+                "deployment": instance.deployment,
+                "business_key": f"{instance.business_key}:sub:{bpmn_id}"[:255],
+                "deal_id": instance.deal_id,
+                "project_id": instance.project_id,
+                "organization_id": instance.organization_id,
+                "status": ProcessInstance.Status.ACTIVE,
+                "data": dict(task.data or {}),
+                "started_by": instance.started_by,
+                "subprocess_bpmn_id": str(bpmn_id)[:120],
+            },
+        )
+        sub_wf = subprocesses.get(task.id)
+        if sub_wf is not None and getattr(sub_wf, "completed", False):
+            if child.status != ProcessInstance.Status.COMPLETED:
+                child.status = ProcessInstance.Status.COMPLETED
+                child.completed_at = timezone.now()
+                child.data = dict(getattr(sub_wf, "data", None) or child.data or {})
+                child.save(update_fields=["status", "completed_at", "data"])
+        elif task.state == TaskState.COMPLETED:
+            if child.status != ProcessInstance.Status.COMPLETED:
+                child.status = ProcessInstance.Status.COMPLETED
+                child.completed_at = timezone.now()
+                child.save(update_fields=["status", "completed_at"])
+
+    # Mark orphaned active children completed if parent subprocess token gone/completed
+    for child in instance.children.filter(status=ProcessInstance.Status.ACTIVE):
+        if child.parent_spiff_task_id and child.parent_spiff_task_id not in seen_ids:
+            # still might be completed silently — check Spiff
+            try:
+                from uuid import UUID
+
+                parent_task = workflow.get_task_from_id(
+                    UUID(str(child.parent_spiff_task_id))
+                )
+            except Exception:  # noqa: BLE001
+                parent_task = None
+            if parent_task is None or parent_task.state == TaskState.COMPLETED:
+                child.status = ProcessInstance.Status.COMPLETED
+                child.completed_at = timezone.now()
+                child.save(update_fields=["status", "completed_at"])
+
+
+def _resume_parent_if_needed(instance: ProcessInstance) -> None:
+    """No-op placeholder: Spiff resumes parent SubWorkflowTask in the same state_json.
+
+    Child rows are metadata mirrors; completion of inner UserTasks advances the
+    parent workflow via complete_user_task on the top-level instance.
+    """
+    return
 
 
 def _sync_ready_tasks(instance: ProcessInstance, workflow: BpmnWorkflow) -> None:

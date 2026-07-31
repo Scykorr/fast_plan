@@ -2,7 +2,10 @@ import { Link } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 
 import { parseApiError } from "../api/errors";
-import type { CrossProjectDependency } from "../api/projects";
+import type {
+  CrossProjectDependency,
+  WorkspaceScheduleActivity,
+} from "../api/projects";
 import type { WorkspaceDashboard } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ChatPanel } from "../components/chats/ChatPanel";
@@ -20,6 +23,9 @@ export function PortfolioPage() {
   const { formatMoney, currency, baseCurrency } = useLocale();
   const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
   const [crossDeps, setCrossDeps] = useState<CrossProjectDependency[]>([]);
+  const [scheduleActivities, setScheduleActivities] = useState<
+    WorkspaceScheduleActivity[]
+  >([]);
   const [crossForm, setCrossForm] = useState({
     predecessor_id: "",
     successor_id: "",
@@ -40,7 +46,12 @@ export function PortfolioPage() {
     try {
       setDashboard(await workspaceApi.getDashboard());
       if (projectsApi) {
-        setCrossDeps(await projectsApi.listCrossDependencies());
+        const [deps, activities] = await Promise.all([
+          projectsApi.listCrossDependencies(),
+          projectsApi.listWorkspaceScheduleActivities(),
+        ]);
+        setCrossDeps(deps);
+        setScheduleActivities(activities);
       }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить портфель"));
@@ -153,7 +164,7 @@ export function PortfolioPage() {
             </h2>
             <p className="text-xs text-text-muted">
               Мягкие связи между schedule activity разных проектов (не входят в
-              CPM). Укажите ID активностей из расписания.
+              CPM). Выберите активности из списка.
             </p>
             {message && (
               <p className="text-sm text-secondary" role="status">
@@ -168,7 +179,7 @@ export function PortfolioPage() {
                 const pred = Number(crossForm.predecessor_id);
                 const succ = Number(crossForm.successor_id);
                 if (!Number.isFinite(pred) || !Number.isFinite(succ)) {
-                  setError("Нужны числовые ID predecessor/successor");
+                  setError("Выберите predecessor и successor");
                   return;
                 }
                 void projectsApi
@@ -195,24 +206,36 @@ export function PortfolioPage() {
                   );
               }}
             >
-              <input
+              <select
                 value={crossForm.predecessor_id}
                 onChange={(e) =>
                   setCrossForm({ ...crossForm, predecessor_id: e.target.value })
                 }
-                placeholder="pred activity id"
                 className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
                 required
-              />
-              <input
+              >
+                <option value="">Predecessor…</option>
+                {scheduleActivities.map((a) => (
+                  <option key={`p-${a.id}`} value={a.id}>
+                    P{a.project_id}/{a.code} {a.name}
+                  </option>
+                ))}
+              </select>
+              <select
                 value={crossForm.successor_id}
                 onChange={(e) =>
                   setCrossForm({ ...crossForm, successor_id: e.target.value })
                 }
-                placeholder="succ activity id"
                 className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
                 required
-              />
+              >
+                <option value="">Successor…</option>
+                {scheduleActivities.map((a) => (
+                  <option key={`s-${a.id}`} value={a.id}>
+                    P{a.project_id}/{a.code} {a.name}
+                  </option>
+                ))}
+              </select>
               <select
                 value={crossForm.dependency_type}
                 onChange={(e) =>

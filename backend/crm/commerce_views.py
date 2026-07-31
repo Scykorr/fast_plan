@@ -500,6 +500,24 @@ class CrmRenewalsView(WorkspaceMixin, APIView):
             within_days = 90
         return Response(renewals_summary(self.get_workspace(), within_days=within_days))
 
+    def post(self, request):
+        """Create renewal DealTasks + notifications for upcoming contracts."""
+        from crm.renewals import send_renewal_reminders
+
+        within = request.data.get("within_days") or 30
+        try:
+            within_days = int(within)
+        except (TypeError, ValueError):
+            within_days = 30
+        dry_run = bool(request.data.get("dry_run"))
+        return Response(
+            send_renewal_reminders(
+                workspace=self.get_workspace(),
+                within_days=within_days,
+                dry_run=dry_run,
+            )
+        )
+
 
 class CrmArApView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]

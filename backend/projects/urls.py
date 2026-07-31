@@ -48,6 +48,7 @@ from projects.views import (
     WBSNodeDetailView,
     WBSTreeView,
     WorkspaceCalendarIcsView,
+    WorkspaceScheduleActivityListView,
     WorkspaceMilestonesCalendarView,
 )
 
@@ -130,6 +131,11 @@ urlpatterns = [
         "workspace/cross-dependencies/<int:dep_id>/",
         CrossProjectDependencyDetailView.as_view(),
         name="cross-project-dependency-detail",
+    ),
+    path(
+        "workspace/schedule-activities/",
+        WorkspaceScheduleActivityListView.as_view(),
+        name="workspace-schedule-activities",
     ),
     path(
         "projects/<int:project_id>/calendar/",

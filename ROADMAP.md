@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.18.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — UX glue → SubProcess → MS Project |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — MS Project (sample) / leveling / Inclusive GW |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -31,7 +31,7 @@
 | Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter | `/projects/:id` |
 | Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints | `/kanban`, `/tasks`, `/capacity`, Gantt/WBS |
 | Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM, baselines, **change requests**, burndown | вкладки проекта |
-| Портфель | сводка SPI/CPI/FX + **soft cross-project deps** | `/portfolio` |
+| Портфель | сводка SPI/CPI/FX + **cross-project deps** (activity picker) | `/portfolio` |
 | Обмен | CSV/XLSX/ICS, Jira CSV import, guest status share | проект / `/share/:token` |
 | AI | черновики WBS/risks/charter, refine, Ollama/OpenAI | проект |
 | Handoff | Deal → Project from template | `/deals`, `POST …/create-project/` |
@@ -44,6 +44,7 @@
 | Adapters | catalog ServiceTask ops (+ `create_wbs_note`) | `GET /process/adapters/`, вкладка Adapters |
 | DMN / CMMN | FEEL-lite; CMMN lite (`depends_on`) | `/processes` |
 | Ops | inbox, metrics, mining lite, **stuck/aging/SLA** | `/process-tasks`, вкладка Ops |
+| BPMN SubProcess | embedded SubProcess + **child ProcessInstance** mirror | engine + instance list |
 | Связка | UserTask ↔ WBS/Kanban; CRM events → start process | `/process-tasks`, automations / category |
 | Packs | ISO 9001/PDCA, ITIL/COBIT, ISO 27001 | import packs |
 | ADR | SpiffWorkflow + bpmn-js | [`docs/adr-p8-process.md`](docs/adr-p8-process.md) |
@@ -55,10 +56,10 @@
 | Клиенты | Org/Person, теги, сегменты, timeline, **merge/dedupe**, custom fields | `/clients` |
 | Продажи | Deal pipeline, Lead, CRM tasks Kanban | `/deals`, `/leads`, `/crm-tasks` |
 | Коммерция | КП/счёт/договор/акт PDF, line editor+SKU, оплаты, AR/AP, P&L, cashflow | `/crm-commerce` |
-| Договоры | **renewal_date / ARR lite**, upcoming renewals | `/crm-commerce`, `GET /crm/renewals/` |
+| Договоры | **renewal_date / ARR lite**, upcoming + **remind → DealTask/notify** | `/crm-commerce`, `GET/POST /crm/renewals/` |
 | Гостевой портал | КП/счёт/акт: approve + PDF по token | `/commerce/:token` |
 | Склад | SKU + movements; списание invoice→paid; **1С pending_skus → SKU** | `/crm-commerce`, `/api/crm/skus/` |
-| Склейка | Activity → WBS / process (1 клик) | `/clients` spawn |
+| Склейка | Activity → WBS / process (picker UI) | `/clients` spawn |
 | Каналы / PBX / календарь / AI / API | как раньше | commerce, calendar, crm-ai, OpenAPI |
 
 ### Платформа и соседние модули
@@ -95,16 +96,15 @@
 ### Порядок спринтов (рекомендация)
 
 1. ~~**Release 0.18.0**~~ — **✓** (P10 Unreleased → релиз; GitHub `v0.18.0`)
-2. **UX glue** — renewals→задачи/уведомления; spawn с выбором проекта; picker activity для cross-deps
-3. **BPMN SubProcess** — nested instance lifecycle (сейчас только «planned» в catalog)
+2. ~~**UX glue**~~ — **✓** renewals remind, spawn pickers, schedule-activity picker
+3. ~~**BPMN SubProcess**~~ — **✓** subprocess_specs + child ProcessInstance mirror
 4. **MS Project XML** — только после sample `.xml` / `.mpp`
-5. Ops: staging migrate если ещё не накатаны `0011`/`0016`/`0017`; раз в квартал `scripts/restore-drill.sh`
+5. Ops: staging migrate `0011`/`0016`/`0017`/`0003_subprocess`; раз в квартал `scripts/restore-drill.sh`
 
 ### PM — управление проектами
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P2** | Cross-project deps: picker активностей + визуализация на портфеле/Gantt | **M** | Сейчас только ID + soft list; нужен usable UX |
 | **P2** | Resource leveling lite (предложить сдвиг при overload hint) | **M** | Hints есть — следующий шаг «что делать» |
 | **P3** | PERT Monte Carlo (опция рядом с normal approx) | **M** | Точнее хвосты, чем z-score |
 | **P3** | MS Project XML import _(нужен sample)_ | **M–L** | Импорт из MS Project / Project Online |
@@ -113,16 +113,14 @@
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P1** | SubProcess: вложенный instance start/complete | **L** | Catalog «planned»; без этого BPMN expansion неполный |
 | **P2** | Inclusive Gateway: first-class условия + UI/docs | **M** | Сейчас experimental / Spiff-only |
 | **P3** | Миграция running instances при publish новой версии definition | **L** | Ops для долгих процессов |
+| **P3** | SubProcess viewer drill-down (коллапс в bpmn-js) | **M** | Backend lifecycle ✓; UI отложен |
 
 ### CRM
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P1** | Renewal reminders → DealTask / in-app notify (N дней до `renewal_date`) | **S–M** | ARR lite без follow-up не удерживает |
-| **P2** | Activity spawn: выбор проекта/process из UI (без `prompt`) | **S** | Склейка доменов должна быть 1 клик по-настоящему |
 | **P2** | Guest portal: явный статус оплаты / paid_total для гостя | **S** | Частый вопрос после approve |
 | **P3** | Live 1С OData / обмен номенклатурой _(нужен стенд)_ | **L** | Углубление после `pending_skus` |
 
@@ -132,7 +130,7 @@
 |-------|---------|
 | MS Project XML import | образец `.xml` / экспорт из MS Project |
 | Углубление конкретного PBX / live 1С | боевой стенд заказчика |
-| Full SubProcess UI (коллапс/drill-down в viewer) | после lifecycle backend |
+| Full SubProcess UI (коллапс/drill-down в viewer) | P3 в планах Process |
 
 ---
 
@@ -201,7 +199,7 @@
 
 ### P8 — whitelist executable BPMN (справка)
 
-Start/End, UserTask, ServiceTask, ExclusiveGateway, ParallelGateway, Timer (Celery), Message start. Inclusive — experimental; SubProcess — в [Планах](#process--управление-процессами).
+Start/End, UserTask, ServiceTask, ExclusiveGateway, ParallelGateway, Timer (Celery), Message start, **embedded SubProcess** (child instance mirror). Inclusive — experimental.
 
 ### P6 — фазы (все ✓)
 

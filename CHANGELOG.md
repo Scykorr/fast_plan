@@ -15,9 +15,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Renewal reminders** — `POST /api/crm/renewals/` → DealTask + in-app notify (idempotent); кнопка на `/crm-commerce`; в `run_all_reminders`
+- **Activity spawn pickers** — выбор проекта / published process на `/clients` (без `prompt`)
+- **Workspace schedule activities** — `GET /api/workspace/schedule-activities/`; cross-deps picker на `/portfolio`
+- **BPMN SubProcess** — `subprocess_specs` в engine; child `ProcessInstance` (`parent`, `parent_spiff_task_id`); catalog `supported`
+
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы**: UX glue → SubProcess → MS Project (после sample).
+См. [ROADMAP.md](ROADMAP.md) § **Планы**: leveling / Inclusive GW / MS Project (после sample).
 
 ## [0.18.0] — 2026-07-31
 

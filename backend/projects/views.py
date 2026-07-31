@@ -447,6 +447,52 @@ class WorkspaceCalendarIcsView(WorkspaceMixin, APIView):
         return workspace_calendar_ics(self.get_workspace())
 
 
+class WorkspaceScheduleActivityListView(WorkspaceMixin, APIView):
+    """Flat list of schedule activities across workspace projects (picker)."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from projects.models import ScheduleActivity
+
+        qs = (
+            ScheduleActivity.objects.filter(
+                wbs_node__project__workspace=self.get_workspace()
+            )
+            .select_related("wbs_node", "wbs_node__project")
+            .order_by("wbs_node__project_id", "id")
+        )
+        project_id = request.query_params.get("project_id")
+        if project_id:
+            try:
+                qs = qs.filter(wbs_node__project_id=int(project_id))
+            except (TypeError, ValueError):
+                pass
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            from django.db.models import Q
+
+            qs = qs.filter(
+                Q(wbs_node__title__icontains=q) | Q(wbs_node__code__icontains=q)
+            )
+        rows = []
+        for activity in qs[:400]:
+            node = activity.wbs_node
+            rows.append(
+                {
+                    "id": activity.id,
+                    "name": node.title,
+                    "code": node.code,
+                    "project_id": node.project_id,
+                    "project_name": node.project.name,
+                    "start_date": activity.start_date,
+                    "end_date": activity.end_date,
+                    "is_milestone": activity.is_milestone,
+                }
+            )
+        return Response(rows)
+
+
 class CrossProjectDependencyListCreateView(WorkspaceMixin, APIView):
     """Soft cross-project FS/SS/FF/SF links (not applied in CPM)."""
 

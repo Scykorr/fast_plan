@@ -15,12 +15,16 @@ import type {
   CrmTag,
 } from "../api/crm";
 import type { WorkspaceMember } from "../api/workspace";
+import type { ProcessDefinition } from "../api/process";
+import type { Project } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClickToCallButton } from "../components/crm/ClickToCallButton";
 import { CrmCustomFieldsPanel } from "../components/crm/CrmCustomFieldsPanel";
 import { CrmSavedFiltersBar } from "../components/crm/CrmSavedFiltersBar";
 import { useCrmApi } from "../hooks/useCrmApi";
 import { useCrmHotkeys } from "../hooks/useCrmHotkeys";
+import { useProcessApi } from "../hooks/useProcessApi";
+import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
@@ -62,6 +66,8 @@ function staleLabel(days: number | null | undefined) {
 export function ClientsPage() {
   const crmApi = useCrmApi();
   const workspaceApi = useWorkspaceApi();
+  const projectsApi = useProjectsApi();
+  const processApi = useProcessApi();
   const { workspaceEpoch } = useWorkspace();
   const [tab, setTab] = useState<"people" | "orgs">("people");
   const [query, setQuery] = useState("");
@@ -76,6 +82,10 @@ export function ClientsPage() {
   const [tags, setTags] = useState<CrmTag[]>([]);
   const [segments, setSegments] = useState<CrmSegment[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [processDefs, setProcessDefs] = useState<ProcessDefinition[]>([]);
+  const [spawnProjectId, setSpawnProjectId] = useState<number | "">("");
+  const [spawnProcessKey, setSpawnProcessKey] = useState("");
   const [filterTagId, setFilterTagId] = useState<number | "">("");
   const [filterSegmentId, setFilterSegmentId] = useState<number | "">("");
   const [selectedPerson, setSelectedPerson] = useState<CrmPerson | null>(null);
@@ -170,6 +180,29 @@ export function ClientsPage() {
         setError(parseApiError(err, "Не удалось загрузить участников"));
       });
   }, [workspaceApi, workspaceEpoch]);
+
+  useEffect(() => {
+    if (!projectsApi) return;
+    void projectsApi
+      .getProjects()
+      .then((rows) => {
+        setProjects(rows);
+        if (!spawnProjectId && rows[0]) setSpawnProjectId(rows[0].id);
+      })
+      .catch(() => undefined);
+  }, [projectsApi, workspaceEpoch]);
+
+  useEffect(() => {
+    if (!processApi) return;
+    void processApi
+      .listDefinitions()
+      .then((rows) => {
+        const published = rows.filter((d) => d.is_published);
+        setProcessDefs(published);
+        if (!spawnProcessKey && published[0]) setSpawnProcessKey(published[0].key);
+      })
+      .catch(() => undefined);
+  }, [processApi, workspaceEpoch]);
 
   const assignOwner = async (ownerId: number | null) => {
     if (!crmApi) {
@@ -1223,74 +1256,101 @@ export function ClientsPage() {
                               {activity.body}
                             </p>
                           )}
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              className="rounded border border-border px-2 py-0.5 text-xs text-text-muted hover:bg-cream"
-                              onClick={() => {
-                                if (!crmApi) return;
-                                const raw = window.prompt(
-                                  "ID проекта для WBS (обязательно)",
-                                );
-                                if (!raw) return;
-                                const projectId = Number(raw);
-                                if (!Number.isFinite(projectId)) {
-                                  setError("Некорректный project id");
-                                  return;
+                          <div className="mt-2 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                value={spawnProjectId}
+                                onChange={(e) =>
+                                  setSpawnProjectId(
+                                    e.target.value ? Number(e.target.value) : "",
+                                  )
                                 }
-                                void crmApi
-                                  .spawnFromActivity(activity.id, {
-                                    mode: "wbs",
-                                    project_id: projectId,
-                                  })
-                                  .then((res) => {
-                                    setMessage(
-                                      `WBS #${res.wbs_node_id} создан в проекте ${res.project_id}`,
-                                    );
-                                  })
-                                  .catch((err) =>
-                                    setError(
-                                      parseApiError(
-                                        err,
-                                        "Не удалось создать WBS",
+                                className="rounded border border-border bg-cream px-2 py-0.5 text-xs"
+                              >
+                                <option value="">Проект…</option>
+                                {projects.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="rounded border border-border px-2 py-0.5 text-xs text-text-muted hover:bg-cream"
+                                onClick={() => {
+                                  if (!crmApi || !spawnProjectId) {
+                                    setError("Выберите проект для WBS");
+                                    return;
+                                  }
+                                  void crmApi
+                                    .spawnFromActivity(activity.id, {
+                                      mode: "wbs",
+                                      project_id: Number(spawnProjectId),
+                                    })
+                                    .then((res) => {
+                                      setMessage(
+                                        `WBS #${res.wbs_node_id} создан в проекте ${res.project_id}`,
+                                      );
+                                    })
+                                    .catch((err) =>
+                                      setError(
+                                        parseApiError(
+                                          err,
+                                          "Не удалось создать WBS",
+                                        ),
                                       ),
-                                    ),
-                                  );
-                              }}
-                            >
-                              → WBS
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded border border-border px-2 py-0.5 text-xs text-text-muted hover:bg-cream"
-                              onClick={() => {
-                                if (!crmApi) return;
-                                const key = window.prompt(
-                                  "Ключ published process definition",
-                                );
-                                if (!key?.trim()) return;
-                                void crmApi
-                                  .spawnFromActivity(activity.id, {
-                                    mode: "process",
-                                    process_key: key.trim(),
-                                  })
-                                  .then((res) => {
-                                    setMessage(
-                                      `Процесс #${res.instance_id} (${res.definition_key}) запущен`,
                                     );
-                                  })
-                                  .catch((err) =>
-                                    setError(
-                                      parseApiError(
-                                        err,
-                                        "Не удалось запустить процесс",
+                                }}
+                              >
+                                → WBS
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                value={spawnProcessKey}
+                                onChange={(e) =>
+                                  setSpawnProcessKey(e.target.value)
+                                }
+                                className="rounded border border-border bg-cream px-2 py-0.5 text-xs"
+                              >
+                                <option value="">Процесс…</option>
+                                {processDefs.map((d) => (
+                                  <option key={d.id} value={d.key}>
+                                    {d.name} ({d.key})
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="rounded border border-border px-2 py-0.5 text-xs text-text-muted hover:bg-cream"
+                                onClick={() => {
+                                  if (!crmApi || !spawnProcessKey.trim()) {
+                                    setError("Выберите published process");
+                                    return;
+                                  }
+                                  void crmApi
+                                    .spawnFromActivity(activity.id, {
+                                      mode: "process",
+                                      process_key: spawnProcessKey.trim(),
+                                    })
+                                    .then((res) => {
+                                      setMessage(
+                                        `Процесс #${res.instance_id} (${res.definition_key}) запущен`,
+                                      );
+                                    })
+                                    .catch((err) =>
+                                      setError(
+                                        parseApiError(
+                                          err,
+                                          "Не удалось запустить процесс",
+                                        ),
                                       ),
-                                    ),
-                                  );
-                              }}
-                            >
-                              → Process
-                            </button>
+                                    );
+                                }}
+                              >
+                                → Process
+                              </button>
+                            </div>
                           </div>
                         </li>
                       ))

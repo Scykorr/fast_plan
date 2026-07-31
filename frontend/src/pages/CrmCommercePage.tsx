@@ -587,6 +587,27 @@ export function CrmCommercePage() {
               · контрактов: {renewals.contract_count} · горизонт{" "}
               {renewals.within_days}д
             </p>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-cream"
+              onClick={() => {
+                if (!crmApi) return;
+                void crmApi
+                  .remindRenewals({ within_days: 30 })
+                  .then((res) => {
+                    setMessage(
+                      `Напоминания: задач ${res.created_tasks}, уведомлений ${res.created_notifications}`,
+                    );
+                  })
+                  .catch((err) =>
+                    setError(
+                      parseApiError(err, "Не удалось создать напоминания"),
+                    ),
+                  );
+              }}
+            >
+              Создать задачи / уведомления (30д)
+            </button>
             <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
               {renewals.upcoming.length === 0 ? (
                 <li className="text-text-muted">Нет продлений в горизонте</li>

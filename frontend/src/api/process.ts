@@ -26,6 +26,9 @@ export type ProcessInstance = {
   status: string;
   data: Record<string, unknown>;
   error_message: string;
+  parent?: number | null;
+  parent_spiff_task_id?: string;
+  subprocess_bpmn_id?: string;
   started_at: string;
   completed_at: string | null;
 };

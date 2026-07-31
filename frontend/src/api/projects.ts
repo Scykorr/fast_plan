@@ -320,6 +320,17 @@ export type PertNetwork = {
   finish?: PertFinish;
 };
 
+export type WorkspaceScheduleActivity = {
+  id: number;
+  name: string;
+  code: string;
+  project_id: number;
+  project_name: string;
+  start_date: string | null;
+  end_date: string | null;
+  is_milestone: boolean;
+};
+
 export type CrossProjectDependency = {
   id: number;
   predecessor_id: number;
@@ -812,6 +823,17 @@ export function createProjectsApi() {
       request<void>(`/workspace/cross-dependencies/${depId}/`, {
         method: "DELETE",
       }),
+
+    listWorkspaceScheduleActivities: (params: { q?: string; project_id?: number } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.q) qs.set("q", params.q);
+      if (params.project_id != null) qs.set("project_id", String(params.project_id));
+      const suffix = qs.toString() ? `?${qs}` : "";
+      return request<WorkspaceScheduleActivity[]>(
+        `/workspace/schedule-activities/${suffix}`,
+        {},
+      );
+    },
   };
 }
 

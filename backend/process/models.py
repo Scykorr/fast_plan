@@ -125,11 +125,29 @@ class ProcessInstance(models.Model):
         blank=True,
         related_name="started_process_instances",
     )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+        help_text="Parent instance when this row tracks an embedded SubProcess.",
+    )
+    parent_spiff_task_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="Spiff SubWorkflowTask id on the parent workflow.",
+    )
+    subprocess_bpmn_id = models.CharField(max_length=120, blank=True, default="")
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["parent", "parent_spiff_task_id"]),
+        ]
 
     def __str__(self):
         return f"instance {self.id} {self.status}"

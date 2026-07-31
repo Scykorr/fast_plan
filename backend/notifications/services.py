@@ -413,8 +413,10 @@ def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
     deadlines, deadline_items = send_deadline_reminders(today=today)
     deal_tasks, deal_task_items = send_deal_task_reminders(today=today)
     from crm.automation import process_deferred_automations
+    from crm.renewals import send_renewal_reminders
 
     deferred = process_deferred_automations()
+    renewal_stats = send_renewal_reminders(within_days=30, dry_run=False)
     created_items = birthday_items + milestone_items + deadline_items + deal_task_items
     emails = send_reminder_digest_emails(created_items, today=today)
     return {
@@ -422,6 +424,8 @@ def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
         "milestones": milestones,
         "deadlines": deadlines,
         "deal_tasks": deal_tasks,
+        "renewal_tasks": renewal_stats.get("created_tasks", 0),
+        "renewal_notifications": renewal_stats.get("created_notifications", 0),
         "automation_deferred": deferred,
         "emails": emails,
         "workspaces": Workspace.objects.count(),

@@ -197,6 +197,7 @@ export type CrmRenewalsSummary = {
     term_months: number | null;
     organization_id: number | null;
     organization_name: string | null;
+    deal_id?: number | null;
     days_until: number;
   }>;
 };
@@ -1227,6 +1228,18 @@ export function createCrmApi() {
         `/crm/renewals/?within_days=${withinDays}`,
         {},
       ),
+    remindRenewals: (body: { within_days?: number; dry_run?: boolean } = {}) =>
+      request<{
+        created_tasks: number;
+        created_notifications: number;
+        skipped: number;
+        within_days: number;
+        dry_run: boolean;
+        items: Array<Record<string, unknown>>;
+      }>("/crm/renewals/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     getPnl: (params?: { organization_id?: number; deal_id?: number }) => {
       const query = new URLSearchParams();
       if (params?.organization_id) {

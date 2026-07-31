@@ -87,8 +87,8 @@ EXECUTABLE_ELEMENTS = [
     },
     {
         "type": "subProcess",
-        "status": "planned",
-        "note": "XML stored; nested instance lifecycle not implemented",
+        "status": "supported",
+        "note": "Embedded SubProcess: Spiff subprocess_specs + child ProcessInstance mirror",
     },
 ]
 
