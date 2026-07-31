@@ -52,6 +52,7 @@
 | 2026-07-27 | **P9f–g** — ACL/timeline/deps, meaning-approve, webhook HMAC, project create |
 | 2026-07-28 | **P9h** — multi-PR GitHub links, Checks webhook, auto-attach, field ACL, timeline `created` |
 | 2026-07-28 | **Матрица CRM-требований** актуализирована (ядро закрыто; polish backlog) |
+| 2026-07-31 | Релиз **v0.17.0** — SKU/склад MVP, staging smoke/health ops |
 
 ---
 

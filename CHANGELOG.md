@@ -15,6 +15,12 @@
 
 ## [Unreleased]
 
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md) — MS Project XML (нужен sample).
+
+## [0.17.0] — 2026-07-31
+
 ### Added
 
 - **Склад / SKU** — `CrmSku` + `CrmStockMovement`; CRUD `/api/crm/skus/`, adjust/movements; `sku_id` в `line_items`; списание при invoice→paid и возврат при void; UI на `/crm-commerce`
@@ -27,10 +33,7 @@
 ### Ops
 
 - **2026-07-29 staging drill** — migrate `0013_custom_fields_016`, smoke 33/33 (custom fields + Agent Ops), restore-drill 123 tables — see [`STAGING.md`](STAGING.md) § Ops log
-
-### Planned
-
-См. [ROADMAP.md](ROADMAP.md) — MS Project XML (нужен sample).
+- **2026-07-31 release deploy** — staging compose rebuild; `0014_sku_inventory_016` applied; smoke **34/34** at version `0.17.0`
 
 ## [0.16.0] — 2026-07-29
 

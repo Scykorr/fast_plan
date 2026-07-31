@@ -150,6 +150,7 @@ CI: job `e2e` в `.github/workflows/ci.yml` (login, manifest/SW, SSE toast smoke
 
 | Date | Env | Actions | Result |
 |------|-----|---------|--------|
+| 2026-07-31 | local docker-compose (staging stand-in, frontend **8088**) | Release **v0.17.0** deploy (`compose up --build`); `migrate` confirms `crm.0014_sku_inventory_016`; smoke-check | Health **0.17.0**; smoke **34/34** (incl. `/api/crm/skus/`); redis/database ok |
 | 2026-07-29 | local docker-compose (staging stand-in; frontend host port **8088** — host `:8080` occupied by EDB PEM) | `migrate` (incl. `crm.0013_custom_fields_016`); `ensure_smoke_fixtures`; `node scripts/staging-smoke-check.mjs` (custom fields + Agent Ops); `HEALTH_URL=…/api/health/ ./scripts/restore-drill.sh` | Smoke **33/33** (warnings: console email, Microsoft SSO unset). Extended health: database/redis **ok**, celery not eager. Restore-drill **ok** — dump → `fast_plan_restore_drill`, **123** public tables, live health ok, drill DB dropped. Live `POSTGRES_DB` untouched. |
 
 If host port 8080 is busy: set `FRONTEND_HOST_PORT=8088` (and matching `FRONTEND_BASE_URL` / CORS / CSRF) in `.env`.

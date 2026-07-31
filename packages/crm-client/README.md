@@ -1,6 +1,6 @@
 # @fast-plan/crm-client
 
-Typed CRM client for Fast Plan integrators (v0.16.0).
+Typed CRM client for Fast Plan integrators (v0.17.0).
 
 ## Install (workspace / private)
 
