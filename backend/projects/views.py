@@ -209,13 +209,21 @@ class WBSTreeView(WorkspaceMixin, APIView):
 
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        from projects.capacity_hints import (
+            assignee_week_loads,
+            attach_capacity_hints_to_wbs_tree,
+        )
+
         nodes = (
             project.wbs_nodes.select_related(
                 "schedule", "card", "tracker", "workflow_status", "assignee"
             )
             .order_by("position", "id")
         )
-        return Response(build_wbs_tree(list(nodes)))
+        tree = build_wbs_tree(list(nodes))
+        loads = assignee_week_loads(project.workspace)
+        attach_capacity_hints_to_wbs_tree(tree, loads)
+        return Response(tree)
 
     def post(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
@@ -321,9 +329,11 @@ class ProjectScheduleView(WorkspaceMixin, APIView):
 
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        from projects.capacity_hints import assignee_week_loads
+
         activities = (
             ScheduleActivity.objects.filter(wbs_node__project=project)
-            .select_related("wbs_node")
+            .select_related("wbs_node", "wbs_node__assignee")
             .prefetch_related(
                 Prefetch(
                     "successor_links",
@@ -337,9 +347,13 @@ class ProjectScheduleView(WorkspaceMixin, APIView):
             predecessor__wbs_node__project=project,
             successor__wbs_node__project=project,
         )
+        loads = assignee_week_loads(project.workspace)
         return Response(
             {
-                "activities": ScheduleActivitySerializer(activities, many=True).data,
+                "week_start": next(iter(loads.values()), {}).get("week_start"),
+                "activities": ScheduleActivitySerializer(
+                    activities, many=True, context={"capacity_loads": loads}
+                ).data,
                 "dependencies": ActivityDependencySerializer(
                     dependencies, many=True
                 ).data,

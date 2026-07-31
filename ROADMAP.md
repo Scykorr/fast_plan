@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.17.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)); Unreleased: Deal→Project + Process ops |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — sprint 3: capacity hints + Org/Person merge |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — sprint 4: backlog P2 |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -95,9 +95,9 @@
 ### Порядок спринтов (рекомендация)
 
 1. ~~**Deal → Project from template** + **Process ops dashboard**~~ — **✓** (`6accf0e` / Unreleased)
-2. ~~**UserTask ↔ WBS/Kanban** + **Guest commercial portal**~~ — **✓** (Unreleased)
-3. **Capacity-aware schedule hints** + **Org/Person merge** ← следующий
-4. Остальное по таблицам ниже
+2. ~~**UserTask ↔ WBS/Kanban** + **Guest commercial portal**~~ — **✓** (`cbbd2e5` / Unreleased)
+3. ~~**Capacity-aware schedule hints** + **Org/Person merge**~~ — **✓** (Unreleased)
+4. Остальное по таблицам ниже ← следующий
 5. **MS Project XML** — только после sample
 6. Ops: раз в квартал `scripts/restore-drill.sh`
 
@@ -106,7 +106,7 @@
 | Pri | Пункт | Size | Статус |
 |-----|-------|------|--------|
 | **P1** | Deal → Project from template | **M** | **✓** `POST …/create-project/` + UI `/deals` |
-| **P1** | Capacity-aware schedule hints на Gantt/WBS | **M** | план |
+| **P1** | Capacity-aware schedule hints на Gantt/WBS | **M** | **✓** hints в schedule/WBS + Gantt overload |
 | **P2** | Change requests + baseline | **M** | план |
 | **P2** | PERT probabilistic finish (P10/P50/P90) | **M** | план |
 | **P3** | Cross-project / program dependencies | **L** | план |
@@ -127,7 +127,7 @@
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
 | **P1** | Guest commercial portal (КП/счёт/акт, approve, статус оплаты) | **M** | **✓** `/api/crm/share/` + UI `/commerce/:token` |
-| **P1** | Org/Person merge + dedupe UI | **S–M** | Чистка дублей из каналов |
+| **P1** | Org/Person merge + dedupe UI | **S–M** | **✓** `/duplicates/` + `/merge/` + UI `/clients` |
 | **P2** | Contract renewals / ARR lite | **M** | Retention services |
 | **P2** | Quote/Invoice line editor + SKU picker | **S–M** | UX поверх SKU MVP |
 | **P3** | 1С ↔ SKU sync lite | **M** | RU B2B номенклатура |

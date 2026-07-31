@@ -126,6 +126,16 @@ export type ProjectDashboard = {
   };
 };
 
+export type CapacityHint = {
+  week_start: string;
+  week_end: string;
+  capacity_hours: number;
+  allocated_hours: number;
+  utilization: number | null;
+  overloaded: boolean;
+  hint: string | null;
+};
+
 export type WBSNode = {
   id: number;
   code: string;
@@ -142,6 +152,7 @@ export type WBSNode = {
   assignee_name: string | null;
   custom_values: CustomValue[];
   schedule: ScheduleActivity | null;
+  capacity_hint?: CapacityHint | null;
   card_id: number | null;
   children: WBSNode[];
 };
@@ -156,6 +167,9 @@ export type ScheduleActivity = {
   duration_days: number;
   progress: number;
   is_milestone: boolean;
+  assignee_id?: number | null;
+  assignee_name?: string | null;
+  capacity_hint?: CapacityHint | null;
 };
 
 export type ActivityDependency = {
@@ -167,6 +181,7 @@ export type ActivityDependency = {
 };
 
 export type ProjectSchedule = {
+  week_start?: string | null;
   activities: ScheduleActivity[];
   dependencies: ActivityDependency[];
 };

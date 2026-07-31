@@ -57,6 +57,32 @@ export type CrmPerson = {
   updated_at: string;
 };
 
+export type CrmPersonDuplicateGroup = {
+  reason: string;
+  key: string;
+  survivor_id: number;
+  source_id: number;
+  people: Array<{
+    id: number;
+    full_name: string;
+    email: string;
+    phone: string;
+  }>;
+};
+
+export type CrmOrgDuplicateGroup = {
+  reason: string;
+  key: string;
+  survivor_id: number;
+  source_id: number;
+  organizations: Array<{
+    id: number;
+    name: string;
+    website: string;
+    industry: string;
+  }>;
+};
+
 export type CrmActivityKind =
   | "call"
   | "meeting"
@@ -642,6 +668,16 @@ export function createCrmApi() {
       }),
     deleteOrganization: (id: number) =>
       request<void>(`/crm/organizations/${id}/`, { method: "DELETE" }),
+    listOrganizationDuplicates: () =>
+      request<{ workspace_id: number; groups: CrmOrgDuplicateGroup[] }>(
+        "/crm/organizations/duplicates/",
+        {},
+      ),
+    mergeOrganization: (survivorId: number, sourceId: number) =>
+      request<CrmOrganization>(`/crm/organizations/${survivorId}/merge/`, {
+        method: "POST",
+        body: JSON.stringify({ source_id: sourceId }),
+      }),
     attachOrganizationTag: (orgId: number, body: { tag_id?: number; name?: string }) =>
       request<CrmTag>(`/crm/organizations/${orgId}/tags/`, {
         method: "POST",
@@ -669,6 +705,16 @@ export function createCrmApi() {
       }),
     deletePerson: (id: number) =>
       request<void>(`/crm/people/${id}/`, { method: "DELETE" }),
+    listPersonDuplicates: () =>
+      request<{ workspace_id: number; groups: CrmPersonDuplicateGroup[] }>(
+        "/crm/people/duplicates/",
+        {},
+      ),
+    mergePerson: (survivorId: number, sourceId: number) =>
+      request<CrmPerson>(`/crm/people/${survivorId}/merge/`, {
+        method: "POST",
+        body: JSON.stringify({ source_id: sourceId }),
+      }),
     attachPersonTag: (personId: number, body: { tag_id?: number; name?: string }) =>
       request<CrmTag>(`/crm/people/${personId}/tags/`, {
         method: "POST",

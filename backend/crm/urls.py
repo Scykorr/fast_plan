@@ -19,9 +19,19 @@ from crm import (
 urlpatterns = [
     path("crm/organizations/", views.OrganizationListCreateView.as_view(), name="crm-orgs"),
     path(
+        "crm/organizations/duplicates/",
+        views.OrganizationDuplicatesView.as_view(),
+        name="crm-org-duplicates",
+    ),
+    path(
         "crm/organizations/<int:org_id>/",
         views.OrganizationDetailView.as_view(),
         name="crm-org-detail",
+    ),
+    path(
+        "crm/organizations/<int:org_id>/merge/",
+        views.OrganizationMergeView.as_view(),
+        name="crm-org-merge",
     ),
     path(
         "crm/organizations/<int:org_id>/tags/",
@@ -35,9 +45,19 @@ urlpatterns = [
     ),
     path("crm/people/", views.PersonListCreateView.as_view(), name="crm-people"),
     path(
+        "crm/people/duplicates/",
+        views.PersonDuplicatesView.as_view(),
+        name="crm-people-duplicates",
+    ),
+    path(
         "crm/people/<int:person_id>/",
         views.PersonDetailView.as_view(),
         name="crm-person-detail",
+    ),
+    path(
+        "crm/people/<int:person_id>/merge/",
+        views.PersonMergeView.as_view(),
+        name="crm-person-merge",
     ),
     path(
         "crm/people/<int:person_id>/tags/",

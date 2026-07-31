@@ -280,6 +280,88 @@ class PersonDetailView(WorkspaceMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class PersonDuplicatesView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from crm.merge import find_duplicate_people
+
+        return Response(
+            {
+                "workspace_id": self.get_workspace().id,
+                "groups": find_duplicate_people(self.get_workspace()),
+            }
+        )
+
+
+class PersonMergeView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, person_id):
+        from crm.merge import merge_people, resolve_person_pair
+
+        source_id = request.data.get("source_id")
+        if source_id in (None, ""):
+            raise ValidationError({"source_id": "Required."})
+        survivor, source = resolve_person_pair(
+            self.get_workspace(), int(person_id), int(source_id)
+        )
+        merge_people(survivor=survivor, source=source)
+        person = annotate_last_activity(
+            Person.objects.filter(workspace=self.get_workspace(), pk=survivor.pk)
+        ).select_related("owner").annotate(
+            projects_count=Count("project_links", distinct=True)
+        ).prefetch_related(
+            "organization_memberships__organization", "tag_links__tag"
+        ).get()
+        person._prefetched_memberships = list(
+            person.organization_memberships.select_related("organization")
+        )
+        person._prefetched_tags = list(person.tag_links.all())
+        return Response(PersonSerializer(person).data)
+
+
+class OrganizationDuplicatesView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from crm.merge import find_duplicate_organizations
+
+        return Response(
+            {
+                "workspace_id": self.get_workspace().id,
+                "groups": find_duplicate_organizations(self.get_workspace()),
+            }
+        )
+
+
+class OrganizationMergeView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, org_id):
+        from crm.merge import merge_organizations, resolve_org_pair
+
+        source_id = request.data.get("source_id")
+        if source_id in (None, ""):
+            raise ValidationError({"source_id": "Required."})
+        survivor, source = resolve_org_pair(
+            self.get_workspace(), int(org_id), int(source_id)
+        )
+        merge_organizations(survivor=survivor, source=source)
+        org = (
+            Organization.objects.filter(workspace=self.get_workspace(), pk=survivor.pk)
+            .select_related("owner")
+            .prefetch_related("tag_links__tag")
+            .annotate(
+                people_count=Count("memberships", distinct=True),
+                projects_count=Count("client_projects", distinct=True),
+            )
+        )
+        org = annotate_last_activity(org, person=False).get()
+        org._prefetched_tags = list(org.tag_links.all())
+        return Response(OrganizationSerializer(org).data)
+
+
 class ActivityListCreateView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 

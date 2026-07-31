@@ -21,10 +21,12 @@
 - **Process ops dashboard** — `GET /api/process/ops/` (stuck / aging / SLA); вкладка Ops на `/processes`
 - **UserTask ↔ WBS/Kanban binding** — `PATCH /api/process/tasks/<id>/bind/`; на complete → progress 100% + Kanban; UI на `/process-tasks`
 - **Guest commercial portal** — `CrmDocumentShareLink`, публичные `GET/POST /api/crm/share/<token>/` (+ `/approve/`, `/pdf/`); UI `/commerce/:token` и кнопка «Ссылка гостю» на `/crm-commerce`
+- **Capacity-aware schedule hints** — `capacity_hint` в `GET …/schedule/` и WBS; подсветка перегруза на Gantt/WBS
+- **Org/Person merge** — `GET …/duplicates/`, `POST …/merge/`; панель дублей на `/clients`
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P1: capacity hints, Org/Person merge…).
+См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P2: change requests, PERT, service adapters…).
 
 ## [0.17.0] — 2026-07-31
 

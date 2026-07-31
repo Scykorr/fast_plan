@@ -34,6 +34,11 @@ function WBSMindMapNodeComponent({ data }: NodeProps<Node<WBSFlowNodeData>>) {
         <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-tight text-text">
           {wbsNode.title}
         </p>
+        {wbsNode.capacity_hint?.overloaded && (
+          <p className="mt-1 text-[10px] font-medium text-[#c45c26]">
+            Перегруз · {Math.round((wbsNode.capacity_hint.utilization ?? 0) * 100)}%
+          </p>
+        )}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
           <span className="capitalize">{wbsNode.node_type.replace("_", " ")}</span>
           {wbsNode.schedule && <span>{progress}%</span>}

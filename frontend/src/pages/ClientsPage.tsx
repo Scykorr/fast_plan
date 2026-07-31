@@ -7,8 +7,10 @@ import type {
   CrmActivityKind,
   CrmAttachment,
   CrmComment,
+  CrmOrgDuplicateGroup,
   CrmOrganization,
   CrmPerson,
+  CrmPersonDuplicateGroup,
   CrmSegment,
   CrmTag,
 } from "../api/crm";
@@ -78,6 +80,8 @@ export function ClientsPage() {
   const [filterSegmentId, setFilterSegmentId] = useState<number | "">("");
   const [selectedPerson, setSelectedPerson] = useState<CrmPerson | null>(null);
   const [selectedOrg, setSelectedOrg] = useState<CrmOrganization | null>(null);
+  const [personDupes, setPersonDupes] = useState<CrmPersonDuplicateGroup[]>([]);
+  const [orgDupes, setOrgDupes] = useState<CrmOrgDuplicateGroup[]>([]);
   const [cardTab, setCardTab] = useState<
     "overview" | "history" | "notes" | "docs"
   >("overview");
@@ -129,16 +133,21 @@ export function ClientsPage() {
     setError("");
     try {
       const params = listParams();
-      const [peopleData, orgData, tagData, segmentData] = await Promise.all([
-        crmApi.listPeople(params),
-        crmApi.listOrganizations(params),
-        crmApi.listTags(),
-        crmApi.listSegments(),
-      ]);
+      const [peopleData, orgData, tagData, segmentData, personDupeData, orgDupeData] =
+        await Promise.all([
+          crmApi.listPeople(params),
+          crmApi.listOrganizations(params),
+          crmApi.listTags(),
+          crmApi.listSegments(),
+          crmApi.listPersonDuplicates(),
+          crmApi.listOrganizationDuplicates(),
+        ]);
       setPeople(peopleData);
       setOrgs(orgData);
       setTags(tagData);
       setSegments(segmentData);
+      setPersonDupes(personDupeData.groups);
+      setOrgDupes(orgDupeData.groups);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить CRM"));
     } finally {
@@ -262,6 +271,32 @@ export function ClientsPage() {
       await loadDirectory();
     } catch (err) {
       setError(parseApiError(err, "Не удалось создать организацию"));
+    }
+  };
+
+  const mergePersonPair = async (survivorId: number, sourceId: number) => {
+    if (!crmApi) return;
+    try {
+      const survivor = await crmApi.mergePerson(survivorId, sourceId);
+      setMessage(`Контакты объединены → #${survivor.id} ${survivor.full_name}`);
+      setSelectedPerson(survivor);
+      setSelectedOrg(null);
+      await loadDirectory();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось объединить контакты"));
+    }
+  };
+
+  const mergeOrgPair = async (survivorId: number, sourceId: number) => {
+    if (!crmApi) return;
+    try {
+      const survivor = await crmApi.mergeOrganization(survivorId, sourceId);
+      setMessage(`Организации объединены → #${survivor.id} ${survivor.name}`);
+      setSelectedOrg(survivor);
+      setSelectedPerson(null);
+      await loadDirectory();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось объединить организации"));
     }
   };
 
@@ -453,6 +488,76 @@ export function ClientsPage() {
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
       {message && <p className="text-sm text-secondary">{message}</p>}
+
+      {tab === "people" && personDupes.length > 0 && (
+        <section className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <h2 className="text-sm font-semibold text-text">
+            Возможные дубликаты людей ({personDupes.length})
+          </h2>
+          <ul className="space-y-2">
+            {personDupes.map((group) => (
+              <li
+                key={`${group.reason}-${group.survivor_id}-${group.source_id}`}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                <div>
+                  <p className="text-text">
+                    #{group.people[0]?.id} {group.people[0]?.full_name} ← #
+                    {group.people[1]?.id} {group.people[1]?.full_name}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {group.reason}: {group.key}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-xs font-medium"
+                  onClick={() =>
+                    void mergePersonPair(group.survivor_id, group.source_id)
+                  }
+                >
+                  Объединить
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {tab === "orgs" && orgDupes.length > 0 && (
+        <section className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <h2 className="text-sm font-semibold text-text">
+            Возможные дубликаты организаций ({orgDupes.length})
+          </h2>
+          <ul className="space-y-2">
+            {orgDupes.map((group) => (
+              <li
+                key={`${group.reason}-${group.survivor_id}-${group.source_id}`}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                <div>
+                  <p className="text-text">
+                    #{group.organizations[0]?.id} {group.organizations[0]?.name} ← #
+                    {group.organizations[1]?.id} {group.organizations[1]?.name}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {group.reason}: {group.key}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-xs font-medium"
+                  onClick={() =>
+                    void mergeOrgPair(group.survivor_id, group.source_id)
+                  }
+                >
+                  Объединить
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <button

@@ -143,6 +143,14 @@ body {
   fill: var(--color-accent);
 }
 
+.gantt-wrapper .bar-overloaded .bar {
+  fill: #c45c26;
+}
+
+.gantt-wrapper .bar-overloaded .bar-progress {
+  fill: #a3481c;
+}
+
 .gantt-wrapper .grid-header {
   fill: var(--color-cream);
 }

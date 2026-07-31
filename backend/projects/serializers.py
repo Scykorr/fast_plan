@@ -225,6 +225,11 @@ class ScheduleActivitySerializer(serializers.ModelSerializer):
     wbs_id = serializers.IntegerField(source="wbs_node_id", read_only=True)
     name = serializers.CharField(source="wbs_node.title", read_only=True)
     code = serializers.CharField(source="wbs_node.code", read_only=True)
+    assignee_id = serializers.IntegerField(
+        source="wbs_node.assignee_id", read_only=True, allow_null=True
+    )
+    assignee_name = serializers.SerializerMethodField()
+    capacity_hint = serializers.SerializerMethodField()
 
     class Meta:
         model = ScheduleActivity
@@ -238,7 +243,22 @@ class ScheduleActivitySerializer(serializers.ModelSerializer):
             "duration_days",
             "progress",
             "is_milestone",
+            "assignee_id",
+            "assignee_name",
+            "capacity_hint",
         )
+
+    def get_assignee_name(self, obj):
+        user = getattr(obj.wbs_node, "assignee", None)
+        if user is None:
+            return None
+        return user.get_full_name() or user.email
+
+    def get_capacity_hint(self, obj):
+        loads = self.context.get("capacity_loads") or {}
+        from projects.capacity_hints import capacity_hint_for_assignee
+
+        return capacity_hint_for_assignee(loads, obj.wbs_node.assignee_id)
 
 
 class ScheduleActivityUpdateSerializer(serializers.ModelSerializer):

@@ -18,9 +18,19 @@ function buildDependenciesMap(dependencies: ActivityDependency[]) {
   return map;
 }
 
+function customClassFor(activity: ScheduleActivity): string {
+  const classes: string[] = [];
+  if (activity.is_milestone) classes.push("bar-milestone");
+  if (activity.capacity_hint?.overloaded) classes.push("bar-overloaded");
+  return classes.join(" ");
+}
+
 export function GanttChart({ activities, dependencies }: GanttChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttRef = useRef<Gantt | null>(null);
+  const overloadedCount = activities.filter(
+    (a) => a.capacity_hint?.overloaded,
+  ).length;
 
   useEffect(() => {
     if (!containerRef.current || activities.length === 0) {
@@ -30,15 +40,23 @@ export function GanttChart({ activities, dependencies }: GanttChartProps) {
     const depMap = buildDependenciesMap(dependencies);
     const tasks = activities
       .filter((activity) => activity.start_date && activity.end_date)
-      .map((activity) => ({
-        id: String(activity.id),
-        name: `${activity.code} ${activity.name}`,
-        start: activity.start_date!,
-        end: activity.end_date!,
-        progress: activity.progress,
-        dependencies: (depMap.get(activity.id) ?? []).join(","),
-        custom_class: activity.is_milestone ? "bar-milestone" : "",
-      }));
+      .map((activity) => {
+        const assignee = activity.assignee_name
+          ? ` · ${activity.assignee_name}`
+          : "";
+        const overload = activity.capacity_hint?.hint
+          ? ` · ${activity.capacity_hint.hint}`
+          : "";
+        return {
+          id: String(activity.id),
+          name: `${activity.code} ${activity.name}${assignee}${overload}`,
+          start: activity.start_date!,
+          end: activity.end_date!,
+          progress: activity.progress,
+          dependencies: (depMap.get(activity.id) ?? []).join(","),
+          custom_class: customClassFor(activity),
+        };
+      });
 
     containerRef.current.innerHTML = "";
     ganttRef.current = new Gantt(containerRef.current, tasks, {
@@ -63,8 +81,16 @@ export function GanttChart({ activities, dependencies }: GanttChartProps) {
   }
 
   return (
-    <div className="gantt-wrapper overflow-x-auto rounded-xl border border-border bg-surface p-4">
-      <div ref={containerRef} />
+    <div className="space-y-2">
+      {overloadedCount > 0 && (
+        <p className="text-sm text-accent" role="status">
+          Capacity: {overloadedCount} задач с перегруженным исполнителем на
+          текущей неделе (подсветка на Gantt).
+        </p>
+      )}
+      <div className="gantt-wrapper overflow-x-auto rounded-xl border border-border bg-surface p-4">
+        <div ref={containerRef} />
+      </div>
     </div>
   );
 }
