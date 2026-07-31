@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.18.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — MS Project (sample) / leveling / Inclusive GW |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — **SMTP** → leveling / Inclusive GW / MS Project |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -99,7 +99,17 @@
 2. ~~**UX glue**~~ — **✓** renewals remind, spawn pickers, schedule-activity picker
 3. ~~**BPMN SubProcess**~~ — **✓** subprocess_specs + child ProcessInstance mirror
 4. **MS Project XML** — только после sample `.xml` / `.mpp`
-5. Ops: staging migrate `0011`/`0016`/`0017`/`0003_subprocess`; раз в квартал `scripts/restore-drill.sh`
+5. **SMTP + email verification** — настройка почты и включение `REQUIRE_EMAIL_VERIFICATION`
+6. Ops: staging migrate `0011`/`0016`/`0017`/`0003_subprocess`; раз в квартал `scripts/restore-drill.sh`
+
+### Платформа / Ops
+
+| Pri | Пункт | Size | Зачем |
+|-----|-------|------|-------|
+| **P1** | **SMTP setup** — реальный `EMAIL_*` / `DEFAULT_FROM_EMAIL`, проверка доставки (mail.ru и др.) | **S–M** | Сейчас console backend; verify/reset/invite не доходят |
+| **P1** | Включить снова **email verification** (`REQUIRE_EMAIL_VERIFICATION=true`) после SMTP | **S** | Временно выключено для локального входа |
+| **P2** | UI Settings: статус SMTP / test-send | **S** | Ops без правки `.env` вслепую |
+| **P3** | Password-reset / invite deliverability checklist в STAGING.md | **S** | Не терять при деплое |
 
 ### PM — управление проектами
 

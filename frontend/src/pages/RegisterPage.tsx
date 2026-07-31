@@ -47,10 +47,10 @@ export function RegisterPage() {
     return (
       <div className="flex min-h-screen items-center justify-center auth-hero px-4">
         <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-sm">
-          <h1 className="text-2xl font-bold text-text">Проверьте почту</h1>
+          <h1 className="text-2xl font-bold text-text">Аккаунт создан</h1>
           <p className="mt-3 text-sm text-text-muted">
-            Мы отправили ссылку подтверждения на <strong>{email}</strong>.
-            Подтвердите адрес, затем войдите.
+            Можно сразу войти с адресом <strong>{email}</strong>.
+            Подтверждение email по почте временно отключено (до настройки SMTP).
           </p>
           {resendMessage && (
             <p className="mt-3 text-sm text-secondary" role="status">
@@ -58,16 +58,6 @@ export function RegisterPage() {
             </p>
           )}
           <div className="mt-6 flex justify-center gap-3">
-            <button
-              type="button"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text hover:bg-cream"
-              onClick={async () => {
-                await api.resendVerification(email);
-                setResendMessage("Новая ссылка отправлена.");
-              }}
-            >
-              Отправить снова
-            </button>
             <Link
               to={loginHref}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"

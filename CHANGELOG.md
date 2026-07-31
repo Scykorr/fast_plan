@@ -22,9 +22,13 @@
 - **Workspace schedule activities** — `GET /api/workspace/schedule-activities/`; cross-deps picker на `/portfolio`
 - **BPMN SubProcess** — `subprocess_specs` в engine; child `ProcessInstance` (`parent`, `parent_spiff_task_id`); catalog `supported`
 
+### Changed
+
+- **Email verification** — по умолчанию отключено (`REQUIRE_EMAIL_VERIFICATION=false`): регистрация сразу `verify_email()`, вход без письма; снова включить после настройки SMTP (см. ROADMAP)
+
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы**: leveling / Inclusive GW / MS Project (после sample).
+См. [ROADMAP.md](ROADMAP.md) § **Планы**: SMTP setup → email verification on; leveling / Inclusive GW / MS Project.
 
 ## [0.18.0] — 2026-07-31
 

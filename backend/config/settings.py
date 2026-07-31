@@ -232,6 +232,10 @@ DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL",
     "Fast Plan <noreply@localhost>",
 )
+# Temporarily off until SMTP is configured (see ROADMAP). Set true to enforce.
+REQUIRE_EMAIL_VERIFICATION = (
+    os.environ.get("REQUIRE_EMAIL_VERIFICATION", "false").lower() == "true"
+)
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

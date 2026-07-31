@@ -49,6 +49,7 @@ def test_register_duplicate_email_fails(api_client, user):
 
 @pytest.mark.django_db
 def test_registration_requires_email_verification(api_client, settings, mailoutbox):
+    settings.REQUIRE_EMAIL_VERIFICATION = True
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     settings.FRONTEND_BASE_URL = "http://frontend.test"
     registration = api_client.post(
@@ -100,7 +101,34 @@ def test_registration_requires_email_verification(api_client, settings, mailoutb
 
 
 @pytest.mark.django_db
+def test_registration_skips_email_verification_when_disabled(
+    api_client, settings, mailoutbox
+):
+    settings.REQUIRE_EMAIL_VERIFICATION = False
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    registration = api_client.post(
+        "/api/auth/register/",
+        {
+            "email": "skipverify@example.com",
+            "username": "skipverify",
+            "password": "securepass123",
+        },
+        format="json",
+    )
+    assert registration.status_code == status.HTTP_201_CREATED
+    assert registration.data["is_email_verified"] is True
+    assert len(mailoutbox) == 0
+    login = api_client.post(
+        "/api/auth/login/",
+        {"email": "skipverify@example.com", "password": "securepass123"},
+        format="json",
+    )
+    assert login.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
 def test_resend_verification_is_enumeration_safe(api_client, user, settings, mailoutbox):
+    settings.REQUIRE_EMAIL_VERIFICATION = True
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     user.email_verified_at = None
     user.save(update_fields=["email_verified_at"])

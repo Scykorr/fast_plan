@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -24,7 +25,9 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        if not self.user.is_email_verified:
+        if getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False) and (
+            not self.user.is_email_verified
+        ):
             raise AuthenticationFailed(
                 "Подтвердите email перед входом.",
                 code="email_not_verified",

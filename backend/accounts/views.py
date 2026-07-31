@@ -40,6 +40,8 @@ password_reset_token_generator = PasswordResetTokenGenerator()
 
 
 def _send_verification_email(user):
+    if not getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False):
+        return False
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = email_verification_token_generator.make_token(user)
     verification_url = absolute_frontend_url(
@@ -61,7 +63,11 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        _send_verification_email(user)
+        if getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False):
+            _send_verification_email(user)
+        else:
+            # Skip mailbox verification until SMTP is configured.
+            user.verify_email()
         return Response(
             UserSerializer(user, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
@@ -136,13 +142,19 @@ class EmailVerificationResendView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"].lower().strip()
         user = User.objects.filter(email__iexact=email).first()
-        if user is not None and not user.is_email_verified:
+        if (
+            getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False)
+            and user is not None
+            and not user.is_email_verified
+        ):
             _send_verification_email(user)
         return Response(
             {
                 "detail": (
                     "Если аккаунт существует и email ещё не подтверждён, "
                     "новая ссылка отправлена."
+                    if getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False)
+                    else "Подтверждение email сейчас отключено — можно входить сразу."
                 )
             }
         )
