@@ -323,6 +323,24 @@ class DealMoveView(WorkspaceMixin, APIView):
                     from_stage_id=from_stage_id,
                 ),
             )
+            try:
+                from process.events import dispatch_domain_event
+
+                dispatch_domain_event(
+                    workspace,
+                    "deal.stage_changed",
+                    {
+                        "deal_id": deal.id,
+                        "organization_id": deal.organization_id,
+                        "project_id": deal.project_id,
+                        "from_stage_id": from_stage_id,
+                        "stage_id": deal.stage_id,
+                        "user_id": request.user.id,
+                        "business_key": f"deal:{deal.id}:stage",
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
         deal = _deal_queryset(workspace).get(pk=deal.pk)
         return Response(DealSerializer(deal).data)
 

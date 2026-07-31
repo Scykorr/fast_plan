@@ -445,3 +445,104 @@ class WorkspaceCalendarIcsView(WorkspaceMixin, APIView):
 
     def get(self, request):
         return workspace_calendar_ics(self.get_workspace())
+
+
+class CrossProjectDependencyListCreateView(WorkspaceMixin, APIView):
+    """Soft cross-project FS/SS/FF/SF links (not applied in CPM)."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from projects.models import CrossProjectDependency
+
+        rows = (
+            CrossProjectDependency.objects.filter(workspace=self.get_workspace())
+            .select_related(
+                "predecessor__wbs_node__project",
+                "successor__wbs_node__project",
+            )
+            .order_by("-id")[:200]
+        )
+        return Response(
+            [
+                {
+                    "id": row.id,
+                    "predecessor_id": row.predecessor_id,
+                    "successor_id": row.successor_id,
+                    "predecessor_project_id": row.predecessor.wbs_node.project_id,
+                    "successor_project_id": row.successor.wbs_node.project_id,
+                    "predecessor_title": row.predecessor.wbs_node.title,
+                    "successor_title": row.successor.wbs_node.title,
+                    "dependency_type": row.dependency_type,
+                    "lag_days": row.lag_days,
+                    "note": row.note,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ]
+        )
+
+    def post(self, request):
+        from projects.models import CrossProjectDependency, ScheduleActivity
+
+        pred_id = request.data.get("predecessor_id")
+        succ_id = request.data.get("successor_id")
+        if not pred_id or not succ_id:
+            raise ValidationError(
+                {"detail": "predecessor_id and successor_id are required."}
+            )
+        pred = get_object_or_404(
+            ScheduleActivity.objects.filter(
+                wbs_node__project__workspace=self.get_workspace()
+            ).select_related("wbs_node"),
+            pk=pred_id,
+        )
+        succ = get_object_or_404(
+            ScheduleActivity.objects.filter(
+                wbs_node__project__workspace=self.get_workspace()
+            ).select_related("wbs_node"),
+            pk=succ_id,
+        )
+        if pred.wbs_node.project_id == succ.wbs_node.project_id:
+            raise ValidationError(
+                {"detail": "Use intra-project dependencies for same project."}
+            )
+        dep_type = request.data.get("dependency_type") or "FS"
+        if dep_type not in CrossProjectDependency.DependencyType.values:
+            raise ValidationError({"dependency_type": "Invalid type."})
+        row, created = CrossProjectDependency.objects.get_or_create(
+            workspace=self.get_workspace(),
+            predecessor=pred,
+            successor=succ,
+            defaults={
+                "dependency_type": dep_type,
+                "lag_days": int(request.data.get("lag_days") or 0),
+                "note": str(request.data.get("note") or "")[:255],
+            },
+        )
+        return Response(
+            {
+                "id": row.id,
+                "predecessor_id": row.predecessor_id,
+                "successor_id": row.successor_id,
+                "dependency_type": row.dependency_type,
+                "lag_days": row.lag_days,
+                "note": row.note,
+                "created": created,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class CrossProjectDependencyDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def delete(self, request, dep_id):
+        from projects.models import CrossProjectDependency
+
+        row = get_object_or_404(
+            CrossProjectDependency.objects.filter(workspace=self.get_workspace()),
+            pk=dep_id,
+        )
+        row.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

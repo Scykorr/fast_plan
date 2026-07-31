@@ -390,9 +390,59 @@ class ActivityListCreateView(WorkspaceMixin, APIView):
         activity = Activity.objects.select_related(
             "person", "organization", "project", "created_by"
         ).get(pk=activity.pk)
+        event_payload = {
+            "activity_id": activity.id,
+            "organization_id": activity.organization_id,
+            "project_id": activity.project_id,
+            "deal_id": activity.deal_id,
+            "user_id": request.user.id,
+            "business_key": f"activity:{activity.id}",
+        }
+        try:
+            from crm.automation import run_automations
+            from crm.models import AutomationRule
+
+            run_automations(
+                self.get_workspace(),
+                AutomationRule.Trigger.ACTIVITY_CREATED,
+                event_payload,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from process.events import dispatch_domain_event
+
+            dispatch_domain_event(
+                self.get_workspace(),
+                "activity.created",
+                event_payload,
+            )
+        except Exception:  # noqa: BLE001
+            pass
         return Response(
             ActivitySerializer(activity).data, status=status.HTTP_201_CREATED
         )
+
+
+class ActivitySpawnView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, activity_id):
+        from crm.activity_spawn import spawn_from_activity
+
+        activity = get_object_or_404(
+            Activity.objects.filter(workspace=self.get_workspace()),
+            pk=activity_id,
+        )
+        result = spawn_from_activity(
+            activity,
+            mode=request.data.get("mode"),
+            user=request.user,
+            project_id=request.data.get("project_id"),
+            parent_wbs_id=request.data.get("parent_wbs_id"),
+            process_key=request.data.get("process_key"),
+        )
+        return Response(result, status=status.HTTP_201_CREATED)
 
 
 class ActivityDetailView(WorkspaceMixin, APIView):

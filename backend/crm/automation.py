@@ -323,6 +323,68 @@ def execute_actions(workspace, actions: list, context: dict, *, rule=None) -> li
                     results.append({"type": action_type, "ok": False})
                 continue
 
+            if action_type == "start_process":
+                from process.events import dispatch_domain_event
+                from process.engine import start_instance
+                from process.models import ProcessDefinition, ProcessInstance
+                from process.services import deploy_if_needed
+
+                process_key = (action.get("process_key") or "").strip()
+                event_name = (action.get("event") or "").strip()
+                started_ids = []
+                if process_key:
+                    definition = ProcessDefinition.objects.filter(
+                        workspace=workspace, key=process_key, is_published=True
+                    ).first()
+                    if definition is None:
+                        results.append(
+                            {
+                                "type": action_type,
+                                "ok": False,
+                                "error": "definition not found",
+                            }
+                        )
+                        continue
+                    deployment = deploy_if_needed(definition, user=None)
+                    instance = ProcessInstance.objects.create(
+                        workspace=workspace,
+                        deployment=deployment,
+                        business_key=str(
+                            action.get("business_key")
+                            or context.get("deal_id")
+                            or context.get("lead_id")
+                            or ""
+                        ),
+                        deal_id=context.get("deal_id"),
+                        project_id=context.get("project_id"),
+                        organization_id=context.get("organization_id"),
+                        data={**context, "event": "automation.start_process"},
+                        started_by_id=context.get("user_id"),
+                    )
+                    start_instance(instance)
+                    started_ids.append(instance.id)
+                elif event_name:
+                    started_ids = dispatch_domain_event(
+                        workspace, event_name, payload=context
+                    )
+                else:
+                    results.append(
+                        {
+                            "type": action_type,
+                            "ok": False,
+                            "error": "process_key or event required",
+                        }
+                    )
+                    continue
+                results.append(
+                    {
+                        "type": action_type,
+                        "ok": bool(started_ids),
+                        "instance_ids": started_ids,
+                    }
+                )
+                continue
+
             if action_type == "webhook":
                 from workspaces.webhooks import emit_webhook
 

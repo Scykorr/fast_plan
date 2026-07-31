@@ -18,6 +18,8 @@ const TRIGGERS: { value: CrmAutomationTrigger; label: string }[] = [
   { value: "lead.converted", label: "Лид конвертирован" },
   { value: "deal.created", label: "Сделка создана" },
   { value: "deal.stage_changed", label: "Смена стадии сделки" },
+  { value: "activity.created", label: "Активность создана" },
+  { value: "document.accepted", label: "Документ принят" },
   { value: "schedule.daily", label: "Ежедневно (schedule.daily)" },
 ];
 
@@ -49,6 +51,7 @@ const ACTION_TYPES = [
   { value: "create_deal", label: "Создать сделку (из лида)" },
   { value: "create_lead", label: "Создать лид" },
   { value: "set_status", label: "Статус лида" },
+  { value: "start_process", label: "Запустить процесс" },
   { value: "webhook", label: "Webhook" },
   { value: "delay", label: "Delay" },
 ];
@@ -258,6 +261,8 @@ function ActionsEditor({
                 } else if (type === "create_lead") {
                   base.full_name = "";
                   base.source = "automation";
+                } else if (type === "start_process") {
+                  base.process_key = "";
                 }
                 const next = [...actions];
                 next[index] = base;
@@ -375,6 +380,15 @@ function ActionsEditor({
                 </option>
               ))}
             </select>
+          )}
+
+          {action.type === "start_process" && (
+            <input
+              value={String(action.process_key || "")}
+              onChange={(e) => update(index, { process_key: e.target.value })}
+              placeholder="process_key (published definition)"
+              className="w-full rounded border border-border bg-surface px-2 py-1 text-sm"
+            />
           )}
 
           {action.type === "webhook" && (

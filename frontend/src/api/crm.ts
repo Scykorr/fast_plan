@@ -163,6 +163,9 @@ export type CrmDocument = {
   line_items: Array<Record<string, unknown>>;
   issue_date: string | null;
   due_date: string | null;
+  renewal_date?: string | null;
+  term_months?: number | null;
+  arr_annual?: number | string | null;
   organization: number | null;
   organization_name: string | null;
   person: number | null;
@@ -175,6 +178,27 @@ export type CrmDocument = {
   stock_fulfilled?: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type CrmRenewalsSummary = {
+  workspace_id: number;
+  as_of: string;
+  within_days: number;
+  arr_total: string;
+  contract_count: number;
+  upcoming: Array<{
+    id: number;
+    title: string;
+    number: string;
+    status: string;
+    amount: string;
+    arr_annual: string;
+    renewal_date: string;
+    term_months: number | null;
+    organization_id: number | null;
+    organization_name: string | null;
+    days_until: number;
+  }>;
 };
 
 export type CrmDocumentShareLink = {
@@ -225,6 +249,7 @@ export type CrmSku = {
   qty_on_hand: number | string;
   is_active: boolean;
   notes: string;
+  external_ref?: string;
   created_at: string;
   updated_at: string;
 };
@@ -535,6 +560,8 @@ export type CrmAutomationTrigger =
   | "lead.converted"
   | "deal.created"
   | "deal.stage_changed"
+  | "activity.created"
+  | "document.accepted"
   | "schedule.daily";
 
 export type CrmAutomationCondition = {
@@ -741,6 +768,25 @@ export function createCrmApi() {
     },
     createActivity: (body: Record<string, unknown>) =>
       request<CrmActivity>("/crm/activities/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    spawnFromActivity: (
+      activityId: number,
+      body: {
+        mode: "wbs" | "process";
+        project_id?: number;
+        parent_wbs_id?: number;
+        process_key?: string;
+      },
+    ) =>
+      request<{
+        mode: string;
+        wbs_node_id?: number;
+        project_id?: number;
+        instance_id?: number;
+        definition_key?: string;
+      }>(`/crm/activities/${activityId}/spawn/`, {
         method: "POST",
         body: JSON.stringify(body),
       }),
@@ -1176,6 +1222,11 @@ export function createCrmApi() {
         method: "DELETE",
       }),
     getArAp: () => request<CrmArAp>("/crm/ar-ap/", {}),
+    getRenewals: (withinDays = 90) =>
+      request<CrmRenewalsSummary>(
+        `/crm/renewals/?within_days=${withinDays}`,
+        {},
+      ),
     getPnl: (params?: { organization_id?: number; deal_id?: number }) => {
       const query = new URLSearchParams();
       if (params?.organization_id) {

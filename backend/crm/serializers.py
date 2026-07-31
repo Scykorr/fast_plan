@@ -1093,6 +1093,9 @@ class CrmDocumentSerializer(serializers.ModelSerializer):
             "line_items",
             "issue_date",
             "due_date",
+            "renewal_date",
+            "term_months",
+            "arr_annual",
             "organization",
             "organization_name",
             "person",
@@ -1146,6 +1149,11 @@ class CrmDocumentWriteSerializer(serializers.Serializer):
     recompute_amount = serializers.BooleanField(required=False, default=False)
     issue_date = serializers.DateField(required=False, allow_null=True)
     due_date = serializers.DateField(required=False, allow_null=True)
+    renewal_date = serializers.DateField(required=False, allow_null=True)
+    term_months = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    arr_annual = serializers.DecimalField(
+        max_digits=14, decimal_places=2, required=False, allow_null=True
+    )
     organization_id = serializers.IntegerField(required=False, allow_null=True)
     person_id = serializers.IntegerField(required=False, allow_null=True)
     deal_id = serializers.IntegerField(required=False, allow_null=True)
@@ -1233,6 +1241,7 @@ class CrmSkuSerializer(serializers.ModelSerializer):
             "qty_on_hand",
             "is_active",
             "notes",
+            "external_ref",
             "created_at",
             "updated_at",
         ]

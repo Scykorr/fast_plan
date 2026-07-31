@@ -781,6 +781,8 @@ class AutomationRule(models.Model):
         LEAD_CONVERTED = "lead.converted", "Lead converted"
         DEAL_CREATED = "deal.created", "Deal created"
         DEAL_STAGE_CHANGED = "deal.stage_changed", "Deal stage changed"
+        ACTIVITY_CREATED = "activity.created", "Activity created"
+        DOCUMENT_ACCEPTED = "document.accepted", "Document accepted"
         SCHEDULE_DAILY = "schedule.daily", "Daily schedule"
 
     workspace = models.ForeignKey(
@@ -966,6 +968,23 @@ class CrmDocument(models.Model):
     line_items = models.JSONField(default=list, blank=True)
     issue_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
+    renewal_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Next renewal date for contracts (ARR lite).",
+    )
+    term_months = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Contract term in months.",
+    )
+    arr_annual = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Annual recurring revenue override; falls back to amount.",
+    )
     organization = models.ForeignKey(
         Organization,
         on_delete=models.SET_NULL,
@@ -1402,6 +1421,13 @@ class CrmSku(models.Model):
     qty_on_hand = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True, default="")
+    external_ref = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="External system id (e.g. 1C nomenclature).",
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

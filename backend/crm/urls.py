@@ -71,6 +71,11 @@ urlpatterns = [
     ),
     path("crm/activities/", views.ActivityListCreateView.as_view(), name="crm-activities"),
     path(
+        "crm/activities/<int:activity_id>/spawn/",
+        views.ActivitySpawnView.as_view(),
+        name="crm-activity-spawn",
+    ),
+    path(
         "crm/activities/<int:activity_id>/",
         views.ActivityDetailView.as_view(),
         name="crm-activity-detail",
@@ -341,6 +346,11 @@ urlpatterns = [
         name="crm-public-document-pdf",
     ),
     path("crm/ar-ap/", commerce_views.CrmArApView.as_view(), name="crm-ar-ap"),
+    path(
+        "crm/renewals/",
+        commerce_views.CrmRenewalsView.as_view(),
+        name="crm-renewals",
+    ),
     path("crm/finance/pnl/", commerce_views.CrmPnlView.as_view(), name="crm-finance-pnl"),
     path(
         "crm/cashflow-forecast/",

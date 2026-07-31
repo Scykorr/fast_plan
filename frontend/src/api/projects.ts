@@ -299,11 +299,40 @@ export type PertEdge = {
   lag_days: number;
 };
 
+export type PertFinish = {
+  mean_days: number;
+  sigma_days: number;
+  p10_days: number;
+  p50_days: number;
+  p90_days: number;
+  method: string;
+  start_date?: string;
+  p10_date?: string;
+  p50_date?: string;
+  p90_date?: string;
+};
+
 export type PertNetwork = {
   nodes: PertNode[];
   edges: PertEdge[];
   project_duration: number;
   critical_path_ids: number[];
+  finish?: PertFinish;
+};
+
+export type CrossProjectDependency = {
+  id: number;
+  predecessor_id: number;
+  successor_id: number;
+  predecessor_project_id?: number;
+  successor_project_id?: number;
+  predecessor_title?: string;
+  successor_title?: string;
+  dependency_type: string;
+  lag_days: number;
+  note: string;
+  created_at?: string;
+  created?: boolean;
 };
 
 export type ShareLink = {
@@ -761,6 +790,26 @@ export function createProjectsApi() {
 
     removeProjectMember: (projectId: number, memberId: number) =>
       request<void>(`/projects/${projectId}/members/${memberId}/`, {
+        method: "DELETE",
+      }),
+
+    listCrossDependencies: () =>
+      request<CrossProjectDependency[]>("/workspace/cross-dependencies/", {}),
+
+    createCrossDependency: (body: {
+      predecessor_id: number;
+      successor_id: number;
+      dependency_type?: string;
+      lag_days?: number;
+      note?: string;
+    }) =>
+      request<CrossProjectDependency>("/workspace/cross-dependencies/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    deleteCrossDependency: (depId: number) =>
+      request<void>(`/workspace/cross-dependencies/${depId}/`, {
         method: "DELETE",
       }),
   };

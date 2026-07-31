@@ -22,6 +22,7 @@ def run_service_task(instance, task_name: str, data: dict[str, Any]) -> dict[str
         "notify": _notify,
         "webhook": _webhook,
         "evaluate_dmn": _evaluate_dmn,
+        "create_wbs_note": _create_wbs_note,
         "noop": _noop,
         "servicetask": _noop,
     }
@@ -127,3 +128,26 @@ def _evaluate_dmn(instance, data):
                 continue
             instance.data[k] = v
     return out
+
+
+def _create_wbs_note(instance, data):
+    from projects.models import WBSNode, WorkItemComment
+
+    wbs_id = data.get("wbs_node_id")
+    if not wbs_id:
+        return {"service_error": "wbs_node_id required"}
+    node = WBSNode.objects.filter(
+        pk=wbs_id, project__workspace=instance.workspace
+    ).first()
+    if node is None:
+        return {"service_error": "wbs node not found"}
+    if instance.project_id and node.project_id != instance.project_id:
+        return {"service_error": "wbs node outside process project"}
+    comment = WorkItemComment.objects.create(
+        workspace=instance.workspace,
+        author=instance.started_by,
+        wbs_node=node,
+        kind=WorkItemComment.Kind.COMMENT,
+        body=data.get("body") or f"Process {instance.id}",
+    )
+    return {"wbs_comment_id": comment.id}

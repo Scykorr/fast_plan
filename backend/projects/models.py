@@ -199,6 +199,52 @@ class ActivityDependency(models.Model):
         return f"{self.predecessor} {self.dependency_type} {self.successor}"
 
 
+class CrossProjectDependency(models.Model):
+    """Soft cross-project constraint (same workspace); not used in CPM math."""
+
+    class DependencyType(models.TextChoices):
+        FS = "FS", "Finish-Start"
+        SS = "SS", "Start-Start"
+        FF = "FF", "Finish-Finish"
+        SF = "SF", "Start-Finish"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="cross_project_dependencies",
+    )
+    predecessor = models.ForeignKey(
+        ScheduleActivity,
+        on_delete=models.CASCADE,
+        related_name="cross_successor_links",
+    )
+    successor = models.ForeignKey(
+        ScheduleActivity,
+        on_delete=models.CASCADE,
+        related_name="cross_predecessor_links",
+    )
+    dependency_type = models.CharField(
+        max_length=2,
+        choices=DependencyType.choices,
+        default=DependencyType.FS,
+    )
+    lag_days = models.IntegerField(default=0)
+    note = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["predecessor", "successor"],
+                name="uniq_cross_project_dep",
+            ),
+        ]
+
+    def __str__(self):
+        return f"XP {self.predecessor_id} → {self.successor_id}"
+
+
 class Risk(models.Model):
     class Status(models.TextChoices):
         OPEN = "open", "Open"

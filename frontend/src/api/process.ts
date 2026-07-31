@@ -142,12 +142,29 @@ export type ProcessMining = {
   bottlenecks: Array<{ node: string; avg_hours: number; samples: number }>;
 };
 
-export type DecisionDefinition = {
-  id: number;
-  key: string;
+export type ProcessAdapterParam = {
   name: string;
-  dmn_xml: string;
-  decision_id?: string;
+  type: string;
+  required?: boolean;
+};
+
+export type ProcessAdapterCatalogItem = {
+  operation: string;
+  label: string;
+  description: string;
+  params: ProcessAdapterParam[];
+};
+
+export type ProcessExecutableElement = {
+  type: string;
+  status: string;
+  note?: string;
+};
+
+export type ProcessAdapterCatalog = {
+  adapters: ProcessAdapterCatalogItem[];
+  executable_elements: ProcessExecutableElement[];
+  dispatch_hint: string;
 };
 export function createProcessApi() {
   return {
@@ -274,5 +291,7 @@ export function createProcessApi() {
         method: "POST",
         body: JSON.stringify({ inputs }),
       }),
+    adaptersCatalog: () =>
+      request<ProcessAdapterCatalog>("/process/adapters/", {}),
   };
 }

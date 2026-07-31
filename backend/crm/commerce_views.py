@@ -289,6 +289,9 @@ class CrmDocumentListCreateView(WorkspaceMixin, APIView):
             line_items=line_items,
             issue_date=data.get("issue_date") or timezone.localdate(),
             due_date=data.get("due_date"),
+            renewal_date=data.get("renewal_date"),
+            term_months=data.get("term_months"),
+            arr_annual=data.get("arr_annual"),
             organization=org,
             person=person,
             deal=deal,
@@ -330,6 +333,9 @@ class CrmDocumentDetailView(WorkspaceMixin, APIView):
             "body",
             "issue_date",
             "due_date",
+            "renewal_date",
+            "term_months",
+            "arr_annual",
         ):
             if field in data:
                 setattr(doc, field, data[field])
@@ -363,6 +369,40 @@ class CrmDocumentDetailView(WorkspaceMixin, APIView):
             doc, previous_status=previous_status, user=request.user
         )
         doc.refresh_from_db()
+        if (
+            previous_status != doc.status
+            and doc.status == CrmDocument.Status.ACCEPTED
+        ):
+            event_payload = {
+                "document_id": doc.id,
+                "doc_type": doc.doc_type,
+                "organization_id": doc.organization_id,
+                "deal_id": doc.deal_id,
+                "project_id": doc.project_id,
+                "user_id": request.user.id,
+                "business_key": f"document:{doc.id}",
+            }
+            try:
+                from crm.automation import run_automations
+                from crm.models import AutomationRule
+
+                run_automations(
+                    doc.workspace,
+                    AutomationRule.Trigger.DOCUMENT_ACCEPTED,
+                    event_payload,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                from process.events import dispatch_domain_event
+
+                dispatch_domain_event(
+                    doc.workspace,
+                    "document.accepted",
+                    event_payload,
+                )
+            except Exception:  # noqa: BLE001
+                pass
         return Response(CrmDocumentSerializer(doc).data)
 
     def delete(self, request, document_id):
@@ -445,6 +485,20 @@ class CrmDocumentPaymentListCreateView(WorkspaceMixin, APIView):
         return Response(
             CrmDocumentPaymentSerializer(payment).data, status=status.HTTP_201_CREATED
         )
+
+
+class CrmRenewalsView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from crm.renewals import renewals_summary
+
+        within = request.query_params.get("within_days") or 90
+        try:
+            within_days = int(within)
+        except (TypeError, ValueError):
+            within_days = 90
+        return Response(renewals_summary(self.get_workspace(), within_days=within_days))
 
 
 class CrmArApView(WorkspaceMixin, APIView):

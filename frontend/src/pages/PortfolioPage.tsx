@@ -2,21 +2,33 @@ import { Link } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 
 import { parseApiError } from "../api/errors";
+import type { CrossProjectDependency } from "../api/projects";
 import type { WorkspaceDashboard } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ChatPanel } from "../components/chats/ChatPanel";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useLocale } from "../context/LocaleContext";
 import { useAuth } from "../context/AuthContext";
+import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 
 export function PortfolioPage() {
   const workspaceApi = useWorkspaceApi();
+  const projectsApi = useProjectsApi();
   const { workspaceEpoch, activeWorkspace } = useWorkspace();
   const { isAuthenticated } = useAuth();
   const { formatMoney, currency, baseCurrency } = useLocale();
   const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
+  const [crossDeps, setCrossDeps] = useState<CrossProjectDependency[]>([]);
+  const [crossForm, setCrossForm] = useState({
+    predecessor_id: "",
+    successor_id: "",
+    dependency_type: "FS",
+    lag_days: "0",
+    note: "",
+  });
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -27,12 +39,15 @@ export function PortfolioPage() {
     setError("");
     try {
       setDashboard(await workspaceApi.getDashboard());
+      if (projectsApi) {
+        setCrossDeps(await projectsApi.listCrossDependencies());
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить портфель"));
     } finally {
       setLoading(false);
     }
-  }, [workspaceApi]);
+  }, [workspaceApi, projectsApi]);
 
   useEffect(() => {
     void load();
@@ -131,6 +146,143 @@ export function PortfolioPage() {
               </tbody>
             </table>
           </div>
+
+          <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
+            <h2 className="text-base font-semibold text-text">
+              Cross-project зависимости
+            </h2>
+            <p className="text-xs text-text-muted">
+              Мягкие связи между schedule activity разных проектов (не входят в
+              CPM). Укажите ID активностей из расписания.
+            </p>
+            {message && (
+              <p className="text-sm text-secondary" role="status">
+                {message}
+              </p>
+            )}
+            <form
+              className="grid gap-2 sm:grid-cols-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!projectsApi) return;
+                const pred = Number(crossForm.predecessor_id);
+                const succ = Number(crossForm.successor_id);
+                if (!Number.isFinite(pred) || !Number.isFinite(succ)) {
+                  setError("Нужны числовые ID predecessor/successor");
+                  return;
+                }
+                void projectsApi
+                  .createCrossDependency({
+                    predecessor_id: pred,
+                    successor_id: succ,
+                    dependency_type: crossForm.dependency_type,
+                    lag_days: Number(crossForm.lag_days) || 0,
+                    note: crossForm.note,
+                  })
+                  .then(() => {
+                    setMessage("Связь сохранена");
+                    setCrossForm({
+                      predecessor_id: "",
+                      successor_id: "",
+                      dependency_type: "FS",
+                      lag_days: "0",
+                      note: "",
+                    });
+                    return load();
+                  })
+                  .catch((err) =>
+                    setError(parseApiError(err, "Не удалось создать связь")),
+                  );
+              }}
+            >
+              <input
+                value={crossForm.predecessor_id}
+                onChange={(e) =>
+                  setCrossForm({ ...crossForm, predecessor_id: e.target.value })
+                }
+                placeholder="pred activity id"
+                className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
+                required
+              />
+              <input
+                value={crossForm.successor_id}
+                onChange={(e) =>
+                  setCrossForm({ ...crossForm, successor_id: e.target.value })
+                }
+                placeholder="succ activity id"
+                className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
+                required
+              />
+              <select
+                value={crossForm.dependency_type}
+                onChange={(e) =>
+                  setCrossForm({
+                    ...crossForm,
+                    dependency_type: e.target.value,
+                  })
+                }
+                className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
+              >
+                {["FS", "SS", "FF", "SF"].map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={crossForm.lag_days}
+                onChange={(e) =>
+                  setCrossForm({ ...crossForm, lag_days: e.target.value })
+                }
+                placeholder="lag days"
+                className="rounded border border-border bg-cream px-2 py-1.5 text-sm"
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white"
+              >
+                Добавить
+              </button>
+            </form>
+            <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+              {crossDeps.length === 0 ? (
+                <li className="text-text-muted">Пока нет связей</li>
+              ) : (
+                crossDeps.map((dep) => (
+                  <li
+                    key={dep.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1.5"
+                  >
+                    <span>
+                      #{dep.id} · P{dep.predecessor_project_id}/
+                      {dep.predecessor_title || dep.predecessor_id} → P
+                      {dep.successor_project_id}/
+                      {dep.successor_title || dep.successor_id} ·{" "}
+                      {dep.dependency_type}
+                      {dep.lag_days ? ` +${dep.lag_days}д` : ""}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs text-text-muted hover:text-primary"
+                      onClick={() => {
+                        if (!projectsApi) return;
+                        void projectsApi
+                          .deleteCrossDependency(dep.id)
+                          .then(() => load())
+                          .catch((err) =>
+                            setError(
+                              parseApiError(err, "Не удалось удалить"),
+                            ),
+                          );
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
 
           {isAuthenticated && (
             <div className="space-y-2">

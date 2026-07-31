@@ -7,6 +7,7 @@ import type {
   CrmDocument,
   CrmIntegrationConnector,
   CrmPnl,
+  CrmRenewalsSummary,
   CrmSku,
 } from "../api/crm";
 import { ErrorMessage } from "../components/ErrorMessage";
@@ -42,6 +43,7 @@ export function CrmCommercePage() {
   > | null>(null);
   const [cashflow, setCashflow] = useState<CrmCashflowForecast | null>(null);
   const [pnl, setPnl] = useState<CrmPnl | null>(null);
+  const [renewals, setRenewals] = useState<CrmRenewalsSummary | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [connectorForm, setConnectorForm] = useState({
@@ -75,6 +77,9 @@ export function CrmCommercePage() {
     number: "",
     body: "",
     due_date: "",
+    renewal_date: "",
+    term_months: "",
+    arr_annual: "",
   });
   const [docLines, setDocLines] = useState<DocumentLineDraft[]>(emptyDocumentLines());
   const [editingDocId, setEditingDocId] = useState<number | null>(null);
@@ -114,7 +119,7 @@ export function CrmCommercePage() {
   const load = useCallback(async () => {
     if (!crmApi) return;
     try {
-      const [ch, docs, ar, cf, pnlRow, cons, skuRows] = await Promise.all([
+      const [ch, docs, ar, cf, pnlRow, cons, skuRows, renew] = await Promise.all([
         crmApi.listChannels(),
         crmApi.listDocuments(),
         crmApi.getArAp(),
@@ -122,6 +127,7 @@ export function CrmCommercePage() {
         crmApi.getPnl(),
         crmApi.listConnectors(),
         crmApi.listSkus(),
+        crmApi.getRenewals(90),
       ]);
       setChannels(ch);
       setDocuments(docs);
@@ -130,6 +136,7 @@ export function CrmCommercePage() {
       setPnl(pnlRow);
       setConnectors(cons);
       setSkus(skuRows);
+      setRenewals(renew);
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить коммерцию/каналы"));
     }
@@ -219,6 +226,9 @@ export function CrmCommercePage() {
         recompute_amount: line_items.length > 0,
         body: docForm.body,
         due_date: docForm.due_date || null,
+        renewal_date: docForm.renewal_date || null,
+        term_months: docForm.term_months ? Number(docForm.term_months) : null,
+        arr_annual: docForm.arr_annual || null,
         status: docForm.doc_type === "bill" || docForm.doc_type === "invoice"
           ? "sent"
           : "draft",
@@ -231,6 +241,9 @@ export function CrmCommercePage() {
         number: "",
         body: "",
         due_date: "",
+        renewal_date: "",
+        term_months: "",
+        arr_annual: "",
       });
       setDocLines(emptyDocumentLines());
       setMessage("Документ создан");
@@ -563,6 +576,47 @@ export function CrmCommercePage() {
       </section>
 
       <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-text">Договоры / ARR lite</h2>
+        {renewals ? (
+          <>
+            <p className="text-sm text-text-muted">
+              ARR total:{" "}
+              <strong className="text-text">
+                {formatMoney(Number(renewals.arr_total))}
+              </strong>{" "}
+              · контрактов: {renewals.contract_count} · горизонт{" "}
+              {renewals.within_days}д
+            </p>
+            <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+              {renewals.upcoming.length === 0 ? (
+                <li className="text-text-muted">Нет продлений в горизонте</li>
+              ) : (
+                renewals.upcoming.map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap justify-between gap-2 rounded border border-border px-2 py-1.5"
+                  >
+                    <span>
+                      #{row.id} {row.title}
+                      {row.organization_name
+                        ? ` · ${row.organization_name}`
+                        : ""}
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      {row.renewal_date} · через {row.days_until}д · ARR{" "}
+                      {formatMoney(Number(row.arr_annual))}
+                    </span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </>
+        ) : (
+          <p className="text-sm text-text-muted">Загрузка…</p>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
         <h2 className="text-sm font-semibold text-text">Документы</h2>
         <form onSubmit={(e) => void createDoc(e)} className="grid gap-2 sm:grid-cols-4">
           <select
@@ -601,6 +655,31 @@ export function CrmCommercePage() {
             onChange={(e) => setDocForm({ ...docForm, due_date: e.target.value })}
             className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
             title="Срок"
+          />
+          <input
+            type="date"
+            value={docForm.renewal_date}
+            onChange={(e) =>
+              setDocForm({ ...docForm, renewal_date: e.target.value })
+            }
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+            title="Дата продления (договор)"
+          />
+          <input
+            value={docForm.term_months}
+            onChange={(e) =>
+              setDocForm({ ...docForm, term_months: e.target.value })
+            }
+            placeholder="Срок, мес"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
+          />
+          <input
+            value={docForm.arr_annual}
+            onChange={(e) =>
+              setDocForm({ ...docForm, arr_annual: e.target.value })
+            }
+            placeholder="ARR / год"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
           />
           <input
             value={docForm.body}

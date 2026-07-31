@@ -35,6 +35,8 @@ from projects.pmbok_views import (
 )
 from projects.views import (
     ActivityDependencyCreateView,
+    CrossProjectDependencyDetailView,
+    CrossProjectDependencyListCreateView,
     ProjectCalendarView,
     ProjectDashboardView,
     ProjectDetailView,
@@ -118,6 +120,16 @@ urlpatterns = [
         "projects/<int:project_id>/dependencies/",
         ActivityDependencyCreateView.as_view(),
         name="project-dependencies",
+    ),
+    path(
+        "workspace/cross-dependencies/",
+        CrossProjectDependencyListCreateView.as_view(),
+        name="cross-project-dependencies",
+    ),
+    path(
+        "workspace/cross-dependencies/<int:dep_id>/",
+        CrossProjectDependencyDetailView.as_view(),
+        name="cross-project-dependency-detail",
     ),
     path(
         "projects/<int:project_id>/calendar/",

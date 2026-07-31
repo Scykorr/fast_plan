@@ -344,10 +344,12 @@ def ingest_stripe_event(connector: IntegrationConnector, payload: dict) -> dict:
 def sync_onec(connector: IntegrationConnector) -> dict:
     config = connector.config or {}
     pending = list(config.get("pending_documents") or [])
+    pending_skus = list(config.get("pending_skus") or [])
     created = 0
+    skus_upserted = 0
     imported = []
 
-    if config.get("base_url") and not pending:
+    if config.get("base_url") and not pending and not pending_skus:
         url = config["base_url"].rstrip("/") + "/invoices.json"
         try:
             headers = {}
@@ -357,10 +359,40 @@ def sync_onec(connector: IntegrationConnector) -> dict:
                 ).decode()
                 headers["Authorization"] = f"Basic {token}"
             payload = _http_json(url, headers=headers)
-            pending = payload if isinstance(payload, list) else payload.get("documents") or []
+            if isinstance(payload, list):
+                pending = payload
+            else:
+                pending = payload.get("documents") or []
+                pending_skus = payload.get("skus") or payload.get("nomenclature") or []
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError) as exc:
             # Soft-fail: keep local pending queue usable without live 1C
             logger.info("1C remote sync skipped: %s", exc)
+
+    from crm.models import CrmSku
+
+    for item in pending_skus:
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get("code") or item.get("Артикул") or item.get("sku") or "").strip()
+        name = str(item.get("name") or item.get("Наименование") or code or "").strip()
+        if not code or not name:
+            continue
+        external_ref = str(item.get("id") or item.get("external_ref") or "")[:120]
+        defaults = {
+            "name": name[:255],
+            "unit": str(item.get("unit") or item.get("Единица") or "шт")[:32],
+            "unit_price": Decimal(str(item.get("price") or item.get("unit_price") or "0")),
+            "is_active": True,
+        }
+        if external_ref:
+            defaults["external_ref"] = external_ref
+        sku, was_created = CrmSku.objects.update_or_create(
+            workspace=connector.workspace,
+            code=code[:64],
+            defaults=defaults,
+        )
+        if was_created or external_ref:
+            skus_upserted += 1
 
     for item in pending:
         if not isinstance(item, dict):
@@ -397,20 +429,39 @@ def sync_onec(connector: IntegrationConnector) -> dict:
         created += 1
         imported.append(external_id or title)
 
+    config = dict(connector.config or {})
+    dirty = False
     if "pending_documents" in config:
-        config = {**config, "pending_documents": []}
+        config["pending_documents"] = []
+        dirty = True
+    if "pending_skus" in config:
+        config["pending_skus"] = []
+        dirty = True
+    if dirty:
         connector.config = config
         connector.save(update_fields=["config", "updated_at"])
 
-    return {"created": created, "provider": "onec", "imported": imported}
+    return {
+        "created": created,
+        "skus_upserted": skus_upserted,
+        "provider": "onec",
+        "imported": imported,
+    }
 
 
 def ingest_onec_documents(connector: IntegrationConnector, payload: dict | list) -> dict:
     docs = payload if isinstance(payload, list) else payload.get("documents") or []
+    skus = [] if isinstance(payload, list) else (
+        payload.get("skus") or payload.get("nomenclature") or []
+    )
     config = dict(connector.config or {})
     existing = list(config.get("pending_documents") or [])
     existing.extend(docs if isinstance(docs, list) else [])
     config["pending_documents"] = existing
+    if skus:
+        pending_skus = list(config.get("pending_skus") or [])
+        pending_skus.extend(skus if isinstance(skus, list) else [])
+        config["pending_skus"] = pending_skus
     connector.config = config
     connector.save(update_fields=["config", "updated_at"])
     return sync_onec(connector)

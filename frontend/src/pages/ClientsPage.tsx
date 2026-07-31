@@ -1223,6 +1223,75 @@ export function ClientsPage() {
                               {activity.body}
                             </p>
                           )}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="rounded border border-border px-2 py-0.5 text-xs text-text-muted hover:bg-cream"
+                              onClick={() => {
+                                if (!crmApi) return;
+                                const raw = window.prompt(
+                                  "ID проекта для WBS (обязательно)",
+                                );
+                                if (!raw) return;
+                                const projectId = Number(raw);
+                                if (!Number.isFinite(projectId)) {
+                                  setError("Некорректный project id");
+                                  return;
+                                }
+                                void crmApi
+                                  .spawnFromActivity(activity.id, {
+                                    mode: "wbs",
+                                    project_id: projectId,
+                                  })
+                                  .then((res) => {
+                                    setMessage(
+                                      `WBS #${res.wbs_node_id} создан в проекте ${res.project_id}`,
+                                    );
+                                  })
+                                  .catch((err) =>
+                                    setError(
+                                      parseApiError(
+                                        err,
+                                        "Не удалось создать WBS",
+                                      ),
+                                    ),
+                                  );
+                              }}
+                            >
+                              → WBS
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded border border-border px-2 py-0.5 text-xs text-text-muted hover:bg-cream"
+                              onClick={() => {
+                                if (!crmApi) return;
+                                const key = window.prompt(
+                                  "Ключ published process definition",
+                                );
+                                if (!key?.trim()) return;
+                                void crmApi
+                                  .spawnFromActivity(activity.id, {
+                                    mode: "process",
+                                    process_key: key.trim(),
+                                  })
+                                  .then((res) => {
+                                    setMessage(
+                                      `Процесс #${res.instance_id} (${res.definition_key}) запущен`,
+                                    );
+                                  })
+                                  .catch((err) =>
+                                    setError(
+                                      parseApiError(
+                                        err,
+                                        "Не удалось запустить процесс",
+                                      ),
+                                    ),
+                                  );
+                              }}
+                            >
+                              → Process
+                            </button>
+                          </div>
                         </li>
                       ))
                     )}

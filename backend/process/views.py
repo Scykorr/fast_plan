@@ -555,6 +555,15 @@ class ProcessOpsView(WorkspaceMixin, APIView):
         )
 
 
+class ProcessAdaptersCatalogView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from process.catalog import list_adapter_catalog
+
+        return Response(list_adapter_catalog())
+
+
 class ProcessMiningView(WorkspaceMixin, APIView):
     """Lite process mining: DFG, top paths, bottlenecks from ActivityInstance log."""
 

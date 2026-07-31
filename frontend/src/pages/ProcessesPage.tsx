@@ -6,6 +6,7 @@ import type {
   CaseDefinition,
   CaseInstance,
   DecisionDefinition,
+  ProcessAdapterCatalog,
   ProcessDefinition,
   ProcessInstance,
   ProcessMetrics,
@@ -70,6 +71,8 @@ export function ProcessesPage() {
   const [packs, setPacks] = useState<ProcessPack[]>([]);
   const [metrics, setMetrics] = useState<ProcessMetrics | null>(null);
   const [ops, setOps] = useState<ProcessOps | null>(null);
+  const [adapterCatalog, setAdapterCatalog] =
+    useState<ProcessAdapterCatalog | null>(null);
   const [mining, setMining] = useState<ProcessMining | null>(null);
   const [cases, setCases] = useState<CaseInstance[]>([]);
   const [caseDefs, setCaseDefs] = useState<CaseDefinition[]>([]);
@@ -89,14 +92,31 @@ export function ProcessesPage() {
     active_element_ids: string[];
   } | null>(null);
   const [tab, setTab] = useState<
-    "defs" | "instances" | "packs" | "cases" | "dmn" | "ops" | "metrics"
+    | "defs"
+    | "instances"
+    | "packs"
+    | "cases"
+    | "dmn"
+    | "ops"
+    | "adapters"
+    | "metrics"
   >("defs");
 
   const load = useCallback(async () => {
     if (!api) return;
     try {
-      const [defs, inst, packList, m, opsData, mine, caseList, caseDefList, decisionList] =
-        await Promise.all([
+      const [
+        defs,
+        inst,
+        packList,
+        m,
+        opsData,
+        mine,
+        caseList,
+        caseDefList,
+        decisionList,
+        adapters,
+      ] = await Promise.all([
           api.listDefinitions(),
           api.listInstances(),
           api.listPacks(),
@@ -106,6 +126,7 @@ export function ProcessesPage() {
           api.listCases(),
           api.listCaseDefinitions(),
           api.listDecisions(),
+          api.adaptersCatalog(),
         ]);
       setDefinitions(defs);
       setInstances(inst);
@@ -115,6 +136,7 @@ export function ProcessesPage() {
       setMining(mine);
       setCases(caseList);
       setCaseDefs(caseDefList);
+      setAdapterCatalog(adapters);
       setDecisions(decisionList);
     } catch (err) {
       setError(parseApiError(err));
@@ -189,6 +211,7 @@ export function ProcessesPage() {
             ["cases", "Кейсы CMMN"],
             ["dmn", "DMN"],
             ["ops", "Ops"],
+            ["adapters", "Adapters"],
             ["metrics", "Метрики / Mining"],
           ] as const
         ).map(([id, label]) => (
@@ -739,6 +762,53 @@ export function ProcessesPage() {
               {ops.sla_breaches.length === 0 && (
                 <li className="text-text-muted">Нет просроченных задач</li>
               )}
+            </ul>
+          </section>
+        </div>
+      )}
+
+      {tab === "adapters" && adapterCatalog && (
+        <div className="space-y-4">
+          <p className="text-sm text-text-muted">{adapterCatalog.dispatch_hint}</p>
+          <section className="rounded-xl border border-border bg-surface p-4 text-sm">
+            <h3 className="font-semibold text-text">ServiceTask adapters</h3>
+            <ul className="mt-2 space-y-2">
+              {adapterCatalog.adapters.map((item) => (
+                <li
+                  key={item.operation}
+                  className="rounded border border-border px-3 py-2"
+                >
+                  <div className="font-medium text-text">
+                    <code className="text-primary">{item.operation}</code> —{" "}
+                    {item.label}
+                  </div>
+                  <p className="mt-0.5 text-xs text-text-muted">
+                    {item.description}
+                  </p>
+                  {item.params.length > 0 && (
+                    <p className="mt-1 text-xs text-text-muted">
+                      params:{" "}
+                      {item.params
+                        .map(
+                          (p) =>
+                            `${p.name}${p.required ? "*" : ""}:${p.type}`,
+                        )
+                        .join(", ")}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="rounded-xl border border-border bg-surface p-4 text-sm">
+            <h3 className="font-semibold text-text">Executable BPMN elements</h3>
+            <ul className="mt-2 space-y-1 text-xs">
+              {adapterCatalog.executable_elements.map((el) => (
+                <li key={el.type}>
+                  <code>{el.type}</code> · {el.status}
+                  {el.note ? ` — ${el.note}` : ""}
+                </li>
+              ))}
             </ul>
           </section>
         </div>

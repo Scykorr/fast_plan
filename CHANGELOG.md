@@ -25,10 +25,18 @@
 - **Org/Person merge** — `GET …/duplicates/`, `POST …/merge/`; панель дублей на `/clients`
 - **Project change requests** — `GET/POST …/change-requests/`, `POST …/decide/` (approve → linked baseline); UI на вкладке Baseline
 - **Quote/Invoice line editor** — multi-line SKU picker, `recompute_amount`, PATCH строк на `/crm-commerce`
+- **PERT probabilistic finish** — `finish.p10/p50/p90` (+ dates) в `GET /api/projects/<id>/pert/`; подпись на PERT UI
+- **Service-adapter catalog** — `GET /api/process/adapters/` (+ executable elements); вкладка Adapters на `/processes`
+- **BPMN expansion (lite)** — catalog: Inclusive GW experimental, SubProcess planned; timers уже были
+- **CRM → process events** — `activity.created` / `document.accepted` (+ `deal.stage_changed`) стартуют definitions по `category`; automation triggers + action `start_process`
+- **Contract renewals / ARR lite** — поля `renewal_date` / `term_months` / `arr_annual`; `GET /api/crm/renewals/`; UI на `/crm-commerce`
+- **Activity → WBS/Process spawn** — `POST /api/crm/activities/<id>/spawn/`; кнопки на `/clients`
+- **1С ↔ SKU sync lite** — `pending_skus`/`nomenclature` → upsert `CrmSku` + `external_ref`
+- **Cross-project dependencies** — `CrossProjectDependency`, `GET/POST/DELETE /api/workspace/cross-dependencies/`; UI на `/portfolio`
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P2: PERT P10/P50/P90, service-adapter catalog, ARR lite…).
+См. [ROADMAP.md](ROADMAP.md) § **Планы** (MS Project XML после sample; restore-drill).
 
 ## [0.17.0] — 2026-07-31
 

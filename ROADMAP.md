@@ -13,9 +13,9 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.17.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)); Unreleased: Deal→Project + Process ops |
+| **Текущая версия** | **v0.17.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)); Unreleased: P10 sprints 1–5 |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — sprint 5: P2 process/CRM leftovers |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — MS Project XML (после sample) + ops drill |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -97,8 +97,8 @@
 1. ~~**Deal → Project from template** + **Process ops dashboard**~~ — **✓** (`6accf0e` / Unreleased)
 2. ~~**UserTask ↔ WBS/Kanban** + **Guest commercial portal**~~ — **✓** (`cbbd2e5` / Unreleased)
 3. ~~**Capacity-aware schedule hints** + **Org/Person merge**~~ — **✓** (`475e71f` / Unreleased)
-4. ~~**Change requests + baseline** + **Quote/Invoice line editor**~~ — **✓** (Unreleased)
-5. Остальное по таблицам ниже ← следующий
+4. ~~**Change requests + baseline** + **Quote/Invoice line editor**~~ — **✓** (`66ff7cf` / Unreleased)
+5. ~~**Остальное по таблицам** (PERT / adapters / ARR / spawn / cross-deps / 1C SKU / CRM→process)~~ — **✓** (Unreleased)
 6. **MS Project XML** — только после sample
 7. Ops: раз в квартал `scripts/restore-drill.sh`
 
@@ -109,8 +109,8 @@
 | **P1** | Deal → Project from template | **M** | **✓** `POST …/create-project/` + UI `/deals` |
 | **P1** | Capacity-aware schedule hints на Gantt/WBS | **M** | **✓** hints в schedule/WBS + Gantt overload |
 | **P2** | Change requests + baseline | **M** | **✓** `…/change-requests/` + decide → baseline |
-| **P2** | PERT probabilistic finish (P10/P50/P90) | **M** | план |
-| **P3** | Cross-project / program dependencies | **L** | план |
+| **P2** | PERT probabilistic finish (P10/P50/P90) | **M** | **✓** `finish` в `GET …/pert/` + UI |
+| **P3** | Cross-project / program dependencies | **L** | **✓** soft links `…/workspace/cross-dependencies/` + UI `/portfolio` |
 | **P3** | MS Project XML import _(нужен sample)_ | **M–L** | отложено |
 
 ### Process — управление процессами
@@ -119,9 +119,9 @@
 |-----|-------|------|--------|
 | **P1** | UserTask ↔ WBS/Kanban binding | **M** | **✓** `PATCH …/tasks/<id>/bind/` + sync on complete |
 | **P1** | Process ops dashboard (stuck / aging / SLA) | **S–M** | **✓** `GET /process/ops/` + вкладка Ops |
-| **P2** | Service-adapter catalog | **M** | план |
-| **P2** | BPMN expansion (SubProcess, Inclusive GW, timers) | **L** | план |
-| **P3** | Start process from CRM events | **M** | план |
+| **P2** | Service-adapter catalog | **M** | **✓** `GET /process/adapters/` + вкладка Adapters |
+| **P2** | BPMN expansion (SubProcess, Inclusive GW, timers) | **L** | **✓** lite: catalog statuses (Inclusive experimental, SubProcess planned; timers already) |
+| **P3** | Start process from CRM events | **M** | **✓** `activity.created` / `document.accepted` / `deal.stage_changed` → domain events + automation `start_process` |
 
 ### CRM
 
@@ -129,10 +129,10 @@
 |-----|-------|------|-------|
 | **P1** | Guest commercial portal (КП/счёт/акт, approve, статус оплаты) | **M** | **✓** `/api/crm/share/` + UI `/commerce/:token` |
 | **P1** | Org/Person merge + dedupe UI | **S–M** | **✓** `/duplicates/` + `/merge/` + UI `/clients` |
-| **P2** | Contract renewals / ARR lite | **M** | Retention services |
+| **P2** | Contract renewals / ARR lite | **M** | **✓** `GET /crm/renewals/` + поля договора + UI `/crm-commerce` |
 | **P2** | Quote/Invoice line editor + SKU picker | **S–M** | **✓** multi-line editor + amount recompute |
-| **P3** | 1С ↔ SKU sync lite | **M** | RU B2B номенклатура |
-| **P3** | Activity → Process task / WBS item (1 клик) | **S** | Склейка доменов в UI |
+| **P3** | 1С ↔ SKU sync lite | **M** | **✓** `pending_skus` / nomenclature → `CrmSku.external_ref` |
+| **P3** | Activity → Process task / WBS item (1 клик) | **S** | **✓** `POST …/activities/<id>/spawn/` + кнопки на `/clients` |
 
 ### Отложено (ждём входных данных)
 

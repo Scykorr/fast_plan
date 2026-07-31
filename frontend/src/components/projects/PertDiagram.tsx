@@ -113,10 +113,23 @@ export function PertDiagram({ network }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-text-muted">
-        Длительность проекта (CPM): {network.project_duration} дн. · узлов:{" "}
-        {network.nodes.length}
-      </p>
+      <div className="space-y-1 text-sm text-text-muted">
+        <p>
+          Длительность проекта (CPM): {network.project_duration} дн. · узлов:{" "}
+          {network.nodes.length}
+        </p>
+        {network.finish && (
+          <p>
+            PERT finish · P10 {network.finish.p10_days}д
+            {network.finish.p10_date ? ` (${network.finish.p10_date})` : ""} · P50{" "}
+            {network.finish.p50_days}д
+            {network.finish.p50_date ? ` (${network.finish.p50_date})` : ""} · P90{" "}
+            {network.finish.p90_days}д
+            {network.finish.p90_date ? ` (${network.finish.p90_date})` : ""} · σ{" "}
+            {network.finish.sigma_days}д
+          </p>
+        )}
+      </div>
       <div className="h-[520px] rounded-xl border border-border bg-surface">
         <ReactFlow
           nodes={nodes}
