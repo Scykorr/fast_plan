@@ -653,6 +653,28 @@ export function CrmCommercePage() {
                   className="rounded border border-border px-2 py-1 text-xs"
                   onClick={() =>
                     void crmApi
+                      ?.createDocumentShareLink(doc.id, {
+                        label: "Клиентский портал",
+                        allow_approve: true,
+                        allow_pdf: true,
+                      })
+                      .then((link) => {
+                        const url = `${window.location.origin}${link.url_path}`;
+                        void navigator.clipboard?.writeText(url);
+                        setMessage(`Ссылка гостя скопирована: ${url}`);
+                      })
+                      .catch((err) =>
+                        setError(parseApiError(err, "Не удалось создать ссылку")),
+                      )
+                  }
+                >
+                  Ссылка гостю
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-xs"
+                  onClick={() =>
+                    void crmApi
                       ?.renderDocumentPdf(doc.id)
                       .then(load)
                       .catch((err) =>

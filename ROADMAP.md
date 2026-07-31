@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.17.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)); Unreleased: Deal→Project + Process ops |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — sprint 2: UserTask↔WBS + guest portal |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — sprint 3: capacity hints + Org/Person merge |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -95,8 +95,8 @@
 ### Порядок спринтов (рекомендация)
 
 1. ~~**Deal → Project from template** + **Process ops dashboard**~~ — **✓** (`6accf0e` / Unreleased)
-2. **UserTask ↔ WBS/Kanban** + **Guest commercial portal** ← следующий
-3. **Capacity-aware schedule hints** + **Org/Person merge**
+2. ~~**UserTask ↔ WBS/Kanban** + **Guest commercial portal**~~ — **✓** (Unreleased)
+3. **Capacity-aware schedule hints** + **Org/Person merge** ← следующий
 4. Остальное по таблицам ниже
 5. **MS Project XML** — только после sample
 6. Ops: раз в квартал `scripts/restore-drill.sh`
@@ -116,7 +116,7 @@
 
 | Pri | Пункт | Size | Статус |
 |-----|-------|------|--------|
-| **P1** | UserTask ↔ WBS/Kanban binding | **M** | план |
+| **P1** | UserTask ↔ WBS/Kanban binding | **M** | **✓** `PATCH …/tasks/<id>/bind/` + sync on complete |
 | **P1** | Process ops dashboard (stuck / aging / SLA) | **S–M** | **✓** `GET /process/ops/` + вкладка Ops |
 | **P2** | Service-adapter catalog | **M** | план |
 | **P2** | BPMN expansion (SubProcess, Inclusive GW, timers) | **L** | план |
@@ -126,7 +126,7 @@
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P1** | Guest commercial portal (КП/счёт/акт, approve, статус оплаты) | **M** | Клиентский край коммерции |
+| **P1** | Guest commercial portal (КП/счёт/акт, approve, статус оплаты) | **M** | **✓** `/api/crm/share/` + UI `/commerce/:token` |
 | **P1** | Org/Person merge + dedupe UI | **S–M** | Чистка дублей из каналов |
 | **P2** | Contract renewals / ARR lite | **M** | Retention services |
 | **P2** | Quote/Invoice line editor + SKU picker | **S–M** | UX поверх SKU MVP |

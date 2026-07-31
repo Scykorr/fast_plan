@@ -80,6 +80,9 @@ class UserTaskSerializer(serializers.ModelSerializer):
     )
     deal = serializers.IntegerField(source="instance.deal_id", read_only=True)
     project = serializers.IntegerField(source="instance.project_id", read_only=True)
+    wbs_node = serializers.IntegerField(source="wbs_node_id", read_only=True, allow_null=True)
+    wbs_code = serializers.SerializerMethodField()
+    wbs_title = serializers.SerializerMethodField()
 
     class Meta:
         model = UserTask
@@ -99,17 +102,17 @@ class UserTaskSerializer(serializers.ModelSerializer):
             "completed_at",
             "deal",
             "project",
+            "wbs_node",
+            "wbs_code",
+            "wbs_title",
         )
-        read_only_fields = (
-            "id",
-            "instance_id",
-            "definition_name",
-            "status",
-            "created_at",
-            "completed_at",
-            "deal",
-            "project",
-        )
+        read_only_fields = fields
+
+    def get_wbs_code(self, obj):
+        return obj.wbs_node.code if obj.wbs_node_id else None
+
+    def get_wbs_title(self, obj):
+        return obj.wbs_node.title if obj.wbs_node_id else None
 
 
 class DecisionDefinitionSerializer(serializers.ModelSerializer):

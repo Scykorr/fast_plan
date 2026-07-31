@@ -19,10 +19,12 @@
 
 - **Deal → Project handoff** — `POST /api/crm/deals/<id>/create-project/` (optional `template_id`); UI на `/deals`
 - **Process ops dashboard** — `GET /api/process/ops/` (stuck / aging / SLA); вкладка Ops на `/processes`
+- **UserTask ↔ WBS/Kanban binding** — `PATCH /api/process/tasks/<id>/bind/`; на complete → progress 100% + Kanban; UI на `/process-tasks`
+- **Guest commercial portal** — `CrmDocumentShareLink`, публичные `GET/POST /api/crm/share/<token>/` (+ `/approve/`, `/pdf/`); UI `/commerce/:token` и кнопка «Ссылка гостю» на `/crm-commerce`
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P1: UserTask↔WBS, guest portal…).
+См. [ROADMAP.md](ROADMAP.md) § **Планы** (следующие P1: capacity hints, Org/Person merge…).
 
 ## [0.17.0] — 2026-07-31
 

@@ -211,6 +211,14 @@ class UserTask(models.Model):
     form_data = models.JSONField(default=dict, blank=True)
     due_at = models.DateTimeField(null=True, blank=True)
     reminded_at = models.DateTimeField(null=True, blank=True)
+    wbs_node = models.ForeignKey(
+        "projects.WBSNode",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="process_user_tasks",
+        help_text="Optional bind to a WBS work package; completed on task complete.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     completed_by = models.ForeignKey(

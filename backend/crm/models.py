@@ -1058,6 +1058,42 @@ class CrmDocumentPayment(models.Model):
         ordering = ["-paid_at", "-id"]
 
 
+class CrmDocumentShareLink(models.Model):
+    """Guest link for commercial document (quote / invoice / act)."""
+
+    document = models.ForeignKey(
+        CrmDocument,
+        on_delete=models.CASCADE,
+        related_name="share_links",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    label = models.CharField(max_length=100, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_crm_document_share_links",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_accessed_at = models.DateTimeField(null=True, blank=True)
+    allow_approve = models.BooleanField(default=True)
+    allow_pdf = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def is_active(self) -> bool:
+        from django.utils import timezone
+
+        if self.revoked_at is not None:
+            return False
+        if self.expires_at is not None and self.expires_at <= timezone.now():
+            return False
+        return True
+
+
 class CrmSavedReport(models.Model):
     """Simple saved analytics query for P6i report builder."""
 

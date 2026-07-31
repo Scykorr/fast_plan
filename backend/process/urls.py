@@ -21,6 +21,7 @@ from process.views import (
     ProcessPublishView,
     ProcessStartView,
     UserTaskCompleteView,
+    UserTaskBindView,
     UserTaskListView,
 )
 
@@ -61,6 +62,11 @@ urlpatterns = [
         name="process-instance-detail",
     ),
     path("process/tasks/", UserTaskListView.as_view(), name="process-tasks"),
+    path(
+        "process/tasks/<int:pk>/bind/",
+        UserTaskBindView.as_view(),
+        name="process-task-bind",
+    ),
     path(
         "process/tasks/<int:pk>/complete/",
         UserTaskCompleteView.as_view(),

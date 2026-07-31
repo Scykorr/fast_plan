@@ -46,6 +46,9 @@ export type ProcessUserTask = {
   completed_at: string | null;
   deal: number | null;
   project: number | null;
+  wbs_node: number | null;
+  wbs_code: string | null;
+  wbs_title: string | null;
 };
 
 export type CasePlanItem = {
@@ -201,6 +204,11 @@ export function createProcessApi() {
           body: JSON.stringify({ form_data: formData, ...formData }),
         },
       ),
+    bindTask: (id: number, wbsNodeId: number | null) =>
+      request<ProcessUserTask>(`/process/tasks/${id}/bind/`, {
+        method: "PATCH",
+        body: JSON.stringify({ wbs_node_id: wbsNodeId }),
+      }),
     listPacks: () => request<ProcessPack[]>("/process/packs/", {}),
     importPack: (packId: string) =>
       request<{ created: boolean; definition: ProcessDefinition }>(

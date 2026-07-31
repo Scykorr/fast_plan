@@ -23,6 +23,7 @@ class WorkspaceIpAllowlistMiddleware:
             path.startswith("/api/auth/")
             or path.startswith("/api/health")
             or path.startswith("/api/share/")
+            or path.startswith("/api/crm/share/")
             or path.startswith("/api/crm/channels/telegram/")
         ):
             return self.get_response(request)

@@ -118,6 +118,9 @@ def complete_user_task(
         user_task.activity.status = ActivityInstance.Status.COMPLETED
         user_task.activity.completed_at = timezone.now()
         user_task.activity.save(update_fields=["status", "completed_at"])
+    from process.binding import complete_bound_wbs
+
+    complete_bound_wbs(user_task)
     _advance(instance, workflow)
     return instance
 

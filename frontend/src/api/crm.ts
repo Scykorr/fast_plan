@@ -151,6 +151,45 @@ export type CrmDocument = {
   updated_at: string;
 };
 
+export type CrmDocumentShareLink = {
+  id: number;
+  token: string;
+  label: string;
+  created_at: string;
+  expires_at: string | null;
+  last_accessed_at: string | null;
+  is_active: boolean;
+  allow_approve: boolean;
+  allow_pdf: boolean;
+  url_path: string;
+};
+
+export type PublicCrmDocumentShare = {
+  share: {
+    label: string;
+    allow_approve: boolean;
+    allow_pdf: boolean;
+    workspace_name: string;
+  };
+  document: {
+    id: number;
+    doc_type: string;
+    number: string;
+    title: string;
+    status: string;
+    amount: string;
+    currency: string;
+    body: string;
+    line_items: Array<Record<string, unknown>>;
+    issue_date: string | null;
+    due_date: string | null;
+    organization_name: string | null;
+    person_name: string | null;
+    paid_total: string;
+    can_approve: boolean;
+  };
+};
+
 export type CrmSku = {
   id: number;
   code: string;
@@ -1065,6 +1104,31 @@ export function createCrmApi() {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    listDocumentShareLinks: (documentId: number) =>
+      request<CrmDocumentShareLink[]>(
+        `/crm/documents/${documentId}/share-links/`,
+        {},
+      ),
+    createDocumentShareLink: (
+      documentId: number,
+      body: {
+        label?: string;
+        allow_approve?: boolean;
+        allow_pdf?: boolean;
+        expires_at?: string | null;
+      } = {},
+    ) =>
+      request<CrmDocumentShareLink>(
+        `/crm/documents/${documentId}/share-links/`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
+    revokeDocumentShareLink: (documentId: number, linkId: number) =>
+      request<void>(`/crm/documents/${documentId}/share-links/${linkId}/`, {
+        method: "DELETE",
+      }),
     getArAp: () => request<CrmArAp>("/crm/ar-ap/", {}),
     getPnl: (params?: { organization_id?: number; deal_id?: number }) => {
       const query = new URLSearchParams();
@@ -1224,3 +1288,41 @@ export function createCrmApi() {
 }
 
 export type CrmApi = ReturnType<typeof createCrmApi>;
+
+const API_BASE = "/api";
+
+export async function fetchPublicCrmDocumentShare(
+  token: string,
+): Promise<PublicCrmDocumentShare> {
+  const response = await fetch(`${API_BASE}/crm/share/${token}/`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || "Share link not found");
+  }
+  return response.json();
+}
+
+export async function approvePublicCrmDocument(
+  token: string,
+): Promise<PublicCrmDocumentShare> {
+  const response = await fetch(`${API_BASE}/crm/share/${token}/approve/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!response.ok) {
+    let message = "Approve failed";
+    try {
+      const data = await response.json();
+      message = data.detail || JSON.stringify(data);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+export function publicCrmDocumentPdfUrl(token: string): string {
+  return `${API_BASE}/crm/share/${token}/pdf/`;
+}

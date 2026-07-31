@@ -36,6 +36,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ShareStatusPage } from "./pages/ShareStatusPage";
+import { CommerceGuestPage } from "./pages/CommerceGuestPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { AuditPage } from "./pages/AuditPage";
 
@@ -83,6 +84,7 @@ export default function App() {
             />
             <Route path="/invite/:token" element={<InviteAcceptPage />} />
             <Route path="/share/:token" element={<ShareStatusPage />} />
+            <Route path="/commerce/:token" element={<CommerceGuestPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route
               element={

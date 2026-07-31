@@ -189,7 +189,8 @@ class UserTaskListView(WorkspaceMixin, APIView):
 
     def get(self, request):
         qs = UserTask.objects.filter(workspace=self.get_workspace()).select_related(
-            "instance__deployment__definition"
+            "instance__deployment__definition",
+            "wbs_node",
         )
         status_filter = request.query_params.get("status")
         if status_filter:
@@ -210,18 +211,44 @@ class UserTaskCompleteView(WorkspaceMixin, APIView):
         form_data = request.data.get("form_data") or {}
         # P8c: merge form fields from body directly
         for key, value in request.data.items():
-            if key not in ("form_data",):
+            if key not in ("form_data", "wbs_node_id"):
                 form_data.setdefault(key, value)
+        if "wbs_node_id" in request.data:
+            from process.binding import bind_user_task_to_wbs
+
+            bind_user_task_to_wbs(
+                task, request.data.get("wbs_node_id"), self.get_workspace()
+            )
+            task.refresh_from_db()
         try:
             instance = complete_user_task(task, user=request.user, form_data=form_data)
         except ValueError as exc:
             raise ValidationError({"detail": str(exc)}) from exc
+        task.refresh_from_db()
         return Response(
             {
                 "task": UserTaskSerializer(task).data,
                 "instance": ProcessInstanceSerializer(instance).data,
             }
         )
+
+
+class UserTaskBindView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def patch(self, request, pk):
+        task = UserTask.objects.filter(workspace=self.get_workspace(), pk=pk).first()
+        if task is None:
+            raise NotFound()
+        if task.status != UserTask.Status.OPEN:
+            raise ValidationError({"detail": "Only open tasks can be bound."})
+        from process.binding import bind_user_task_to_wbs
+
+        bind_user_task_to_wbs(
+            task, request.data.get("wbs_node_id"), self.get_workspace()
+        )
+        task.refresh_from_db()
+        return Response(UserTaskSerializer(task).data)
 
 
 class DecisionListCreateView(WorkspaceMixin, APIView):
