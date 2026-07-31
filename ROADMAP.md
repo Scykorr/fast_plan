@@ -4,7 +4,7 @@
 **Сейчас читайте сверху вниз:** статус → что уже есть → что планируем → вне scope.  
 Детали прошлых эпиков и хронология релизов — в [архиве](#архив) в конце.
 
-При реализации пункта: запись в [`CHANGELOG.md`](CHANGELOG.md) → `[Unreleased]`, затем отметить здесь ✓.  
+При реализации пункта: запись в [`CHANGELOG.md`](CHANGELOG.md) → `[Unreleased]`, затем отметить здесь ✓ и перенести в **Сделано**.  
 Оценка: **S** — часы/день · **M** — несколько дней · **L** — неделя+.
 
 ---
@@ -13,75 +13,75 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.17.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)); Unreleased: P10 sprints 1–5 |
+| **Текущая версия** | **v0.18.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — MS Project XML (после sample) + ops drill |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — UX glue → SubProcess → MS Project |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
 
 ## Сделано — что уже в продукте
 
-Кратко по доменам. Всё ниже **уже в коде** (на момент v0.17.0).
+Кратко по доменам. Всё ниже **уже в коде** (на момент v0.18.0).
 
 ### Управление проектами (PM)
 
 | Область | Что есть | Где |
 |---------|----------|-----|
-| Структура | WBS, Gantt, шаблоны проектов, RACI, риски, stakeholders, charter | `/projects/:id` |
-| Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity | `/kanban`, `/tasks`, `/capacity` |
-| Сроки / аналитика | PERT/сеть, CPM/EVM, baselines, burndown/velocity | вкладки проекта |
-| Портфель | сводка проектов, SPI/CPI, FX | `/portfolio` |
-| Обмен | CSV/XLSX/ICS экспорт, Jira CSV import, guest status share | проект / `/share/:token` |
+| Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter | `/projects/:id` |
+| Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints | `/kanban`, `/tasks`, `/capacity`, Gantt/WBS |
+| Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM, baselines, **change requests**, burndown | вкладки проекта |
+| Портфель | сводка SPI/CPI/FX + **soft cross-project deps** | `/portfolio` |
+| Обмен | CSV/XLSX/ICS, Jira CSV import, guest status share | проект / `/share/:token` |
 | AI | черновики WBS/risks/charter, refine, Ollama/OpenAI | проект |
+| Handoff | Deal → Project from template | `/deals`, `POST …/create-project/` |
 
 ### Управление процессами (Process)
 
 | Область | Что есть | Где |
 |---------|----------|-----|
-| BPMN | моделирование (bpmn-js) + исполнение Spiff (whitelist) | `/processes` |
-| DMN / CMMN | FEEL-lite tables; CMMN lite (`depends_on`) | `/processes` |
-| Ops | inbox user tasks, metrics, mining lite (DFG) | `/process-tasks`, Process UI |
-| Packs | ISO 9001/PDCA, ITIL/COBIT, ISO 27001 шаблоны | import packs |
-| CRM-правила | BPM-lite automations (P6e) рядом с BPMN | `/automations` |
+| BPMN | bpmn-js + Spiff whitelist; timers; Inclusive experimental (catalog) | `/processes` |
+| Adapters | catalog ServiceTask ops (+ `create_wbs_note`) | `GET /process/adapters/`, вкладка Adapters |
+| DMN / CMMN | FEEL-lite; CMMN lite (`depends_on`) | `/processes` |
+| Ops | inbox, metrics, mining lite, **stuck/aging/SLA** | `/process-tasks`, вкладка Ops |
+| Связка | UserTask ↔ WBS/Kanban; CRM events → start process | `/process-tasks`, automations / category |
+| Packs | ISO 9001/PDCA, ITIL/COBIT, ISO 27001 | import packs |
 | ADR | SpiffWorkflow + bpmn-js | [`docs/adr-p8-process.md`](docs/adr-p8-process.md) |
 
 ### CRM
 
 | Область | Что есть | Где |
 |---------|----------|-----|
-| Клиенты | Org/Person, теги, сегменты, timeline, файлы, custom fields | `/clients` |
+| Клиенты | Org/Person, теги, сегменты, timeline, **merge/dedupe**, custom fields | `/clients` |
 | Продажи | Deal pipeline, Lead, CRM tasks Kanban | `/deals`, `/leads`, `/crm-tasks` |
-| Коммерция | КП/счёт/договор/акт PDF, оплаты, AR/AP, P&L, cashflow | `/crm-commerce` |
-| Склад | SKU каталог, остатки, списание при invoice→paid | `/crm-commerce`, `/api/crm/skus/` |
-| Каналы | IMAP, Telegram, IG/VK → Activity; WA/SMS/Stripe/1C connectors | `/crm-commerce` |
-| Телефония | Asterisk / Mango / Beeline / MTS, click-to-call, ARI bridge | CRM карточки |
-| Календарь | CRM events + Outlook/Google 2-way | `/calendar` |
-| AI / аналитика | insights, drafts, dashboard, report builder | `/crm-ai`, `/crm-analytics` |
-| API | REST, GraphQL lite, OpenAPI, `@fast-plan/crm-client` | `/api/schema/`, `/api/docs/` |
+| Коммерция | КП/счёт/договор/акт PDF, line editor+SKU, оплаты, AR/AP, P&L, cashflow | `/crm-commerce` |
+| Договоры | **renewal_date / ARR lite**, upcoming renewals | `/crm-commerce`, `GET /crm/renewals/` |
+| Гостевой портал | КП/счёт/акт: approve + PDF по token | `/commerce/:token` |
+| Склад | SKU + movements; списание invoice→paid; **1С pending_skus → SKU** | `/crm-commerce`, `/api/crm/skus/` |
+| Склейка | Activity → WBS / process (1 клик) | `/clients` spawn |
+| Каналы / PBX / календарь / AI / API | как раньше | commerce, calendar, crm-ai, OpenAPI |
 
 ### Платформа и соседние модули
 
 | Область | Что есть |
 |---------|----------|
-| Коллаб | чаты (project/workspace/DM, E2E DM), comments/@mentions, SSE realtime |
+| Коллаб | чаты (project/workspace/DM, E2E DM), comments/@mentions, SSE |
 | Security | 2FA, sessions, IP allowlist, Microsoft SSO, audit, backup scripts |
 | Mobile | PWA, Web Push, offline CRM queue |
-| Agent Ops | Epic/Sprint/DeliveryTask, claim/handoff, GitHub links — `/agent-ops` |
+| Agent Ops | Epic/Sprint/DeliveryTask, claim/handoff, GitHub — `/agent-ops` |
 | Ops/CI | staging smoke, E2E Playwright, restore-drill, version sync |
-| Handoff | Deal → Project from template — `/deals`, `POST /api/crm/deals/<id>/create-project/` |
-| Process ops | stuck / aging / SLA — `/processes` вкладка Ops, `GET /api/process/ops/` |
 
 ### Карта UI (основные маршруты)
 
 | Путь | Назначение |
 |------|------------|
 | `/` Dashboard | обзор workspace |
-| `/portfolio` | портфель проектов |
-| `/projects/:id` | PM: WBS / Gantt / Kanban / PERT / риски… |
+| `/portfolio` | портфель + cross-project deps |
+| `/projects/:id` | PM: WBS / Gantt / Kanban / PERT / baseline+CR / риски… |
 | `/kanban`, `/tasks`, `/capacity` | исполнение и загрузка |
 | `/clients`, `/deals`, `/leads`, `/crm-tasks` | CRM ядро |
-| `/crm-commerce`, `/crm-ai`, `/crm-analytics` | коммерция / AI / отчёты |
+| `/crm-commerce`, `/commerce/:token` | коммерция / гостевой портал |
+| `/crm-ai`, `/crm-analytics` | AI / отчёты |
 | `/automations`, `/processes`, `/process-tasks` | правила и BPM |
 | `/calendar`, `/agent-ops` | календарь, Agent Ops |
 | `/finance`, `/audit`, `/admin`, `/settings` | финансы и админка |
@@ -90,56 +90,49 @@
 
 ## Планы — что делаем дальше
 
-Активный бэклог после v0.17.0. Приоритет: **P1** → **P2** → **P3**.
+Активный бэклог **после P10**. Только открытые пункты. Приоритет: **P1** → **P2** → **P3**.
 
 ### Порядок спринтов (рекомендация)
 
-1. ~~**Deal → Project from template** + **Process ops dashboard**~~ — **✓** (`6accf0e` / Unreleased)
-2. ~~**UserTask ↔ WBS/Kanban** + **Guest commercial portal**~~ — **✓** (`cbbd2e5` / Unreleased)
-3. ~~**Capacity-aware schedule hints** + **Org/Person merge**~~ — **✓** (`475e71f` / Unreleased)
-4. ~~**Change requests + baseline** + **Quote/Invoice line editor**~~ — **✓** (`66ff7cf` / Unreleased)
-5. ~~**Остальное по таблицам** (PERT / adapters / ARR / spawn / cross-deps / 1C SKU / CRM→process)~~ — **✓** (Unreleased)
-6. **MS Project XML** — только после sample
-7. Ops: раз в квартал `scripts/restore-drill.sh`
+1. ~~**Release 0.18.0**~~ — **✓** (P10 Unreleased → релиз; GitHub `v0.18.0`)
+2. **UX glue** — renewals→задачи/уведомления; spawn с выбором проекта; picker activity для cross-deps
+3. **BPMN SubProcess** — nested instance lifecycle (сейчас только «planned» в catalog)
+4. **MS Project XML** — только после sample `.xml` / `.mpp`
+5. Ops: staging migrate если ещё не накатаны `0011`/`0016`/`0017`; раз в квартал `scripts/restore-drill.sh`
 
 ### PM — управление проектами
 
-| Pri | Пункт | Size | Статус |
-|-----|-------|------|--------|
-| **P1** | Deal → Project from template | **M** | **✓** `POST …/create-project/` + UI `/deals` |
-| **P1** | Capacity-aware schedule hints на Gantt/WBS | **M** | **✓** hints в schedule/WBS + Gantt overload |
-| **P2** | Change requests + baseline | **M** | **✓** `…/change-requests/` + decide → baseline |
-| **P2** | PERT probabilistic finish (P10/P50/P90) | **M** | **✓** `finish` в `GET …/pert/` + UI |
-| **P3** | Cross-project / program dependencies | **L** | **✓** soft links `…/workspace/cross-dependencies/` + UI `/portfolio` |
-| **P3** | MS Project XML import _(нужен sample)_ | **M–L** | отложено |
+| Pri | Пункт | Size | Зачем |
+|-----|-------|------|-------|
+| **P2** | Cross-project deps: picker активностей + визуализация на портфеле/Gantt | **M** | Сейчас только ID + soft list; нужен usable UX |
+| **P2** | Resource leveling lite (предложить сдвиг при overload hint) | **M** | Hints есть — следующий шаг «что делать» |
+| **P3** | PERT Monte Carlo (опция рядом с normal approx) | **M** | Точнее хвосты, чем z-score |
+| **P3** | MS Project XML import _(нужен sample)_ | **M–L** | Импорт из MS Project / Project Online |
 
 ### Process — управление процессами
 
-| Pri | Пункт | Size | Статус |
-|-----|-------|------|--------|
-| **P1** | UserTask ↔ WBS/Kanban binding | **M** | **✓** `PATCH …/tasks/<id>/bind/` + sync on complete |
-| **P1** | Process ops dashboard (stuck / aging / SLA) | **S–M** | **✓** `GET /process/ops/` + вкладка Ops |
-| **P2** | Service-adapter catalog | **M** | **✓** `GET /process/adapters/` + вкладка Adapters |
-| **P2** | BPMN expansion (SubProcess, Inclusive GW, timers) | **L** | **✓** lite: catalog statuses (Inclusive experimental, SubProcess planned; timers already) |
-| **P3** | Start process from CRM events | **M** | **✓** `activity.created` / `document.accepted` / `deal.stage_changed` → domain events + automation `start_process` |
+| Pri | Пункт | Size | Зачем |
+|-----|-------|------|-------|
+| **P1** | SubProcess: вложенный instance start/complete | **L** | Catalog «planned»; без этого BPMN expansion неполный |
+| **P2** | Inclusive Gateway: first-class условия + UI/docs | **M** | Сейчас experimental / Spiff-only |
+| **P3** | Миграция running instances при publish новой версии definition | **L** | Ops для долгих процессов |
 
 ### CRM
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P1** | Guest commercial portal (КП/счёт/акт, approve, статус оплаты) | **M** | **✓** `/api/crm/share/` + UI `/commerce/:token` |
-| **P1** | Org/Person merge + dedupe UI | **S–M** | **✓** `/duplicates/` + `/merge/` + UI `/clients` |
-| **P2** | Contract renewals / ARR lite | **M** | **✓** `GET /crm/renewals/` + поля договора + UI `/crm-commerce` |
-| **P2** | Quote/Invoice line editor + SKU picker | **S–M** | **✓** multi-line editor + amount recompute |
-| **P3** | 1С ↔ SKU sync lite | **M** | **✓** `pending_skus` / nomenclature → `CrmSku.external_ref` |
-| **P3** | Activity → Process task / WBS item (1 клик) | **S** | **✓** `POST …/activities/<id>/spawn/` + кнопки на `/clients` |
+| **P1** | Renewal reminders → DealTask / in-app notify (N дней до `renewal_date`) | **S–M** | ARR lite без follow-up не удерживает |
+| **P2** | Activity spawn: выбор проекта/process из UI (без `prompt`) | **S** | Склейка доменов должна быть 1 клик по-настоящему |
+| **P2** | Guest portal: явный статус оплаты / paid_total для гостя | **S** | Частый вопрос после approve |
+| **P3** | Live 1С OData / обмен номенклатурой _(нужен стенд)_ | **L** | Углубление после `pending_skus` |
 
 ### Отложено (ждём входных данных)
 
 | Пункт | Условие |
 |-------|---------|
 | MS Project XML import | образец `.xml` / экспорт из MS Project |
-| Углубление конкретного PBX/1С | боевой стенд заказчика |
+| Углубление конкретного PBX / live 1С | боевой стенд заказчика |
+| Full SubProcess UI (коллапс/drill-down в viewer) | после lifecycle backend |
 
 ---
 
@@ -160,7 +153,7 @@
 ## Как работать с этим файлом
 
 1. Смотрите **[Планы](#планы--что-делаем-дальше)** — это единственный активный бэклог.  
-2. После релиза — строка в [`CHANGELOG.md`](CHANGELOG.md) и перенос пункта в **[Сделано](#сделано--что-уже-в-продукте)**.  
+2. После релиза — строка в [`CHANGELOG.md`](CHANGELOG.md) и уточнение в **[Сделано](#сделано--что-уже-в-продукте)**.  
 3. Не раздувайте scope: новые идеи — сначала сюда (P1–P3), не в код.  
 4. История «как дошли» — только в [архиве](#архив) ниже.
 
@@ -181,11 +174,12 @@
 | 0.15 | 2026-07 | Agent Ops P9 + CRM polish |
 | 0.16 | 2026-07-29 | Custom fields, CRM SDK/OpenAPI, PBX Beeline/MTS, restore-drill |
 | **0.17** | **2026-07-31** | **SKU/склад MVP**, staging smoke/health polish |
+| **0.18** | **2026-07-31** | **P10**: handoff, ops, binding, guest portal, capacity, merge, CR, PERT P10/90, adapters, ARR, spawn, cross-deps, 1C SKU |
 
 ### Закрытые эпики (ссылки на код/доки)
 
 | Эпик | Статус | Примечание |
-|------|--------|------------|
+|------|--------|-----------|
 | P0–P4 PM core | ✓ | invite/RBAC → portfolio/export/PWA/templates |
 | P5 Чаты | ✓ | project/workspace/DM, E2E DM |
 | P6 CRM (a–i + backlog) | ✓ | матрица 15 блоков закрыта к v0.17 |
@@ -193,10 +187,21 @@
 | P8 Process (a–g) | ✓ | BPMN/DMN/CMMN lite; ADR в `docs/` |
 | P9 Agent Ops (a–h) | ✓ | TZ + E2E + docs/AGENT_OPS.md |
 | Staging/CI ops | ✓ | smoke, e2e, restore-drill |
+| **P10 backlog (sprints 1–5)** | ✓ | релиз **v0.18.0**; MS Project остаётся отложенным |
+
+### P10 — закрытые спринты (справка)
+
+| # | Scope | Commit / note |
+|---|-------|---------------|
+| 1 | Deal→Project + Process ops | `6accf0e` |
+| 2 | UserTask↔WBS + guest commerce | `cbbd2e5` |
+| 3 | Capacity hints + Org/Person merge | `475e71f` |
+| 4 | Change requests + line editor | `66ff7cf` |
+| 5 | PERT P10/90, adapters, ARR, spawn, cross-deps, 1C SKU, CRM→process | `ae4284f` |
 
 ### P8 — whitelist executable BPMN (справка)
 
-Start/End, UserTask, ServiceTask, ExclusiveGateway, ParallelGateway, Timer (Celery), Message start. Остальное в XML сохраняется, исполнение — в планах P10 (BPMN expansion).
+Start/End, UserTask, ServiceTask, ExclusiveGateway, ParallelGateway, Timer (Celery), Message start. Inclusive — experimental; SubProcess — в [Планах](#process--управление-процессами).
 
 ### P6 — фазы (все ✓)
 
@@ -213,6 +218,6 @@ P6a Foundation · P6b карточка · P6c сделки · P6d лиды · P6
 | 2026-07-25…26 | CRM calendar, telephony, v0.13–0.14.x |
 | 2026-07-27…28 | P9 Agent Ops a–h |
 | 2026-07-29 | v0.16 custom fields / SDK / PBX polish |
-| 2026-07-31 | v0.17 SKU MVP; P10 backlog оформлен |
+| 2026-07-31 | v0.17 SKU MVP; **P10 → v0.18.0** |
 
 При реализации заметной фичи — поднимать версию по правилу в `VERSION` / `CHANGELOG.md`.

@@ -16,11 +16,18 @@
 
 При релизе:
 
-1. Обновить `VERSION` (например `0.4.0`)
+1. Обновить `VERSION` (например `0.18.0`)
 2. Перенести пункты из `CHANGELOG.md` → `[Unreleased]` в новую секцию `[x.y.z] — YYYY-MM-DD`
 3. Синхронизировать `frontend/package.json` и `frontend/src/version.ts`
-4. Закоммитить: `chore(release): v0.4.0`
-5. (Опционально) git-тег: `git tag v0.4.0`
+4. Закоммитить: `chore(release): v0.18.0` и запушить в `main`
+5. Поставить git-тег и запушить его:
+   ```bash
+   git tag -a v0.18.0 -m "v0.18.0"
+   git push origin v0.18.0
+   ```
+6. Создать **GitHub Release** (иначе в сайдбаре останется старый Latest):
+   - UI: Releases → Draft a new release → выбрать тег `v0.18.0` → вставить notes из CHANGELOG → Publish
+   - или CLI: `gh release create v0.18.0 --title "v0.18.0" --notes-file -` (из секции CHANGELOG)
 
 `GET /api/health/` возвращает `{ "status": "ok", "version": "…" }`. Для staging: `GET /api/health/?extended=1` и `node scripts/staging-smoke-check.mjs` (см. [`STAGING.md`](STAGING.md)).
 

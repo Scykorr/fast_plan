@@ -15,6 +15,12 @@
 
 ## [Unreleased]
 
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md) § **Планы**: UX glue → SubProcess → MS Project (после sample).
+
+## [0.18.0] — 2026-07-31
+
 ### Added
 
 - **Deal → Project handoff** — `POST /api/crm/deals/<id>/create-project/` (optional `template_id`); UI на `/deals`
@@ -33,10 +39,6 @@
 - **Activity → WBS/Process spawn** — `POST /api/crm/activities/<id>/spawn/`; кнопки на `/clients`
 - **1С ↔ SKU sync lite** — `pending_skus`/`nomenclature` → upsert `CrmSku` + `external_ref`
 - **Cross-project dependencies** — `CrossProjectDependency`, `GET/POST/DELETE /api/workspace/cross-dependencies/`; UI на `/portfolio`
-
-### Planned
-
-См. [ROADMAP.md](ROADMAP.md) § **Планы** (MS Project XML после sample; restore-drill).
 
 ## [0.17.0] — 2026-07-31
 
