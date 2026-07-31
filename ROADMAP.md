@@ -69,6 +69,8 @@
 | Mobile | PWA, Web Push, offline CRM queue |
 | Agent Ops | Epic/Sprint/DeliveryTask, claim/handoff, GitHub links — `/agent-ops` |
 | Ops/CI | staging smoke, E2E Playwright, restore-drill, version sync |
+| Handoff | Deal → Project from template — `/deals`, `POST /api/crm/deals/<id>/create-project/` |
+| Process ops | stuck / aging / SLA — `/processes` вкладка Ops, `GET /api/process/ops/` |
 
 ### Карта UI (основные маршруты)
 
@@ -92,8 +94,8 @@
 
 ### Порядок спринтов (рекомендация)
 
-1. **Deal won → Project from template** + **Process ops dashboard**
-2. **UserTask ↔ WBS/Kanban** + **Guest commercial portal**
+1. ~~**Deal → Project from template** + **Process ops dashboard**~~ — **✓** (`6accf0e` / Unreleased)
+2. **UserTask ↔ WBS/Kanban** + **Guest commercial portal** ← следующий
 3. **Capacity-aware schedule hints** + **Org/Person merge**
 4. Остальное по таблицам ниже
 5. **MS Project XML** — только после sample
@@ -101,24 +103,24 @@
 
 ### PM — управление проектами
 
-| Pri | Пункт | Size | Зачем |
-|-----|-------|------|-------|
-| **P1** | Deal won → Project from template (+ опционально старт Process) | **M** | Handoff «продажа → исполнение» |
-| **P1** | Capacity-aware schedule hints на Gantt/WBS | **M** | План vs загрузка людей |
-| **P2** | Change requests + baseline (approve / re-baseline) | **M** | Управление изменениями |
-| **P2** | PERT probabilistic finish (P10/P50/P90) | **M** | Вероятностные сроки |
-| **P3** | Cross-project / program dependencies на Portfolio | **L** | Несколько проектов на клиента |
-| **P3** | MS Project XML import _(нужен sample)_ | **M–L** | Импорт из MS Project |
+| Pri | Пункт | Size | Статус |
+|-----|-------|------|--------|
+| **P1** | Deal → Project from template | **M** | **✓** `POST …/create-project/` + UI `/deals` |
+| **P1** | Capacity-aware schedule hints на Gantt/WBS | **M** | план |
+| **P2** | Change requests + baseline | **M** | план |
+| **P2** | PERT probabilistic finish (P10/P50/P90) | **M** | план |
+| **P3** | Cross-project / program dependencies | **L** | план |
+| **P3** | MS Project XML import _(нужен sample)_ | **M–L** | отложено |
 
 ### Process — управление процессами
 
-| Pri | Пункт | Size | Зачем |
-|-----|-------|------|-------|
-| **P1** | UserTask ↔ WBS/Kanban binding (статусы) | **M** | Process оркестрирует PM |
-| **P1** | Process ops dashboard (stuck tokens, aging, SLA) | **S–M** | Дневная операционка |
-| **P2** | Service-adapter catalog (Deal/Project/Activity/webhook) | **M** | Меньше кастомного glue |
-| **P2** | BPMN expansion: SubProcess, Inclusive GW, boundary timer/error | **L** | Реальные packs ISO/ITIL |
-| **P3** | Start process from CRM events (deal stage / paid / converted) | **M** | CRM → Process без iPaaS |
+| Pri | Пункт | Size | Статус |
+|-----|-------|------|--------|
+| **P1** | UserTask ↔ WBS/Kanban binding | **M** | план |
+| **P1** | Process ops dashboard (stuck / aging / SLA) | **S–M** | **✓** `GET /process/ops/` + вкладка Ops |
+| **P2** | Service-adapter catalog | **M** | план |
+| **P2** | BPMN expansion (SubProcess, Inclusive GW, timers) | **L** | план |
+| **P3** | Start process from CRM events | **M** | план |
 
 ### CRM
 
