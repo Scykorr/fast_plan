@@ -166,6 +166,15 @@ export type ProcessAdapterCatalog = {
   executable_elements: ProcessExecutableElement[];
   dispatch_hint: string;
 };
+
+export type DecisionDefinition = {
+  id: number;
+  key: string;
+  name: string;
+  dmn_xml: string;
+  decision_id?: string;
+};
+
 export function createProcessApi() {
   return {
     listDefinitions: () =>
