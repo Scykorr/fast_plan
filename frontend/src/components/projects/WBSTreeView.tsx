@@ -138,7 +138,22 @@ export function WBSTreeView({
   }, []);
 
   const handleNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node<WBSFlowNodeData>) => {
+    (event: React.MouseEvent, _node: Node<WBSFlowNodeData>) => {
+      // Left-click only clears the menu; card opens on double-click.
+      if (event.button !== 0) {
+        return;
+      }
+      setContextMenu(null);
+    },
+    [],
+  );
+
+  const handleNodeDoubleClick = useCallback(
+    (event: React.MouseEvent, node: Node<WBSFlowNodeData>) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
       setContextMenu(null);
       onSelect?.(node.data.wbsNode);
     },
@@ -148,14 +163,15 @@ export function WBSTreeView({
   const handleNodeContextMenu = useCallback(
     (event: React.MouseEvent, node: Node<WBSFlowNodeData>) => {
       event.preventDefault();
-      onSelect?.(node.data.wbsNode);
+      event.stopPropagation();
+      // Do not open the detail card on right-click — only the context menu.
       setContextMenu({
         x: event.clientX,
         y: event.clientY,
         node: node.data.wbsNode,
       });
     },
-    [onSelect],
+    [],
   );
 
   const handleNodeDragStart = useCallback(
@@ -306,7 +322,7 @@ export function WBSTreeView({
         )}
         <p className="text-xs text-text-muted">
           Перетащите узел на другой — станет дочерним · Между соседями — выше/ниже ·
-          ПКМ — меню · Двойной клик — свернуть
+          ПКМ — меню · Двойной клик — карточка
         </p>
       </div>
 
@@ -319,11 +335,7 @@ export function WBSTreeView({
           nodeTypes={nodeTypes}
           onNodeClick={handleNodeClick}
           onNodeContextMenu={handleNodeContextMenu}
-          onNodeDoubleClick={(_event, node) => {
-            if (node.data.hasChildren) {
-              toggleCollapse(node.data.wbsNode.id);
-            }
-          }}
+          onNodeDoubleClick={handleNodeDoubleClick}
           onNodeDragStart={handleNodeDragStart}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}

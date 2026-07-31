@@ -70,7 +70,23 @@ describe("WBSTreeView", () => {
     expect(screen.getByText("Дизайн")).toBeInTheDocument();
   });
 
-  it("calls onSelect when node clicked", () => {
+  it("calls onSelect when node double-clicked", () => {
+    const onSelect = vi.fn();
+    render(
+      <WBSTreeView
+        nodes={mockNodes}
+        onAddChild={vi.fn()}
+        onDelete={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+    fireEvent.doubleClick(screen.getByTestId("wbs-node-2"));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 2, title: "Дизайн" }),
+    );
+  });
+
+  it("does not open card on single click", () => {
     const onSelect = vi.fn();
     render(
       <WBSTreeView
@@ -81,8 +97,6 @@ describe("WBSTreeView", () => {
       />,
     );
     fireEvent.click(screen.getByTestId("wbs-node-2"));
-    expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 2, title: "Дизайн" }),
-    );
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
