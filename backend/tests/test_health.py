@@ -19,4 +19,6 @@ def test_health_endpoint_extended(api_client):
     assert body["status"] == "ok"
     assert body["checks"]["database"] == "ok"
     assert "email_backend" in body["checks"]
+    assert "email" in body["checks"]
     assert "celery_eager" in body["checks"]
+    assert "require_email_verification" in body["checks"]

@@ -138,6 +138,7 @@ export function ProjectDetailPage() {
   const [changeRequests, setChangeRequests] = useState<ProjectChangeRequest[]>([]);
   const [criticalPath, setCriticalPath] = useState<CriticalPath | null>(null);
   const [pertNetwork, setPertNetwork] = useState<PertNetwork | null>(null);
+  const [pertMethod, setPertMethod] = useState<"normal" | "monte_carlo">("normal");
   const [importMessage, setImportMessage] = useState("");
   const [importingWbs, setImportingWbs] = useState(false);
   const [importFormat, setImportFormat] = useState<"wbs" | "jira">("wbs");
@@ -262,13 +263,14 @@ export function ProjectDetailPage() {
     if (!projectsApi || !id || tab !== "pert") {
       return;
     }
+    setPertNetwork(null);
     void projectsApi
-      .getPert(id)
+      .getPert(id, { method: pertMethod, trials: 2000 })
       .then(setPertNetwork)
       .catch((err) =>
         setError(parseApiError(err, "Не удалось загрузить PERT-диаграмму")),
       );
-  }, [projectsApi, id, tab]);
+  }, [projectsApi, id, tab, pertMethod]);
 
   useEffect(() => {
     if (!deepLink.node || wbs.length === 0) {
@@ -1156,9 +1158,57 @@ export function ProjectDetailPage() {
                 }
               : undefined
           }
+          onApplyProposals={
+            projectsApi
+              ? async (proposals) => {
+                  const result = await projectsApi.applyLeveling(id, proposals);
+                  const next = await projectsApi.getSchedule(id);
+                  setSchedule(next);
+                  return result.batch;
+                }
+              : undefined
+          }
+          onUndoLeveling={
+            projectsApi
+              ? async (batch) => {
+                  await projectsApi.undoLeveling(id, batch.items);
+                  const next = await projectsApi.getSchedule(id);
+                  setSchedule(next);
+                }
+              : undefined
+          }
         />
       )}
 
+      {tab === "pert" && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-text-muted">Метод finish:</span>
+          <button
+            type="button"
+            className={[
+              "rounded-lg border px-2 py-1",
+              pertMethod === "normal"
+                ? "border-primary text-primary"
+                : "border-border text-text-muted",
+            ].join(" ")}
+            onClick={() => setPertMethod("normal")}
+          >
+            Normal approx
+          </button>
+          <button
+            type="button"
+            className={[
+              "rounded-lg border px-2 py-1",
+              pertMethod === "monte_carlo"
+                ? "border-primary text-primary"
+                : "border-border text-text-muted",
+            ].join(" ")}
+            onClick={() => setPertMethod("monte_carlo")}
+          >
+            <GlossaryText text="Monte Carlo" />
+          </button>
+        </div>
+      )}
       {tab === "pert" && pertNetwork && <PertDiagram network={pertNetwork} />}
 
       {tab === "pert" && !pertNetwork && (

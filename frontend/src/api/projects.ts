@@ -331,6 +331,7 @@ export type PertFinish = {
   p50_days: number;
   p90_days: number;
   method: string;
+  trials?: number;
   start_date?: string;
   p10_date?: string;
   p50_date?: string;
@@ -533,6 +534,25 @@ export function createProjectsApi() {
       request<LevelingProposeResult>(
         `/projects/${projectId}/schedule/leveling/propose/`,
         { method: "POST", body: JSON.stringify(body) },
+      ),
+
+    applyLeveling: (projectId: number, proposals: LevelingProposal[]) =>
+      request<{
+        applied: Array<{ activity_id: number; before: LevelingProposal["current"]; after: LevelingProposal["proposed"] }>;
+        undo_token: string | null;
+        batch: { created_at: string; project_id?: number; items: Array<LevelingProposal["current"] & { activity_id: number }> };
+      }>(`/projects/${projectId}/schedule/leveling/apply/`, {
+        method: "POST",
+        body: JSON.stringify({ proposals }),
+      }),
+
+    undoLeveling: (
+      projectId: number,
+      items: Array<{ activity_id: number; start_date: string | null; end_date: string | null; duration_days?: number }>,
+    ) =>
+      request<{ restored: Array<{ activity_id: number }>; count: number }>(
+        `/projects/${projectId}/schedule/leveling/undo/`,
+        { method: "POST", body: JSON.stringify({ items }) },
       ),
 
     updateActivity: (
@@ -796,8 +816,16 @@ export function createProjectsApi() {
         body: JSON.stringify(body),
       }),
 
-    getPert: (projectId: number) =>
-      request<PertNetwork>(`/projects/${projectId}/pert/`, {}),
+    getPert: (
+      projectId: number,
+      opts?: { method?: "normal" | "monte_carlo"; trials?: number },
+    ) => {
+      const q = new URLSearchParams();
+      if (opts?.method) q.set("method", opts.method);
+      if (opts?.trials) q.set("trials", String(opts.trials));
+      const suffix = q.toString() ? `?${q}` : "";
+      return request<PertNetwork>(`/projects/${projectId}/pert/${suffix}`, {});
+    },
 
     getShareLinks: (projectId: number) =>
       request<ShareLink[]>(`/projects/${projectId}/share-links/`, {}),

@@ -7,6 +7,7 @@ import time
 from django.conf import settings
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -36,6 +37,12 @@ def email_status_payload() -> dict:
         ),
         "is_console": is_console,
         "configured": configured,
+        "go_live_ready": bool(
+            configured
+            and not is_console
+            and not is_locmem
+            and bool(getattr(settings, "DEFAULT_FROM_EMAIL", ""))
+        ),
     }
 
 

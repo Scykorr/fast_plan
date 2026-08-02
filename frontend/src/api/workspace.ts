@@ -60,6 +60,8 @@ export type WorkspaceEmailStatus = {
   require_email_verification: boolean;
   is_console: boolean;
   configured: boolean;
+  /** True when real SMTP + From are set (safe to flip verification). */
+  go_live_ready: boolean;
 };
 
 export type WorkspaceEmailTestResult = {

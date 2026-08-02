@@ -26,6 +26,9 @@ def test_email_status_owner_only(authenticated_client, workspace, settings):
     assert ok.data["host_user_set"] is True
     assert ok.data["require_email_verification"] is False
     assert "password" not in ok.data
+    assert "go_live_ready" in ok.data
+    # locmem + host still not go-live (configured excludes locmem)
+    assert ok.data["go_live_ready"] is False
 
     # API token cannot manage email
     token = authenticated_client.post(

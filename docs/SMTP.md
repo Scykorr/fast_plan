@@ -143,5 +143,9 @@ REQUIRE_EMAIL_VERIFICATION=false
 1. Прописать `EMAIL_*` + `FRONTEND_BASE_URL` на реальный URL.  
 2. Owner → Settings → тест → inbox.  
 3. Forgot-password + invite (см. `STAGING.md`).  
-4. `REQUIRE_EMAIL_VERIFICATION=true` → register → письмо → `/verify-email` → login.  
-5. Не коммитьте `.env` с паролями в git.
+4. Убедиться, что в Settings **Go-live ready = да** (`go_live_ready` в `GET /api/workspace/email/status/`).  
+5. `GET /api/health/?extended=1` → `checks.email.status` не должен быть `warn` при `REQUIRE_EMAIL_VERIFICATION=true`.  
+6. `REQUIRE_EMAIL_VERIFICATION=true` → register → письмо → `/verify-email` → login.  
+7. Не коммитьте `.env` с паролями в git.
+
+**Важно:** код не включает verification по умолчанию. Флаг `go_live_ready` — сигнал ops, что SMTP выглядит боевым (не console/locmem, заданы host и From).

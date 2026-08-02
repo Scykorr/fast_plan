@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from math import sqrt
+from random import Random
 
 from projects.cpm import _activity_duration, compute_critical_path
 from projects.models import ActivityDependency, ScheduleActivity
@@ -14,19 +15,143 @@ _Z_P50 = 0.0
 _Z_P90 = 1.28155156554
 
 
-def compute_pert_network(project) -> dict:
-    """Return nodes/edges for a network diagram plus PERT expected durations.
+def _pert_omp(most_likely: int) -> tuple[int, int, int]:
+    optimistic = max(1, int(most_likely * 0.75))
+    pessimistic = max(most_likely, int(round(most_likely * 1.5)))
+    return optimistic, most_likely, pessimistic
 
-    For each activity:
-    - optimistic = max(1, floor(duration * 0.75))
-    - most_likely = duration
-    - pessimistic = ceil(duration * 1.5)
-    - expected = (O + 4M + P) / 6
-    - variance = ((P - O) / 6) ** 2
 
-    Project finish percentiles use critical-path Σ expected and √Σ variance
-    under a normal approximation (P10 / P50 / P90).
-    """
+def _sample_beta_pert(
+    optimistic: int, most_likely: int, pessimistic: int, rng: Random
+) -> float:
+    """Sample duration from a PERT Beta distribution."""
+    if pessimistic <= optimistic:
+        return float(most_likely)
+    mean = (optimistic + 4 * most_likely + pessimistic) / 6.0
+    span = pessimistic - optimistic
+    if span <= 0:
+        return float(most_likely)
+    mode_weight = (mean - optimistic) / span
+    mode_weight = min(0.999, max(0.001, mode_weight))
+    alpha = 1.0 + 4.0 * mode_weight
+    beta = 1.0 + 4.0 * (1.0 - mode_weight)
+    x = rng.gammavariate(alpha, 1.0)
+    y = rng.gammavariate(beta, 1.0)
+    t = x / (x + y) if (x + y) > 0 else rng.random()
+    return optimistic + t * span
+
+
+def _longest_path_days(
+    node_days: dict[int, float],
+    preds: dict[int, list[int]],
+    node_ids: list[int],
+) -> float:
+    memo: dict[int, float] = {}
+
+    def dfs(nid: int) -> float:
+        if nid in memo:
+            return memo[nid]
+        parents = preds.get(nid) or []
+        if not parents:
+            memo[nid] = node_days.get(nid, 0.0)
+        else:
+            memo[nid] = node_days.get(nid, 0.0) + max(dfs(p) for p in parents)
+        return memo[nid]
+
+    if not node_ids:
+        return 0.0
+    return max(dfs(n) for n in node_ids)
+
+
+def _finish_payload(
+    *,
+    p10: float,
+    p50: float,
+    p90: float,
+    mean: float,
+    sigma: float,
+    method: str,
+    project,
+    trials: int | None = None,
+) -> dict:
+    finish = {
+        "mean_days": round(mean, 2),
+        "sigma_days": round(sigma, 2),
+        "p10_days": round(max(0.0, p10), 2),
+        "p50_days": round(max(0.0, p50), 2),
+        "p90_days": round(max(0.0, p90), 2),
+        "method": method,
+    }
+    if trials is not None:
+        finish["trials"] = trials
+    start = getattr(project, "start_date", None)
+    if start is not None:
+        finish["start_date"] = start.isoformat()
+        finish["p10_date"] = (
+            start + timedelta(days=int(round(finish["p10_days"])))
+        ).isoformat()
+        finish["p50_date"] = (
+            start + timedelta(days=int(round(finish["p50_days"])))
+        ).isoformat()
+        finish["p90_date"] = (
+            start + timedelta(days=int(round(finish["p90_days"])))
+        ).isoformat()
+    return finish
+
+
+def _monte_carlo_finish(
+    nodes: list[dict], preds: dict[int, list[int]], project, *, trials: int
+) -> dict:
+    if not nodes:
+        return _finish_payload(
+            p10=0,
+            p50=0,
+            p90=0,
+            mean=0,
+            sigma=0,
+            method="monte_carlo",
+            project=project,
+            trials=trials,
+        )
+    rng = Random(42)
+    node_ids = [n["id"] for n in nodes]
+    samples: list[float] = []
+    for _ in range(trials):
+        durations = {
+            n["id"]: _sample_beta_pert(
+                n["optimistic_days"],
+                n["most_likely_days"],
+                n["pessimistic_days"],
+                rng,
+            )
+            for n in nodes
+        }
+        samples.append(_longest_path_days(durations, preds, node_ids))
+    samples.sort()
+
+    def pct(p: float) -> float:
+        idx = min(
+            len(samples) - 1,
+            max(0, int(round((p / 100.0) * (len(samples) - 1)))),
+        )
+        return samples[idx]
+
+    mean = sum(samples) / len(samples)
+    var = sum((s - mean) ** 2 for s in samples) / len(samples)
+    return _finish_payload(
+        p10=pct(10),
+        p50=pct(50),
+        p90=pct(90),
+        mean=mean,
+        sigma=sqrt(var),
+        method="monte_carlo",
+        project=project,
+        trials=trials,
+    )
+
+
+def compute_pert_network(project, *, method: str = "normal", trials: int = 2000) -> dict:
+    """Return nodes/edges plus finish percentiles (normal approx or Monte Carlo)."""
     cpm = compute_critical_path(project)
     activities = list(
         ScheduleActivity.objects.filter(wbs_node__project=project)
@@ -39,8 +164,7 @@ def compute_pert_network(project) -> dict:
     nodes = []
     for activity in activities:
         most_likely = _activity_duration(activity)
-        optimistic = max(1, int(most_likely * 0.75))
-        pessimistic = max(most_likely, int(round(most_likely * 1.5)))
+        optimistic, most_likely, pessimistic = _pert_omp(most_likely)
         expected = round((optimistic + 4 * most_likely + pessimistic) / 6, 2)
         variance = ((pessimistic - optimistic) / 6) ** 2
         cpm_row = cpm_by_id.get(activity.id, {})
@@ -65,6 +189,7 @@ def compute_pert_network(project) -> dict:
         )
 
     edges = []
+    preds: dict[int, list[int]] = {n["id"]: [] for n in nodes}
     deps = ActivityDependency.objects.filter(
         predecessor__wbs_node__project=project,
         successor__wbs_node__project=project,
@@ -79,38 +204,38 @@ def compute_pert_network(project) -> dict:
                 "lag_days": dep.lag_days,
             }
         )
+        if dep.dependency_type == ActivityDependency.DependencyType.FS:
+            preds.setdefault(dep.successor_id, []).append(dep.predecessor_id)
 
-    critical_nodes = [n for n in nodes if n["is_critical"]]
-    if critical_nodes:
-        mu = sum(n["expected_days"] for n in critical_nodes)
-        sigma = sqrt(sum(n["variance"] for n in critical_nodes))
+    method_key = (method or "normal").strip().lower()
+    if method_key in ("monte_carlo", "mc", "monte-carlo"):
+        finish = _monte_carlo_finish(
+            nodes,
+            preds,
+            project,
+            trials=max(200, min(int(trials or 2000), 20000)),
+        )
     else:
-        mu = float(cpm.get("project_duration") or 0)
-        sigma = 0.0
+        critical_nodes = [n for n in nodes if n["is_critical"]]
+        if critical_nodes:
+            mu = sum(n["expected_days"] for n in critical_nodes)
+            sigma = sqrt(sum(n["variance"] for n in critical_nodes))
+        else:
+            mu = float(cpm.get("project_duration") or 0)
+            sigma = 0.0
 
-    def _percentile(z: float) -> float:
-        return round(max(0.0, mu + z * sigma), 2)
+        def _percentile(z: float) -> float:
+            return max(0.0, mu + z * sigma)
 
-    finish = {
-        "mean_days": round(mu, 2),
-        "sigma_days": round(sigma, 2),
-        "p10_days": _percentile(_Z_P10),
-        "p50_days": _percentile(_Z_P50),
-        "p90_days": _percentile(_Z_P90),
-        "method": "critical_path_normal",
-    }
-    start = getattr(project, "start_date", None)
-    if start is not None:
-        finish["start_date"] = start.isoformat()
-        finish["p10_date"] = (
-            start + timedelta(days=int(round(finish["p10_days"])))
-        ).isoformat()
-        finish["p50_date"] = (
-            start + timedelta(days=int(round(finish["p50_days"])))
-        ).isoformat()
-        finish["p90_date"] = (
-            start + timedelta(days=int(round(finish["p90_days"])))
-        ).isoformat()
+        finish = _finish_payload(
+            p10=_percentile(_Z_P10),
+            p50=_percentile(_Z_P50),
+            p90=_percentile(_Z_P90),
+            mean=mu,
+            sigma=sigma,
+            method="critical_path_normal",
+            project=project,
+        )
 
     return {
         "nodes": nodes,

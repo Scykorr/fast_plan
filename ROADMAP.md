@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.18.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — крупные спринты ниже; SMTP credentials (ops) |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — S1–S4 + **эпик Process-as-WBS** + методологический бэклог |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -108,12 +108,113 @@
 
 | # | Спринт | Scope | Size | Зависимости |
 |---|--------|-------|------|-------------|
-| **S1** | **Schedule intelligence** | PERT **Monte Carlo** (опция рядом с normal approx); leveling **apply-all** + undo; Capacity page «предложить сдвиг» по workspace | **L** | leveling lite ✓ |
-| **S2** | **Process ops maturity** | Миграция **running instances** при publish новой версии; SubProcess **bpmn-js drill-down/collapse**; properties tip для Inclusive conditions в modeler | **L** | SubProcess backend ✓, Inclusive ✓ |
-| **S3** | **Integrations unlock** | MS Project XML import + 1С OData номенклатура | **L** | нужен sample `.xml` / стенд 1С |
-| **S4** | **Trust & mail go-live** | Боевой SMTP ([`docs/SMTP.md`](docs/SMTP.md)) + verification on + invite/reset checklist на staging | **M** | credentials владельца |
+| **S1** | **Schedule intelligence** | PERT **Monte Carlo**; leveling **apply-all** + undo; Capacity page propose | **L** | **✓ код** |
+| **S2** | **Process ops maturity** | Миграция running instances при publish; SubProcess **bpmn-js collapse**; Inclusive properties tip | **L** | **✓ код** |
+| **S3** | **Integrations unlock** | MS Project XML + 1С OData | **L** | sample / стенд |
+| **S4** | **Trust & mail go-live** | SMTP ([`docs/SMTP.md`](docs/SMTP.md)) + verification on | **M** | **код go-live ✓**; credentials + flip verification — ops |
+| **S5** | **Process-as-WBS — foundation** | см. [эпик ниже](#эпик-process-as-wbs-процесс-как-дерево-работ) фаза A–B | **L** | UserTask↔WBS ✓ |
+| **S6** | **Process-as-WBS — full PM surface** | фаза C–D (Gantt/Kanban/capacity/RACI на process tree) | **L** | S5 |
+| **S7** | **Methodology packs + CRM depth** | PRINCE2/Agile lite packs; CRM opportunity scoring / playbooks | **L** | S5 желателен |
 
-Параллельно с S1–S2 можно закрывать **S4** без разработчика (только `.env` + Settings test).
+Параллельно: **S4** (ops). После S5–S6 продукт закрывает разрыв «процесс рисуем в BPMN, работаем как в WBS».
+
+---
+
+### Эпик: Process-as-WBS (процесс как дерево работ)
+
+**Идея.** Сейчас процесс = BPMN-граф + inbox UserTask; проект = WBS с Gantt/Kanban/PERT/RACI/capacity. Связка точечная (bind, spawn, `create_wbs_note`).  
+**Цель:** у **экземпляра процесса** (и опционально у definition) появляется **иерархическое дерево работ** — тот же UX/функции, что у проектного WBS, но узлы порождаются из BPMN (и обратно синхронизируются).
+
+#### Почему это осмысленно (методологии)
+
+| Методология | Что даёт Process-as-WBS |
+|-------------|-------------------------|
+| **PMBOK / ISO 21500** | WBS — декомпозиция deliverable; процессные шаги становятся measurable work packages |
+| **PRINCE2** | Product-based planning: дерево продуктов/работ рядом с процессом стадии |
+| **BPMN 2.0** | Executable flow остаётся источником правды для ветвлений; дерево — *view* для людей и учёта труда |
+| **Lean / Value Stream** | Линейная/иерархическая раскладка шагов для lead time, WIP, bottlenecks (поверх mining lite) |
+| **ITIL / ISO 9001 packs** | Уже есть BPMN-пакеты — дерево работ делает их «исполняемыми как проект» без ручного bind |
+| **Agile / Scrum** | Не замена бэклога; опциональный mapping UserTask → WP → Kanban column (уже частично есть) |
+
+#### Что **не** делаем в эпике
+
+- Не подменяем bpmn-js модельер деревом (граф остаётся для gateways/timers).
+- Не строим второй Spiff-engine «на дереве».
+- Не обещаем 1:1 Camunda Cockpit / Celonis.
+
+#### Фазы
+
+| Фаза | Scope | Size | Результат |
+|------|-------|------|-----------|
+| **A. Materialize** | `POST …/instances/<id>/materialize-wbs/` (или auto on start): UserTask/SubProcess/ServiceTask → узлы `ProcessWorkNode` **или** reuse `WBSNode` с `process_instance_id`; иерархия = вложенность SubProcess + document order | **L** | дерево видно в UI |
+| **B. Tree UI** | Вкладка «Дерево» на instance: mind-map / list как `WBSTreeView` (ПКМ, rename, focus, collapse); прогресс узла ↔ статус UserTask | **L** | работа без открытия только inbox |
+| **C. PM functions** | На дереве процесса: **assignee**, dates → mini-Gantt, **dependencies** (FS из sequenceFlow где однозначно), **RACI**, comments/attachments/time entries, capacity hints | **L** | «все функции WBS» в разумном MVP |
+| **D. Sync & templates** | Definition → шаблон дерева; re-materialize при publish (осторожно с running); экспорт CSV/XLSX; AI «уточнить дерево процесса» | **M–L** | шаблоны и обмен |
+
+**Модель (черновик ADR):** либо `ProcessWorkNode` (process-scoped, зеркало полей WBS), либо `WBSNode` + nullable `project` + `process_instance` XOR constraint. Предпочтительнее **отдельная сущность + shared UI kit**, чтобы не ломать project-only инварианты.
+
+**Критерий «все возможные функции» (чеклист MVP C):**
+
+- [ ] иерархия + DnD reorder (где безопасно без ломки BPMN)
+- [ ] карточка узла (описание, статус, assignee)
+- [ ] даты / длительность / Gantt-lite
+- [ ] Kanban-синк для UserTask-узлов
+- [ ] комментарии / вложения / time log
+- [ ] RACI на узле
+- [ ] capacity hint при assignee+dates
+- [ ] экспорт flatten CSV
+- [ ] связка «открыть BPMN element» ↔ узел дерева (highlight)
+
+---
+
+### Методологический бэклог (добавить в продукт)
+
+Опираемся на пробелы относительно PMBOK / PRINCE2 / Agile / BPMN / CRM (BANT/MEDDIC lite). Только то, чего **ещё нет** или слабо.
+
+#### PM — управление проектами
+
+| Pri | Пункт | Size | Методология / зачем |
+|-----|-------|------|---------------------|
+| ~~**P2**~~ | ~~Resource leveling lite~~ | **M** | **✓** |
+| **P2** | Leveling apply-all / Capacity propose _(S1)_ | **M** | Resource management |
+| **P3** | PERT Monte Carlo _(S1)_ | **M** | Schedule risk |
+| **P3** | MS Project XML _(S3)_ | **M–L** | Interop |
+| **P2** | **OBS / org breakdown** — привязка WBS к оргструктуре (отдел/роль), не только user | **M** | PMBOK org / RACI scale |
+| **P2** | **Issue / action log** отдельно от Risk (проблемы + due + owner) | **M** | PRINCE2 Issue Register |
+| **P2** | **Lessons learned** на закрытии проекта (шаблон + export) | **S–M** | PMBOK closing |
+| **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | Современный EVM |
+| **P3** | **Stage / phase gates** на проекте (чеклист go/no-go) | **M** | PRINCE2 stages |
+| **P3** | **Quality checklist** на WP (pass/fail + evidence link) | **M** | Quality mgmt |
+| **P3** | **Benefit / outcome** поля на deliverable + tracking | **M** | Benefits realization |
+
+#### Process — управление процессами
+
+| Pri | Пункт | Size | Методология / зачем |
+|-----|-------|------|---------------------|
+| ~~**P2**~~ | ~~Inclusive Gateway~~ | **M** | **✓** |
+| **P3** | Instance migration on publish _(S2)_ | **L** | Ops |
+| **P3** | SubProcess bpmn-js collapse _(S2)_ | **M** | Usability |
+| ~~**P3**~~ | ~~SubProcess list drill-down~~ | **S** | **✓** |
+| **P1** | **Process-as-WBS** фазы A–B _(S5)_ | **L** | см. эпик |
+| **P1** | **Process-as-WBS** фазы C–D _(S6)_ | **L** | «все функции WBS» |
+| **P2** | **SLA timers UI** на UserTask (due из timer/duration) + breach board | **M** | ITIL / ops |
+| **P2** | **Process RACI** на definition (роль → lane/candidate) | **M** | Accountability |
+| **P3** | **Value-stream metrics** (cycle/lead time per element) поверх mining | **M** | Lean |
+| **P3** | **Compensation / error boundary** lite в catalog + docs | **L** | BPMN advanced |
+| **P3** | Pack: **PRINCE2 stage** + **Scrum ceremony** (не сертификация) | **M** | Methodology packs |
+
+#### CRM
+
+| Pri | Пункт | Size | Методология / зачем |
+|-----|-------|------|---------------------|
+| ~~**P2**~~ | ~~Guest payment status~~ | **S** | **✓** |
+| **P3** | Live 1С OData _(S3)_ | **L** | ERP |
+| **P2** | **Qualification score** (BANT/MEDDIC lite поля + rollup на Deal) | **M** | Sales methodology |
+| **P2** | **Playbooks / next-best-action** на стадии pipeline (чеклист + auto task) | **M** | Sales process |
+| **P2** | **Customer health** (renewal risk = usage/ARR/overdue invoices) | **M** | CS / ARR |
+| **P3** | **Quote→WBS estimate** — из строк КП черновик WP/budget | **M** | Handoff commercial→PM |
+| **P3** | **Multi-currency deal rollup** с FX уже в workspace | **S–M** | Finance/CRM |
+| **P3** | **Consent / GDPR lite** на Person (legal basis, retention flag) | **M** | Compliance |
 
 ### Платформа / Ops
 
@@ -124,31 +225,6 @@
 | ~~**P2**~~ | ~~UI Settings: SMTP status / test-send~~ | **S** | **✓** |
 | ~~**P3**~~ | ~~Deliverability checklist~~ | **S** | **✓** STAGING + docs/SMTP.md |
 
-### PM — управление проектами
-
-| Pri | Пункт | Size | Зачем |
-|-----|-------|------|-------|
-| ~~**P2**~~ | ~~Resource leveling lite~~ | **M** | **✓** `POST …/schedule/leveling/propose/` + Gantt apply |
-| **P2** | Leveling apply-all / Capacity-page propose _(в S1)_ | **M** | UX поверх lite |
-| **P3** | PERT Monte Carlo _(в S1)_ | **M** | Точнее хвосты |
-| **P3** | MS Project XML import _(в S3, нужен sample)_ | **M–L** | Импорт из MS Project |
-
-### Process — управление процессами
-
-| Pri | Пункт | Size | Зачем |
-|-----|-------|------|-------|
-| ~~**P2**~~ | ~~Inclusive Gateway first-class~~ | **M** | **✓** catalog + pack `or_inclusive` + ADR/UI tip |
-| **P3** | Миграция running instances при publish _(в S2)_ | **L** | Ops для долгих процессов |
-| **P3** | SubProcess bpmn-js collapse _(в S2)_ | **M** | List drill-down ✓; viewer collapse отложен |
-| ~~**P3**~~ | ~~SubProcess list drill-down~~ | **S** | **✓** children в instance detail |
-
-### CRM
-
-| Pri | Пункт | Size | Зачем |
-|-----|-------|------|-------|
-| ~~**P2**~~ | ~~Guest portal payment status~~ | **S** | **✓** |
-| **P3** | Live 1С OData _(в S3, нужен стенд)_ | **L** | Углубление после `pending_skus` |
-
 ### Отложено (ждём входных данных)
 
 | Пункт | Условие |
@@ -156,6 +232,7 @@
 | MS Project XML import | образец `.xml` / экспорт из MS Project |
 | Углубление конкретного PBX / live 1С | боевой стенд заказчика |
 | Full SubProcess UI (коллапс в bpmn-js) | спринт **S2** |
+| Camunda-grade conformance / full FEEL | вне scope (см. ниже) |
 
 ---
 
@@ -224,7 +301,7 @@
 
 ### P8 — whitelist executable BPMN (справка)
 
-Start/End, UserTask, ServiceTask, ExclusiveGateway, ParallelGateway, Timer (Celery), Message start, **embedded SubProcess** (child instance mirror). Inclusive — experimental.
+Start/End, UserTask, ServiceTask, ExclusiveGateway, ParallelGateway, **InclusiveGateway**, Timer (Celery), Message start, **embedded SubProcess** (child instance mirror).
 
 ### P6 — фазы (все ✓)
 

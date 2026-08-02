@@ -220,6 +220,46 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     label: "AI",
     hint: "искусственный интеллект (черновики и подсказки)",
   },
+  undo: {
+    label: "Undo",
+    hint: "отмена последнего действия (вернуть прежние даты)",
+  },
+  "monte carlo": {
+    label: "Monte Carlo",
+    hint: "метод случайных испытаний для оценки сроков (P10/P50/P90)",
+  },
+  monte_carlo: {
+    label: "Monte Carlo",
+    hint: "метод случайных испытаний для оценки сроков (P10/P50/P90)",
+  },
+  leveling: {
+    label: "leveling",
+    hint: "выравнивание загрузки: сдвиг задач перегруженных исполнителей",
+  },
+  utilization: {
+    label: "Utilization",
+    hint: "доля занятых часов от capacity (часто в %)",
+  },
+  subprocess: {
+    label: "SubProcess",
+    hint: "вложенный подпроцесс BPMN (можно свернуть на схеме)",
+  },
+  "inclusive gateway": {
+    label: "Inclusive Gateway",
+    hint: "шлюз OR: берёт все истинные исходящие ветки (+ default)",
+  },
+  inclusive: {
+    label: "Inclusive",
+    hint: "Inclusive Gateway — OR-ветки по условиям",
+  },
+  "go-live": {
+    label: "Go-live",
+    hint: "готовность к бою: SMTP настроен, можно включать verification",
+  },
+  migrate: {
+    label: "Migrate",
+    hint: "перенос running instances на новый deployment при publish",
+  },
   uuid: {
     label: "UUID",
     hint: "универсальный уникальный идентификатор",

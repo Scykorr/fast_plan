@@ -29,6 +29,30 @@ def _check_redis() -> str:
         return "error"
 
 
+def _check_email() -> dict:
+    """Non-sending email config probe for extended health."""
+    backend = settings.EMAIL_BACKEND or ""
+    host = (getattr(settings, "EMAIL_HOST", "") or "").strip()
+    is_console = "console" in backend.lower()
+    is_locmem = "locmem" in backend.lower()
+    configured = bool(host) and not is_console and not is_locmem
+    require_verify = bool(getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False))
+    status = "ok"
+    if require_verify and not configured:
+        status = "warn"
+    elif is_console or is_locmem:
+        status = "dev"
+    elif not configured:
+        status = "unconfigured"
+    return {
+        "status": status,
+        "configured": configured,
+        "host": host or None,
+        "backend": backend,
+        "require_email_verification": require_verify,
+    }
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def health(request):
@@ -38,6 +62,10 @@ def health(request):
             "database": _check_database(),
             "redis": _check_redis(),
             "email_backend": settings.EMAIL_BACKEND,
+            "email": _check_email(),
             "celery_eager": getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False),
+            "require_email_verification": bool(
+                getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False)
+            ),
         }
     return Response(data)

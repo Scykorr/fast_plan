@@ -40,7 +40,9 @@ from projects.views import (
     ProjectCalendarView,
     ProjectDashboardView,
     ProjectDetailView,
+    ProjectLevelingApplyView,
     ProjectLevelingProposeView,
+    ProjectLevelingUndoView,
     ProjectListCreateView,
     ProjectScheduleView,
     ProjectTemplateDetailView,
@@ -122,6 +124,16 @@ urlpatterns = [
         "projects/<int:project_id>/schedule/leveling/propose/",
         ProjectLevelingProposeView.as_view(),
         name="project-leveling-propose",
+    ),
+    path(
+        "projects/<int:project_id>/schedule/leveling/apply/",
+        ProjectLevelingApplyView.as_view(),
+        name="project-leveling-apply",
+    ),
+    path(
+        "projects/<int:project_id>/schedule/leveling/undo/",
+        ProjectLevelingUndoView.as_view(),
+        name="project-leveling-undo",
     ),
     path(
         "projects/<int:project_id>/dependencies/",

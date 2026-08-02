@@ -25,9 +25,35 @@ def deploy_if_needed(definition: ProcessDefinition, *, user=None) -> ProcessDepl
     )
 
 
-def publish_definition(definition: ProcessDefinition, *, user=None) -> ProcessDeployment:
+def publish_definition(
+    definition: ProcessDefinition,
+    *,
+    user=None,
+    migrate_running: bool = False,
+) -> tuple[ProcessDeployment, dict]:
     definition.is_published = True
     if not definition.process_id:
         definition.process_id = parse_process_id(definition.bpmn_xml)
     definition.save(update_fields=["is_published", "process_id", "updated_at"])
-    return deploy_if_needed(definition, user=user)
+    deployment = deploy_if_needed(definition, user=user)
+    migration: dict = {
+        "migrated_count": 0,
+        "skipped_count": 0,
+        "migrated": [],
+        "skipped": [],
+        "prior_active_count": 0,
+    }
+    if migrate_running:
+        from process.instance_migration import migrate_running_instances
+
+        migration = migrate_running_instances(definition, deployment)
+    else:
+        from process.models import ProcessInstance
+
+        migration["prior_active_count"] = ProcessInstance.objects.filter(
+            workspace=definition.workspace,
+            deployment__definition=definition,
+            status=ProcessInstance.Status.ACTIVE,
+            parent__isnull=True,
+        ).exclude(deployment_id=deployment.id).count()
+    return deployment, migration

@@ -194,11 +194,23 @@ export function createProcessApi() {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
-    publish: (id: number) =>
-      request<{ definition: ProcessDefinition; deployment_id: number }>(
-        `/process/definitions/${id}/publish/`,
-        { method: "POST", body: "{}" },
-      ),
+    publish: (id: number, opts?: { migrate_running?: boolean }) =>
+      request<{
+        definition: ProcessDefinition;
+        deployment_id: number;
+        migration?: {
+          migrated_count: number;
+          skipped_count: number;
+          prior_active_count: number;
+          migrated: Array<{ instance_id: number }>;
+          skipped: Array<{ instance_id: number; reason: string }>;
+        };
+      }>(`/process/definitions/${id}/publish/`, {
+        method: "POST",
+        body: JSON.stringify({
+          migrate_running: Boolean(opts?.migrate_running),
+        }),
+      }),
     start: (id: number, body: Record<string, unknown> = {}) =>
       request<ProcessInstance>(`/process/definitions/${id}/start/`, {
         method: "POST",

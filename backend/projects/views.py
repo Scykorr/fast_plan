@@ -394,6 +394,36 @@ class ProjectLevelingProposeView(WorkspaceMixin, APIView):
         )
 
 
+class ProjectLevelingApplyView(WorkspaceMixin, APIView):
+    """Apply leveling proposals in one transaction; returns undo batch."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, project_id):
+        from projects.leveling import apply_leveling_proposals
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        proposals = request.data.get("proposals")
+        if not isinstance(proposals, list):
+            raise ValidationError({"proposals": "Expected a list of proposals."})
+        return Response(apply_leveling_proposals(project, proposals))
+
+
+class ProjectLevelingUndoView(WorkspaceMixin, APIView):
+    """Undo a leveling apply batch using returned `batch.items`."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, project_id):
+        from projects.leveling import undo_leveling_batch
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        items = request.data.get("items")
+        if not isinstance(items, list):
+            raise ValidationError({"items": "Expected batch.items list."})
+        return Response(undo_leveling_batch(project, items))
+
+
 class ScheduleActivityDetailView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 

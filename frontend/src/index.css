@@ -171,6 +171,18 @@ body {
   fill: color-mix(in srgb, var(--color-primary) 18%, transparent) !important;
 }
 
+.fp-bpmn-viewer .fp-subprocess-highlight:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: var(--color-secondary) !important;
+  stroke-width: 2.5px !important;
+  stroke-dasharray: 6 3;
+}
+
+.fp-bpmn-viewer .fp-subprocess-collapsed:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: var(--color-text-muted) !important;
+  stroke-width: 2px !important;
+  fill: color-mix(in srgb, var(--color-text-muted) 12%, transparent) !important;
+}
+
 /* Glossary term hints (foreign abbreviations → Russian popup) */
 .term-hint {
   position: relative;

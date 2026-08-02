@@ -17,6 +17,13 @@
 
 ### Added
 
+- **PERT Monte Carlo** — `GET …/pert/?method=monte_carlo&trials=`; UI toggle Normal / Monte Carlo
+- **Leveling apply-all / undo** — `POST …/schedule/leveling/apply|undo/`; Gantt apply-all + Undo
+- **Capacity propose** — кнопка «Предложить leveling» для overload на `/capacity`
+- **Publish migrate** — `migrate_running` на publish; lite restart running instances на новый deployment
+- **SubProcess collapse** — свернуть/развернуть содержимое в BPMN viewer; highlight child SubProcess
+- **Inclusive tip** — подсказка условий у modeler на `/processes`
+- **SMTP go-live guards** — `go_live_ready` в email status; `checks.email` в `/api/health/?extended=1`
 - **Renewal reminders** — `POST /api/crm/renewals/` → DealTask + in-app notify (idempotent); кнопка на `/crm-commerce`; в `run_all_reminders`
 - **Activity spawn pickers** — выбор проекта / published process на `/clients` (без `prompt`)
 - **Workspace schedule activities** — `GET /api/workspace/schedule-activities/`; cross-deps picker на `/portfolio`
@@ -32,11 +39,11 @@
 
 - **Email verification** — по умолчанию отключено (`REQUIRE_EMAIL_VERIFICATION=false`): регистрация сразу `verify_email()`, вход без письма; снова включить после настройки SMTP (см. [`docs/SMTP.md`](docs/SMTP.md))
 - **WBS interaction** — ПКМ открывает только контекстное меню (без карточки); карточка задачи/проекта — по двойному ЛКМ; подсказка на холсте обновлена
-- **Term glossary** — при наведении на иностранные аббревиатуры (WBS, PERT, SPI…) всплывает краткое пояснение на русском (`TermHint` / `GlossaryText`)
+- **Term glossary** — Monte Carlo / leveling / SubProcess / Inclusive / Go-live / Undo и др.
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Крупные спринты**: S1 Schedule intelligence · S2 Process ops · S3 Integrations · S4 Trust/mail.
+См. [ROADMAP.md](ROADMAP.md) § **Крупные спринты** S1–S7 и эпик **Process-as-WBS**. S1/S2 код ✓; S4 credentials + verification flip — ops.
 
 ## [0.18.0] — 2026-07-31
 

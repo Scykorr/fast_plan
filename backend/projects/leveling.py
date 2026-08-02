@@ -1,8 +1,11 @@
-"""Propose schedule shifts to relieve assignee weekly overload (leveling lite)."""
+"""Propose and apply schedule shifts for assignee overload (leveling lite)."""
 
 from __future__ import annotations
 
 from datetime import date, timedelta
+
+from django.db import transaction
+from django.utils import timezone
 
 from projects.capacity_hints import activity_overlaps_week, assignee_week_loads, current_week_start
 from projects.models import ActivityDependency, ScheduleActivity
@@ -68,10 +71,7 @@ def propose_leveling(
     assignee_id: int | None = None,
     max_proposals_per_assignee: int = 5,
 ) -> dict:
-    """
-    Read-only proposals: shift incomplete activities out of an overloaded week.
-    Apply via PATCH /api/activities/<id>/ — this function never writes.
-    """
+    """Read-only proposals. Apply via apply_leveling_proposals or PATCH activities."""
     week_start = week_start or current_week_start()
     week_end = week_start + timedelta(days=6)
     max_shift_days = max(1, min(int(max_shift_days or 14), 60))
@@ -103,7 +103,6 @@ def propose_leveling(
         for a in activities
     }
 
-    # predecessor_id, predecessor_end (live via overrides), lag
     preds: dict[int, list[tuple[int, date | None, int]]] = {a.id: [] for a in activities}
     for dep in ActivityDependency.objects.filter(
         predecessor__wbs_node__project=project,
@@ -169,7 +168,6 @@ def propose_leveling(
             for activity in candidates:
                 cur_start, cur_end = overrides[activity.id]
                 duration = max(activity.duration_days or 1, (cur_end - cur_start).days + 1)
-                # refresh pred ends from current overrides
                 live_preds = {
                     aid: [
                         (pid, overrides.get(pid, (None, None))[1], lag)
@@ -235,3 +233,87 @@ def propose_leveling(
         "proposals": proposals,
         "unresolved": unresolved,
     }
+
+
+def apply_leveling_proposals(project, proposals: list[dict]) -> dict:
+    """
+    Apply proposed date shifts. Returns undo payload with before/after snapshots.
+    """
+    if not proposals:
+        return {
+            "applied": [],
+            "undo_token": None,
+            "batch": {"created_at": timezone.now().isoformat(), "items": []},
+        }
+
+    applied: list[dict] = []
+    undo_items: list[dict] = []
+
+    with transaction.atomic():
+        for raw in proposals:
+            activity_id = int(raw["activity_id"])
+            activity = (
+                ScheduleActivity.objects.select_related("wbs_node")
+                .filter(pk=activity_id, wbs_node__project=project)
+                .first()
+            )
+            if activity is None:
+                continue
+            proposed = raw.get("proposed") or {}
+            try:
+                new_start = date.fromisoformat(str(proposed["start_date"])[:10])
+                new_end = date.fromisoformat(str(proposed["end_date"])[:10])
+            except (KeyError, TypeError, ValueError):
+                continue
+            duration = int(proposed.get("duration_days") or activity.duration_days or 1)
+            before = {
+                "start_date": activity.start_date.isoformat() if activity.start_date else None,
+                "end_date": activity.end_date.isoformat() if activity.end_date else None,
+                "duration_days": activity.duration_days,
+            }
+            activity.start_date = new_start
+            activity.end_date = new_end
+            activity.duration_days = max(1, duration)
+            activity.save(update_fields=["start_date", "end_date", "duration_days"])
+            after = {
+                "start_date": new_start.isoformat(),
+                "end_date": new_end.isoformat(),
+                "duration_days": activity.duration_days,
+            }
+            applied.append({"activity_id": activity_id, "before": before, "after": after})
+            undo_items.append({"activity_id": activity_id, **before})
+
+    batch = {
+        "created_at": timezone.now().isoformat(),
+        "project_id": project.id,
+        "items": undo_items,
+    }
+    return {
+        "applied": applied,
+        "undo_token": f"leveling-{project.id}-{batch['created_at']}",
+        "batch": batch,
+    }
+
+
+def undo_leveling_batch(project, items: list[dict]) -> dict:
+    """Restore dates from an apply batch `items` list."""
+    restored: list[dict] = []
+    with transaction.atomic():
+        for raw in items:
+            activity_id = int(raw["activity_id"])
+            activity = ScheduleActivity.objects.filter(
+                pk=activity_id, wbs_node__project=project
+            ).first()
+            if activity is None:
+                continue
+            start_raw = raw.get("start_date")
+            end_raw = raw.get("end_date")
+            if not start_raw or not end_raw:
+                continue
+            activity.start_date = date.fromisoformat(str(start_raw)[:10])
+            activity.end_date = date.fromisoformat(str(end_raw)[:10])
+            if raw.get("duration_days") is not None:
+                activity.duration_days = max(1, int(raw["duration_days"]))
+            activity.save(update_fields=["start_date", "end_date", "duration_days"])
+            restored.append({"activity_id": activity_id})
+    return {"restored": restored, "count": len(restored)}

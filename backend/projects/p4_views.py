@@ -62,8 +62,15 @@ class ProjectPertView(WorkspaceMixin, APIView):
 
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
-        return Response(compute_pert_network(project))
-
+        method = request.query_params.get("method") or "normal"
+        trials_raw = request.query_params.get("trials") or "2000"
+        try:
+            trials = int(trials_raw)
+        except ValueError:
+            trials = 2000
+        return Response(
+            compute_pert_network(project, method=method, trials=trials)
+        )
 
 class ProjectAIDraftView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]

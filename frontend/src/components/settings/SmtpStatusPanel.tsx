@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { parseApiError } from "../../api/errors";
 import type { WorkspaceEmailStatus } from "../../api/workspace";
-import { TermHint } from "../TermHint";
+import { GlossaryText, TermHint } from "../TermHint";
 import { useWorkspaceApi } from "../../hooks/useWorkspaceApi";
 
 export function SmtpStatusPanel() {
@@ -50,6 +50,9 @@ export function SmtpStatusPanel() {
     }
   };
 
+  const verifyOnWithoutSmtp =
+    Boolean(status?.require_email_verification) && !status?.go_live_ready;
+
   return (
     <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
       <h2 className="mb-1 text-lg font-semibold text-text">
@@ -57,13 +60,23 @@ export function SmtpStatusPanel() {
       </h2>
       <p className="mb-4 text-sm text-text-muted">
         Статус из переменных окружения сервера. Учётные данные меняются только в{" "}
-        <code className="text-xs">.env</code>, не через UI.
+        <code className="text-xs">.env</code>, не через UI. Чеклист:{" "}
+        <code className="text-xs">docs/SMTP.md</code>.
       </p>
 
       {error && <p className="mb-3 text-sm text-primary">{error}</p>}
       {message && !error && (
         <p className="mb-3 text-sm text-secondary" role="status">
           {message}
+        </p>
+      )}
+
+      {verifyOnWithoutSmtp && (
+        <p className="mb-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm text-primary">
+          Verification включён, но SMTP не готов к go-live — регистрация/логин
+          могут ломаться. Верните{" "}
+          <code className="text-xs">REQUIRE_EMAIL_VERIFICATION=false</code> или
+          настройте боевой SMTP.
         </p>
       )}
 
@@ -81,18 +94,34 @@ export function SmtpStatusPanel() {
           </div>
           <div>
             <dt className="text-xs text-text-muted">From</dt>
-            <dd className="font-medium text-text break-all">{status.from_email || "—"}</dd>
+            <dd className="font-medium text-text break-all">
+              {status.from_email || "—"}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-text-muted">Флаги</dt>
             <dd className="font-medium text-text">
-              {status.is_console ? "console" : status.configured ? "SMTP" : "не настроено"}
+              {status.is_console
+                ? "console"
+                : status.configured
+                  ? "SMTP"
+                  : "не настроено"}
               {" · "}
               TLS {status.use_tls ? "on" : "off"}
               {" · "}
               user {status.host_user_set ? "задан" : "нет"}
               {" · "}
               verify {status.require_email_verification ? "on" : "off"}
+            </dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-xs text-text-muted">
+              <GlossaryText text="Go-live" /> ready
+            </dt>
+            <dd className="font-medium text-text">
+              {status.go_live_ready
+                ? "да — можно включать verification после успешного теста"
+                : "нет — нужен реальный SMTP + DEFAULT_FROM_EMAIL (не console/locmem)"}
             </dd>
           </div>
         </dl>

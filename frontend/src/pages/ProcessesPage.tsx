@@ -87,6 +87,7 @@ export function ProcessesPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showXml, setShowXml] = useState(false);
+  const [migrateRunning, setMigrateRunning] = useState(false);
   const [instanceDetail, setInstanceDetail] = useState<{
     instance: ProcessInstance;
     children: ProcessInstance[];
@@ -289,6 +290,12 @@ export function ProcessesPage() {
               {selected ? selected.name : "Редактор BPMN"}
             </h2>
             <BpmnModelerEditor xml={xmlDraft} onChange={setXmlDraft} height={400} />
+            <p className="rounded-lg border border-border bg-cream px-3 py-2 text-xs text-text-muted">
+              <GlossaryText text="Inclusive Gateway" />: на исходящих sequenceFlow
+              задайте условие (properties / conditionExpression) или default-flow.
+              Join ждёт только взятые ветки. Пример-пак:{" "}
+              <code className="text-[11px]">or_inclusive</code>.
+            </p>
             <button
               type="button"
               className="text-xs text-primary hover:underline"
@@ -320,8 +327,17 @@ export function ProcessesPage() {
                       void (async () => {
                         if (!api || !selected) return;
                         try {
-                          await api.publish(selected.id);
-                          setMessage("Опубликовано");
+                          const published = await api.publish(selected.id, {
+                            migrate_running: migrateRunning,
+                          });
+                          const mig = published.migration;
+                          const migMsg =
+                            migrateRunning && mig
+                              ? ` · migrate ${mig.migrated_count}/${mig.prior_active_count} (skip ${mig.skipped_count})`
+                              : mig && mig.prior_active_count > 0
+                                ? ` · ${mig.prior_active_count} active на старых deployment (migrate off)`
+                                : "";
+                          setMessage(`Опубликовано${migMsg}`);
                           await load();
                         } catch (err) {
                           setError(parseApiError(err));
@@ -331,6 +347,14 @@ export function ProcessesPage() {
                   >
                     Опубликовать
                   </button>
+                  <label className="flex items-center gap-2 text-xs text-text-muted">
+                    <input
+                      type="checkbox"
+                      checked={migrateRunning}
+                      onChange={(e) => setMigrateRunning(e.target.checked)}
+                    />
+                    Migrate running instances
+                  </label>
                   <button
                     type="button"
                     className="rounded-lg border border-border px-3 py-1.5 text-sm"
@@ -496,11 +520,18 @@ export function ProcessesPage() {
               <BpmnViewer
                 xml={instanceDetail.bpmn_xml}
                 activeElementIds={instanceDetail.active_element_ids}
+                highlightElementIds={
+                  instanceDetail.instance.subprocess_bpmn_id
+                    ? [instanceDetail.instance.subprocess_bpmn_id]
+                    : []
+                }
                 height={320}
               />
               <p className="mt-2 text-xs text-text-muted">
-                Inclusive Gateway: каждое истинное исходящее + optional default;
-                join ждёт взятые ветки. Пример-пак: <code>or_inclusive</code>.
+                <GlossaryText text="Inclusive Gateway" />: каждое истинное исходящее +
+                optional default; join ждёт взятые ветки. Пример-пак:{" "}
+                <code>or_inclusive</code>. Кнопки над схемой сворачивают содержимое{" "}
+                <GlossaryText text="SubProcess" />.
               </p>
             </div>
           )}

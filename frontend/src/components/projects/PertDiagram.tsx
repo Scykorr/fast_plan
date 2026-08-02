@@ -120,7 +120,9 @@ export function PertDiagram({ network }: Props) {
         </p>
         {network.finish && (
           <p>
-            PERT finish · P10 {network.finish.p10_days}д
+            PERT finish ({network.finish.method}
+            {network.finish.trials ? `, ${network.finish.trials} trials` : ""}) · P10{" "}
+            {network.finish.p10_days}д
             {network.finish.p10_date ? ` (${network.finish.p10_date})` : ""} · P50{" "}
             {network.finish.p50_days}д
             {network.finish.p50_date ? ` (${network.finish.p50_date})` : ""} · P90{" "}

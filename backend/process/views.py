@@ -117,11 +117,15 @@ class ProcessPublishView(WorkspaceMixin, APIView):
         ).first()
         if obj is None:
             raise NotFound()
-        deployment = publish_definition(obj, user=request.user)
+        migrate = bool(request.data.get("migrate_running"))
+        deployment, migration = publish_definition(
+            obj, user=request.user, migrate_running=migrate
+        )
         return Response(
             {
                 "definition": ProcessDefinitionSerializer(obj).data,
                 "deployment_id": deployment.id,
+                "migration": migration,
             }
         )
 
@@ -135,7 +139,7 @@ class ProcessStartView(WorkspaceMixin, APIView):
         ).first()
         if definition is None:
             raise NotFound("Published definition not found")
-        deployment = publish_definition(definition, user=request.user)
+        deployment, _migration = publish_definition(definition, user=request.user)
         instance = ProcessInstance.objects.create(
             workspace=self.get_workspace(),
             deployment=deployment,
@@ -376,7 +380,7 @@ class CaseInstanceCompleteItemView(WorkspaceMixin, APIView):
             if definition:
                 from process.services import publish_definition
 
-                deployment = publish_definition(definition, user=request.user)
+                deployment, _migration = publish_definition(definition, user=request.user)
                 instance = ProcessInstance.objects.create(
                     workspace=self.get_workspace(),
                     deployment=deployment,
