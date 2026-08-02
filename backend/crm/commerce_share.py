@@ -23,8 +23,27 @@ def _paid_total(document: CrmDocument) -> Decimal:
     return sum((p.amount for p in document.payments.all()), start=Decimal("0"))
 
 
+def _payment_status(amount: Decimal, paid_total: Decimal) -> str:
+    if paid_total <= 0:
+        return "unpaid"
+    if paid_total >= amount:
+        return "paid"
+    return "partial"
+
+
 def _public_payload(link: CrmDocumentShareLink) -> dict:
     doc = link.document
+    paid_total = _paid_total(doc)
+    amount = Decimal(doc.amount or 0)
+    balance_due = max(amount - paid_total, Decimal("0"))
+    payments = [
+        {
+            "amount": str(p.amount),
+            "paid_at": p.paid_at,
+            "currency": doc.currency,
+        }
+        for p in doc.payments.all().order_by("paid_at", "id")
+    ]
     return {
         "share": {
             "label": link.label,
@@ -46,7 +65,10 @@ def _public_payload(link: CrmDocumentShareLink) -> dict:
             "due_date": doc.due_date,
             "organization_name": doc.organization.name if doc.organization_id else None,
             "person_name": doc.person.full_name if doc.person_id else None,
-            "paid_total": str(_paid_total(doc)),
+            "paid_total": str(paid_total),
+            "balance_due": str(balance_due),
+            "payment_status": _payment_status(amount, paid_total),
+            "payments": payments,
             "can_approve": link.allow_approve
             and doc.status
             in (

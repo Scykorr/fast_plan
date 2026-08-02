@@ -16,17 +16,16 @@ def absolute_frontend_url(path: str) -> str:
     return f"{base}/{path.lstrip('/')}"
 
 
-def send_app_email(
+def send_app_email_result(
     *,
     to: str,
     subject: str,
     template_base: str,
     context: dict | None = None,
-) -> bool:
+) -> tuple[bool, str]:
     """
     Render text+html templates and send email.
-    Soft-fails on SMTP errors (logs and returns False) so callers like invite create
-    do not 500 when mail is misconfigured.
+    Returns (ok, detail). Detail is \"sent\" on success or the exception message.
     """
     ctx = dict(context or {})
     ctx.setdefault("frontend_base_url", absolute_frontend_url(""))
@@ -41,7 +40,27 @@ def send_app_email(
         )
         message.attach_alternative(html_body, "text/html")
         message.send(fail_silently=False)
-        return True
-    except Exception:
+        return True, "sent"
+    except Exception as exc:
         logger.exception("Failed to send email to %s (%s)", to, subject)
-        return False
+        return False, str(exc) or exc.__class__.__name__
+
+
+def send_app_email(
+    *,
+    to: str,
+    subject: str,
+    template_base: str,
+    context: dict | None = None,
+) -> bool:
+    """
+    Soft-fails on SMTP errors (logs and returns False) so callers like invite create
+    do not 500 when mail is misconfigured.
+    """
+    ok, _detail = send_app_email_result(
+        to=to,
+        subject=subject,
+        template_base=template_base,
+        context=context,
+    )
+    return ok

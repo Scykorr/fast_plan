@@ -49,6 +49,27 @@ export type WebhookEndpoint = {
   secret?: string;
 };
 
+export type WorkspaceEmailStatus = {
+  backend: string;
+  host: string;
+  port: number;
+  use_tls: boolean;
+  use_ssl: boolean;
+  from_email: string;
+  host_user_set: boolean;
+  require_email_verification: boolean;
+  is_console: boolean;
+  configured: boolean;
+};
+
+export type WorkspaceEmailTestResult = {
+  ok: boolean;
+  detail: string;
+  to: string;
+  latency_ms: number;
+  status: WorkspaceEmailStatus;
+};
+
 export type WorkspaceDashboard = {
   workspace_id: number;
   currency?: string;
@@ -346,5 +367,14 @@ export function createWorkspaceApi() {
         status_code: number | null;
         error: string;
       }>(`/workspace/webhooks/${endpointId}/test/`, { method: "POST" }),
+
+    getEmailStatus: () =>
+      request<WorkspaceEmailStatus>("/workspace/email/status/", {}),
+
+    testEmail: (to?: string) =>
+      request<WorkspaceEmailTestResult>("/workspace/email/test/", {
+        method: "POST",
+        body: JSON.stringify(to ? { to } : {}),
+      }),
   };
 }

@@ -21,6 +21,8 @@
 - **Activity spawn pickers** — выбор проекта / published process на `/clients` (без `prompt`)
 - **Workspace schedule activities** — `GET /api/workspace/schedule-activities/`; cross-deps picker на `/portfolio`
 - **BPMN SubProcess** — `subprocess_specs` в engine; child `ProcessInstance` (`parent`, `parent_spiff_task_id`); catalog `supported`
+- **SMTP status / test-send** — `GET/POST /api/workspace/email/status|test/` (owner session); панель «Почта / SMTP» в Settings
+- **Guest payment status** — `payment_status` / `balance_due` / `payments[]` в публичном share; бейдж на `/commerce/:token`
 
 ### Changed
 
@@ -29,7 +31,7 @@
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы**: SMTP setup → email verification on; leveling / Inclusive GW / MS Project.
+См. [ROADMAP.md](ROADMAP.md) § **Планы**: SMTP credentials → email verification on; leveling / Inclusive GW / MS Project.
 
 ## [0.18.0] — 2026-07-31
 

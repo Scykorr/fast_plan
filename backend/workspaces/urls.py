@@ -7,6 +7,7 @@ from workspaces.fx_views import (
     WorkspaceFxConvertView,
     WorkspaceSettingsView,
 )
+from workspaces.email_views import WorkspaceEmailStatusView, WorkspaceEmailTestView
 from workspaces.views import (
     WorkspaceActivateView,
     WorkspaceAPITokenDetailView,
@@ -89,6 +90,16 @@ urlpatterns = [
         "workspace/webhooks/<int:endpoint_id>/test/",
         WorkspaceWebhookTestView.as_view(),
         name="workspace-webhook-test",
+    ),
+    path(
+        "workspace/email/status/",
+        WorkspaceEmailStatusView.as_view(),
+        name="workspace-email-status",
+    ),
+    path(
+        "workspace/email/test/",
+        WorkspaceEmailTestView.as_view(),
+        name="workspace-email-test",
     ),
     path(
         "workspace/settings/",

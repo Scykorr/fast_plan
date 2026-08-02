@@ -72,6 +72,12 @@ export function CommerceGuestPage() {
   }
 
   const doc = payload.document;
+  const paymentLabel =
+    doc.payment_status === "paid"
+      ? "Оплачено полностью"
+      : doc.payment_status === "partial"
+        ? "Частичная оплата"
+        : "Не оплачено";
 
   return (
     <div className="min-h-screen bg-cream px-4 py-8">
@@ -87,6 +93,17 @@ export function CommerceGuestPage() {
           <p className="mt-2 text-xs text-text-muted">
             {doc.doc_type} · {doc.number || `#${doc.id}`} · статус {doc.status}
           </p>
+          <p
+            className={`mt-3 inline-block rounded-lg px-3 py-1 text-sm font-semibold ${
+              doc.payment_status === "paid"
+                ? "bg-secondary/15 text-secondary"
+                : doc.payment_status === "partial"
+                  ? "bg-amber-500/15 text-amber-800"
+                  : "bg-primary/10 text-primary"
+            }`}
+          >
+            {paymentLabel}
+          </p>
         </header>
 
         <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm space-y-4">
@@ -101,6 +118,12 @@ export function CommerceGuestPage() {
               <p className="text-xs text-text-muted">Оплачено</p>
               <p className="font-semibold text-text">
                 {doc.paid_total} {doc.currency}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-text-muted">К оплате</p>
+              <p className="font-semibold text-text">
+                {doc.balance_due} {doc.currency}
               </p>
             </div>
             {doc.organization_name && (
@@ -125,6 +148,27 @@ export function CommerceGuestPage() {
 
           {doc.body && (
             <div className="whitespace-pre-wrap text-sm text-text">{doc.body}</div>
+          )}
+
+          {doc.payments?.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+                Платежи
+              </p>
+              <ul className="space-y-1 text-sm">
+                {doc.payments.map((payment, index) => (
+                  <li
+                    key={`${payment.paid_at}-${index}`}
+                    className="flex justify-between rounded border border-border px-3 py-2"
+                  >
+                    <span>{payment.paid_at}</span>
+                    <span className="font-medium">
+                      {payment.amount} {payment.currency}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {doc.line_items?.length > 0 && (

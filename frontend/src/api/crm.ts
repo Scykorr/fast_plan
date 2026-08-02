@@ -237,6 +237,13 @@ export type PublicCrmDocumentShare = {
     organization_name: string | null;
     person_name: string | null;
     paid_total: string;
+    balance_due: string;
+    payment_status: "unpaid" | "partial" | "paid" | string;
+    payments: Array<{
+      amount: string;
+      paid_at: string;
+      currency: string;
+    }>;
     can_approve: boolean;
   };
 };

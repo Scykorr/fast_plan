@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.18.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — **SMTP** → leveling / Inclusive GW / MS Project |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — **SMTP credentials** → leveling / Inclusive GW / MS Project |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -57,7 +57,7 @@
 | Продажи | Deal pipeline, Lead, CRM tasks Kanban | `/deals`, `/leads`, `/crm-tasks` |
 | Коммерция | КП/счёт/договор/акт PDF, line editor+SKU, оплаты, AR/AP, P&L, cashflow | `/crm-commerce` |
 | Договоры | **renewal_date / ARR lite**, upcoming + **remind → DealTask/notify** | `/crm-commerce`, `GET/POST /crm/renewals/` |
-| Гостевой портал | КП/счёт/акт: approve + PDF по token | `/commerce/:token` |
+| Гостевой портал | КП/счёт/акт: approve + PDF по token; **статус оплаты** | `/commerce/:token` |
 | Склад | SKU + movements; списание invoice→paid; **1С pending_skus → SKU** | `/crm-commerce`, `/api/crm/skus/` |
 | Склейка | Activity → WBS / process (picker UI) | `/clients` spawn |
 | Каналы / PBX / календарь / AI / API | как раньше | commerce, calendar, crm-ai, OpenAPI |
@@ -98,18 +98,19 @@
 1. ~~**Release 0.18.0**~~ — **✓** (P10 Unreleased → релиз; GitHub `v0.18.0`)
 2. ~~**UX glue**~~ — **✓** renewals remind, spawn pickers, schedule-activity picker
 3. ~~**BPMN SubProcess**~~ — **✓** subprocess_specs + child ProcessInstance mirror
-4. **MS Project XML** — только после sample `.xml` / `.mpp`
-5. **SMTP + email verification** — настройка почты и включение `REQUIRE_EMAIL_VERIFICATION`
-6. Ops: staging migrate `0011`/`0016`/`0017`/`0003_subprocess`; раз в квартал `scripts/restore-drill.sh`
+4. ~~**SMTP tooling + guest payment**~~ — **✓** email status/test-send UI; guest `payment_status`
+5. **SMTP credentials on staging** — реальный `EMAIL_*`, test-send → inbox → `REQUIRE_EMAIL_VERIFICATION=true`
+6. **MS Project XML** — только после sample `.xml` / `.mpp`
+7. Ops: staging migrate `0011`/`0016`/`0017`/`0003_subprocess`; раз в квартал `scripts/restore-drill.sh`
 
 ### Платформа / Ops
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P1** | **SMTP setup** — реальный `EMAIL_*` / `DEFAULT_FROM_EMAIL`, проверка доставки (mail.ru и др.) | **S–M** | Сейчас console backend; verify/reset/invite не доходят |
+| **P1** | **SMTP credentials** — реальный `EMAIL_*` / `DEFAULT_FROM_EMAIL`, проверка доставки (mail.ru и др.) | **S–M** | Tooling ✓; нужны боевые credentials |
 | **P1** | Включить снова **email verification** (`REQUIRE_EMAIL_VERIFICATION=true`) после SMTP | **S** | Временно выключено для локального входа |
-| **P2** | UI Settings: статус SMTP / test-send | **S** | Ops без правки `.env` вслепую |
-| **P3** | Password-reset / invite deliverability checklist в STAGING.md | **S** | Не терять при деплое |
+| ~~**P2**~~ | ~~UI Settings: статус SMTP / test-send~~ | **S** | **✓** `/settings` owner panel + `GET/POST …/email/` |
+| ~~**P3**~~ | ~~Password-reset / invite deliverability checklist в STAGING.md~~ | **S** | **✓** |
 
 ### PM — управление проектами
 
@@ -131,7 +132,7 @@
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P2** | Guest portal: явный статус оплаты / paid_total для гостя | **S** | Частый вопрос после approve |
+| ~~**P2**~~ | ~~Guest portal: явный статус оплаты / paid_total для гостя~~ | **S** | **✓** `payment_status` / `balance_due` / payments |
 | **P3** | Live 1С OData / обмен номенклатурой _(нужен стенд)_ | **L** | Углубление после `pending_skus` |
 
 ### Отложено (ждём входных данных)

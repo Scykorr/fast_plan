@@ -1,0 +1,6 @@
+Тестовое письмо Fast Plan
+
+Workspace: {{ workspace_name }}
+Получатель: {{ recipient }}
+
+Если вы видите это письмо, SMTP настроен корректно.
