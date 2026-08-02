@@ -6,6 +6,7 @@ import type {
   ProjectChangeRequest,
   ProjectSchedule,
 } from "../../api/projects";
+import { TermHint } from "../TermHint";
 
 type BaselineViewProps = {
   baselines: ProjectBaseline[];
@@ -119,7 +120,9 @@ export function BaselineView({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-text">Baseline</h2>
+        <h2 className="text-lg font-semibold text-text">
+          <TermHint term="baseline">Baseline</TermHint>
+        </h2>
         <button
           type="button"
           onClick={() => setShowForm((value) => !value)}

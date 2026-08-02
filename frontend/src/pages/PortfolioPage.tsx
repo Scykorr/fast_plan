@@ -8,6 +8,7 @@ import type {
 } from "../api/projects";
 import type { WorkspaceDashboard } from "../api/workspace";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { TermHint } from "../components/TermHint";
 import { ChatPanel } from "../components/chats/ChatPanel";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useLocale } from "../context/LocaleContext";
@@ -118,8 +119,12 @@ export function PortfolioPage() {
                   <th className="px-4 py-3">Статус</th>
                   <th className="px-4 py-3">Прогресс</th>
                   <th className="px-4 py-3">Бюджет</th>
-                  <th className="px-4 py-3">SPI</th>
-                  <th className="px-4 py-3">CPI</th>
+                  <th className="px-4 py-3">
+                    <TermHint term="spi">SPI</TermHint>
+                  </th>
+                  <th className="px-4 py-3">
+                    <TermHint term="cpi">CPI</TermHint>
+                  </th>
                   <th className="px-4 py-3">Просрочки</th>
                 </tr>
               </thead>

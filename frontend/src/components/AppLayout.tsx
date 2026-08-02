@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 
+import { GlossaryText, TermHint } from "./TermHint";
 import { NotificationBell } from "./NotificationBell";
 import { FxSettingsLoader } from "./FxSettingsLoader";
 import { ThemeToggle } from "./ThemeToggle";
@@ -27,8 +28,8 @@ const navItems = [
   { to: "/crm-tasks", labelKey: "crmTasks" },
   { to: "/projects", labelKey: "projects" },
   { to: "/tasks", labelKey: "myTasks" },
-  { to: "/capacity", label: "Capacity" },
-  { to: "/kanban", label: "Kanban" },
+  { to: "/capacity", label: "Capacity", term: "capacity" },
+  { to: "/kanban", label: "Kanban", term: "kanban" },
   { to: "/calendar", labelKey: "calendar" },
   { to: "/finance", labelKey: "finance" },
   { to: "/audit", labelKey: "audit" },
@@ -64,13 +65,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </p>
         {workspaces.length > 0 && (
           <label className="mt-3 block text-xs text-text-muted">
-            Workspace
+            <TermHint term="workspace">Workspace</TermHint>
             <select
               className="mt-1 w-full rounded-lg border border-border bg-cream px-2 py-1.5 text-sm text-text"
               value={activeWorkspace?.id ?? ""}
               disabled={switching || workspaces.length < 2}
               onChange={(event) => void handleSwitch(Number(event.target.value))}
-              aria-label="Выбор workspace"
+              aria-label="Выбор рабочего пространства (workspace)"
             >
               {workspaces.map((workspace) => (
                 <option key={workspace.id} value={workspace.id}>
@@ -98,7 +99,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               ].join(" ")
             }
           >
-            {"labelKey" in item ? t(item.labelKey) : item.label}
+            {"label" in item ? (
+              <TermHint term={item.term}>{item.label}</TermHint>
+            ) : (
+              <GlossaryText text={t(item.labelKey)} />
+            )}
           </NavLink>
         ))}
       </nav>

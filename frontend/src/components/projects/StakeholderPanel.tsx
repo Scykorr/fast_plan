@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import type { RACIEntry, Stakeholder, WBSNode } from "../../api/projects";
+import { TermHint } from "../TermHint";
 
 export type StakeholderUpdateValues = {
   name: string;
@@ -397,7 +398,9 @@ export function StakeholderPanel({
 
       <div className="rounded-xl border border-border bg-surface p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text">RACI-матрица</h2>
+          <h2 className="text-lg font-semibold text-text">
+            <TermHint term="raci">RACI</TermHint>-матрица
+          </h2>
           <button
             type="button"
             onClick={() => {

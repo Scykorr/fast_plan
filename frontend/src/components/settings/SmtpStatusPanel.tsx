@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { parseApiError } from "../../api/errors";
 import type { WorkspaceEmailStatus } from "../../api/workspace";
+import { TermHint } from "../TermHint";
 import { useWorkspaceApi } from "../../hooks/useWorkspaceApi";
 
 export function SmtpStatusPanel() {
@@ -51,7 +52,9 @@ export function SmtpStatusPanel() {
 
   return (
     <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">
-      <h2 className="mb-1 text-lg font-semibold text-text">Почта / SMTP</h2>
+      <h2 className="mb-1 text-lg font-semibold text-text">
+        Почта / <TermHint term="smtp">SMTP</TermHint>
+      </h2>
       <p className="mb-4 text-sm text-text-muted">
         Статус из переменных окружения сервера. Учётные данные меняются только в{" "}
         <code className="text-xs">.env</code>, не через UI.

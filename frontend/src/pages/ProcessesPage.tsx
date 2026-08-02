@@ -17,6 +17,7 @@ import type {
 import { BpmnModelerEditor } from "../components/process/BpmnModelerEditor";
 import { BpmnViewer } from "../components/process/BpmnViewer";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { GlossaryText } from "../components/TermHint";
 import { useProcessApi } from "../hooks/useProcessApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 
@@ -227,7 +228,7 @@ export function ProcessesPage() {
                 : "border-border text-text-muted hover:bg-cream",
             ].join(" ")}
           >
-            {label}
+            <GlossaryText text={label} />
           </button>
         ))}
       </div>

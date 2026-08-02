@@ -170,3 +170,69 @@ body {
   stroke-width: 3px !important;
   fill: color-mix(in srgb, var(--color-primary) 18%, transparent) !important;
 }
+
+/* Glossary term hints (foreign abbreviations → Russian popup) */
+.term-hint {
+  position: relative;
+  display: inline;
+  cursor: help;
+}
+
+.term-hint__label {
+  text-decoration: underline dotted color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+  cursor: help;
+  border: none;
+  font: inherit;
+  color: inherit;
+}
+
+.term-hint__bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  width: max-content;
+  max-width: min(18rem, 70vw);
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 8px 24px color-mix(in srgb, #0f172a 18%, transparent);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  transform: translateX(-50%) translateY(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.term-hint__full {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.68rem;
+}
+
+.term-hint__text {
+  display: block;
+}
+
+.term-hint:hover .term-hint__bubble,
+.term-hint:focus-within .term-hint__bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (hover: none) {
+  .term-hint:focus-within .term-hint__bubble {
+    opacity: 1;
+  }
+}
+

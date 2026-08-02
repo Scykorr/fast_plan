@@ -20,6 +20,7 @@ import type {
   WorkItemComment,
 } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { GlossaryText, TermHint } from "../components/TermHint";
 import { CommentThread } from "../components/comments/CommentThread";
 import type { WorkspaceMember } from "../api/workspace";
 import { ProjectBudgetSummary } from "../components/finance/ProjectBudgetSummary";
@@ -805,7 +806,7 @@ export function ProjectDetailPage() {
                 : "border-transparent text-text-muted hover:text-text",
             ].join(" ")}
           >
-            {item.label}
+            <GlossaryText text={item.label} />
           </button>
         ))}
       </div>
@@ -825,7 +826,9 @@ export function ProjectDetailPage() {
           <ProjectMembersPanel projectId={id} />
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-4">
-            <span className="text-sm font-medium text-text-muted">WBS:</span>
+            <span className="text-sm font-medium text-text-muted">
+              <TermHint term="wbs">WBS</TermHint>:
+            </span>
             <select
               value={importFormat}
               onChange={(event) =>
@@ -906,7 +909,9 @@ export function ProjectDetailPage() {
                   </p>
                 </div>
                 <div className="rounded-xl border border-border bg-surface p-5">
-                  <p className="text-sm text-text-muted">SPI / CPI</p>
+                  <p className="text-sm text-text-muted">
+                    <GlossaryText text="SPI / CPI" />
+                  </p>
                   <p className="mt-1 text-lg font-semibold text-text">
                     {dashboard.evm.spi ?? "—"} / {dashboard.evm.cpi ?? "—"}
                   </p>
