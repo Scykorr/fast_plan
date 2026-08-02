@@ -1,11 +1,19 @@
 import Gantt from "frappe-gantt";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { ActivityDependency, ScheduleActivity } from "../../api/projects";
+import type {
+  ActivityDependency,
+  LevelingProposal,
+  LevelingProposeResult,
+  ScheduleActivity,
+} from "../../api/projects";
+import { parseApiError } from "../../api/errors";
 
 type GanttChartProps = {
   activities: ScheduleActivity[];
   dependencies: ActivityDependency[];
+  onProposeLeveling?: () => Promise<LevelingProposeResult>;
+  onApplyProposal?: (proposal: LevelingProposal) => Promise<void>;
 };
 
 function buildDependenciesMap(dependencies: ActivityDependency[]) {
@@ -25,12 +33,21 @@ function customClassFor(activity: ScheduleActivity): string {
   return classes.join(" ");
 }
 
-export function GanttChart({ activities, dependencies }: GanttChartProps) {
+export function GanttChart({
+  activities,
+  dependencies,
+  onProposeLeveling,
+  onApplyProposal,
+}: GanttChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttRef = useRef<Gantt | null>(null);
   const overloadedCount = activities.filter(
     (a) => a.capacity_hint?.overloaded,
   ).length;
+  const [proposals, setProposals] = useState<LevelingProposeResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!containerRef.current || activities.length === 0) {
@@ -80,13 +97,107 @@ export function GanttChart({ activities, dependencies }: GanttChartProps) {
     );
   }
 
+  const propose = async () => {
+    if (!onProposeLeveling) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await onProposeLeveling();
+      setProposals(result);
+      setMessage(
+        result.proposals.length
+          ? `Предложено сдвигов: ${result.proposals.length}`
+          : "Нет предложений (перегруз не снят автоматически)",
+      );
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось предложить сдвиг"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyOne = async (proposal: LevelingProposal) => {
+    if (!onApplyProposal) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onApplyProposal(proposal);
+      setProposals((prev) =>
+        prev
+          ? {
+              ...prev,
+              proposals: prev.proposals.filter(
+                (p) => p.activity_id !== proposal.activity_id,
+              ),
+            }
+          : prev,
+      );
+      setMessage(`Применено: ${proposal.code} ${proposal.name}`);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось применить сдвиг"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
       {overloadedCount > 0 && (
-        <p className="text-sm text-accent" role="status">
-          Capacity: {overloadedCount} задач с перегруженным исполнителем на
-          текущей неделе (подсветка на Gantt).
+        <div className="flex flex-wrap items-center gap-3 text-sm text-accent">
+          <p role="status">
+            Capacity: {overloadedCount} задач с перегруженным исполнителем на
+            текущей неделе (подсветка на Gantt).
+          </p>
+          {onProposeLeveling && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void propose()}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            >
+              {busy ? "…" : "Предложить сдвиг"}
+            </button>
+          )}
+        </div>
+      )}
+      {message && (
+        <p className="text-sm text-secondary" role="status">
+          {message}
         </p>
+      )}
+      {error && <p className="text-sm text-primary">{error}</p>}
+      {proposals && proposals.proposals.length > 0 && (
+        <ul className="space-y-2 rounded-xl border border-border bg-surface p-3 text-sm">
+          {proposals.proposals.map((p) => (
+            <li
+              key={p.activity_id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+            >
+              <div>
+                <strong>
+                  {p.code} {p.name}
+                </strong>
+                <span className="text-text-muted">
+                  {" "}
+                  · {p.current.start_date}→{p.proposed.start_date} (+
+                  {p.shift_days} дн.)
+                </span>
+                <p className="text-xs text-text-muted">{p.reason}</p>
+              </div>
+              {onApplyProposal && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void applyOne(p)}
+                  className="rounded-lg border border-border px-2 py-1 text-xs font-semibold text-primary disabled:opacity-60"
+                >
+                  Применить
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
       <div className="gantt-wrapper overflow-x-auto rounded-xl border border-border bg-surface p-4">
         <div ref={containerRef} />

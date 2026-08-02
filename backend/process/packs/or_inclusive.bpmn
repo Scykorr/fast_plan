@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  id="Defs_or_inclusive" targetNamespace="http://fastplan.local/bpmn">
+  <bpmn:process id="OrInclusive" name="Inclusive OR gateway" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="Start">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Activity_Flags" name="Choose branches">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:inclusiveGateway id="Gateway_Split" name="Need reviews?">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_Legal</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Tech</bpmn:outgoing>
+    </bpmn:inclusiveGateway>
+    <bpmn:userTask id="Activity_Legal" name="Legal review">
+      <bpmn:incoming>Flow_Legal</bpmn:incoming>
+      <bpmn:outgoing>Flow_Legal_Join</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Activity_Tech" name="Tech review">
+      <bpmn:incoming>Flow_Tech</bpmn:incoming>
+      <bpmn:outgoing>Flow_Tech_Join</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:inclusiveGateway id="Gateway_Join" name="Join">
+      <bpmn:incoming>Flow_Legal_Join</bpmn:incoming>
+      <bpmn:incoming>Flow_Tech_Join</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:inclusiveGateway>
+    <bpmn:userTask id="Activity_Done" name="Finalize">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="EndEvent_1" name="Done">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_Flags" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_Flags" targetRef="Gateway_Split" />
+    <bpmn:sequenceFlow id="Flow_Legal" sourceRef="Gateway_Split" targetRef="Activity_Legal">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[need_legal == True]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Tech" sourceRef="Gateway_Split" targetRef="Activity_Tech">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[need_tech == True]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Legal_Join" sourceRef="Activity_Legal" targetRef="Gateway_Join" />
+    <bpmn:sequenceFlow id="Flow_Tech_Join" sourceRef="Activity_Tech" targetRef="Gateway_Join" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_Join" targetRef="Activity_Done" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Activity_Done" targetRef="EndEvent_1" />
+  </bpmn:process>
+</bpmn:definitions>

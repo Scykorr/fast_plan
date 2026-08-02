@@ -89,6 +89,8 @@ docker compose --profile ai up -d ollama ollama-init backend
 
 ## SMTP и email verification
 
+Полная инструкция: [`docs/SMTP.md`](docs/SMTP.md) (`.env`, mail.ru/Gmail, Settings test-send, deliverability).
+
 - [ ] `EMAIL_BACKEND` = SMTP, не console (см. `.env.example`)
 - [ ] `DEFAULT_FROM_EMAIL` и SMTP credentials проверены
 - [ ] Settings (owner) → **Почта / SMTP**: статус показывает SMTP + `configured`

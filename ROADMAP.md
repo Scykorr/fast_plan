@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.18.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — **SMTP credentials** → leveling / Inclusive GW / MS Project |
+| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — крупные спринты ниже; SMTP credentials (ops) |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -29,7 +29,7 @@
 | Область | Что есть | Где |
 |---------|----------|-----|
 | Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter | `/projects/:id` |
-| Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints | `/kanban`, `/tasks`, `/capacity`, Gantt/WBS |
+| Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints + **leveling propose** | `/kanban`, `/tasks`, `/capacity`, Gantt |
 | Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM, baselines, **change requests**, burndown | вкладки проекта |
 | Портфель | сводка SPI/CPI/FX + **cross-project deps** (activity picker) | `/portfolio` |
 | Обмен | CSV/XLSX/ICS, Jira CSV import, guest status share | проект / `/share/:token` |
@@ -40,11 +40,11 @@
 
 | Область | Что есть | Где |
 |---------|----------|-----|
-| BPMN | bpmn-js + Spiff whitelist; timers; Inclusive experimental (catalog) | `/processes` |
+| BPMN | bpmn-js + Spiff; timers; **Inclusive supported** (+ pack `or_inclusive`) | `/processes` |
 | Adapters | catalog ServiceTask ops (+ `create_wbs_note`) | `GET /process/adapters/`, вкладка Adapters |
 | DMN / CMMN | FEEL-lite; CMMN lite (`depends_on`) | `/processes` |
 | Ops | inbox, metrics, mining lite, **stuck/aging/SLA** | `/process-tasks`, вкладка Ops |
-| BPMN SubProcess | embedded SubProcess + **child ProcessInstance** mirror | engine + instance list |
+| BPMN SubProcess | embedded SubProcess + child ProcessInstance; **list drill-down** | engine + `/processes` instances |
 | Связка | UserTask ↔ WBS/Kanban; CRM events → start process | `/process-tasks`, automations / category |
 | Packs | ISO 9001/PDCA, ITIL/COBIT, ISO 27001 | import packs |
 | ADR | SpiffWorkflow + bpmn-js | [`docs/adr-p8-process.md`](docs/adr-p8-process.md) |
@@ -95,45 +95,59 @@
 
 ### Порядок спринтов (рекомендация)
 
-1. ~~**Release 0.18.0**~~ — **✓** (P10 Unreleased → релиз; GitHub `v0.18.0`)
-2. ~~**UX glue**~~ — **✓** renewals remind, spawn pickers, schedule-activity picker
-3. ~~**BPMN SubProcess**~~ — **✓** subprocess_specs + child ProcessInstance mirror
-4. ~~**SMTP tooling + guest payment**~~ — **✓** email status/test-send UI; guest `payment_status`
-5. **SMTP credentials on staging** — реальный `EMAIL_*`, test-send → inbox → `REQUIRE_EMAIL_VERIFICATION=true`
-6. **MS Project XML** — только после sample `.xml` / `.mpp`
-7. Ops: staging migrate `0011`/`0016`/`0017`/`0003_subprocess`; раз в квартал `scripts/restore-drill.sh`
+1. ~~**Release 0.18.0**~~ — **✓**
+2. ~~**UX glue**~~ — **✓** renewals / spawn / cross-deps pickers
+3. ~~**BPMN SubProcess**~~ — **✓** child ProcessInstance mirror
+4. ~~**SMTP tooling + guest payment**~~ — **✓**
+5. ~~**Schedule + Process maturity**~~ — **✓** leveling propose, Inclusive GW, SubProcess children UI
+6. **SMTP credentials on staging** — реальный `EMAIL_*` ([`docs/SMTP.md`](docs/SMTP.md)) → test-send → `REQUIRE_EMAIL_VERIFICATION=true` _(ops, не код)_
+7. **MS Project XML** — только после sample `.xml` / `.mpp`
+8. Ops: staging migrate backlog; раз в квартал `scripts/restore-drill.sh`
+
+### Крупные спринты вперёд (сформированы)
+
+| # | Спринт | Scope | Size | Зависимости |
+|---|--------|-------|------|-------------|
+| **S1** | **Schedule intelligence** | PERT **Monte Carlo** (опция рядом с normal approx); leveling **apply-all** + undo; Capacity page «предложить сдвиг» по workspace | **L** | leveling lite ✓ |
+| **S2** | **Process ops maturity** | Миграция **running instances** при publish новой версии; SubProcess **bpmn-js drill-down/collapse**; properties tip для Inclusive conditions в modeler | **L** | SubProcess backend ✓, Inclusive ✓ |
+| **S3** | **Integrations unlock** | MS Project XML import + 1С OData номенклатура | **L** | нужен sample `.xml` / стенд 1С |
+| **S4** | **Trust & mail go-live** | Боевой SMTP ([`docs/SMTP.md`](docs/SMTP.md)) + verification on + invite/reset checklist на staging | **M** | credentials владельца |
+
+Параллельно с S1–S2 можно закрывать **S4** без разработчика (только `.env` + Settings test).
 
 ### Платформа / Ops
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P1** | **SMTP credentials** — реальный `EMAIL_*` / `DEFAULT_FROM_EMAIL`, проверка доставки (mail.ru и др.) | **S–M** | Tooling ✓; нужны боевые credentials |
-| **P1** | Включить снова **email verification** (`REQUIRE_EMAIL_VERIFICATION=true`) после SMTP | **S** | Временно выключено для локального входа |
-| ~~**P2**~~ | ~~UI Settings: статус SMTP / test-send~~ | **S** | **✓** `/settings` owner panel + `GET/POST …/email/` |
-| ~~**P3**~~ | ~~Password-reset / invite deliverability checklist в STAGING.md~~ | **S** | **✓** |
+| **P1** | **SMTP credentials** — реальный `EMAIL_*` ([docs/SMTP.md](docs/SMTP.md)) | **S–M** | Tooling ✓; нужны боевые credentials |
+| **P1** | Включить **email verification** после SMTP | **S** | Сейчас `false` по умолчанию |
+| ~~**P2**~~ | ~~UI Settings: SMTP status / test-send~~ | **S** | **✓** |
+| ~~**P3**~~ | ~~Deliverability checklist~~ | **S** | **✓** STAGING + docs/SMTP.md |
 
 ### PM — управление проектами
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P2** | Resource leveling lite (предложить сдвиг при overload hint) | **M** | Hints есть — следующий шаг «что делать» |
-| **P3** | PERT Monte Carlo (опция рядом с normal approx) | **M** | Точнее хвосты, чем z-score |
-| **P3** | MS Project XML import _(нужен sample)_ | **M–L** | Импорт из MS Project / Project Online |
+| ~~**P2**~~ | ~~Resource leveling lite~~ | **M** | **✓** `POST …/schedule/leveling/propose/` + Gantt apply |
+| **P2** | Leveling apply-all / Capacity-page propose _(в S1)_ | **M** | UX поверх lite |
+| **P3** | PERT Monte Carlo _(в S1)_ | **M** | Точнее хвосты |
+| **P3** | MS Project XML import _(в S3, нужен sample)_ | **M–L** | Импорт из MS Project |
 
 ### Process — управление процессами
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P2** | Inclusive Gateway: first-class условия + UI/docs | **M** | Сейчас experimental / Spiff-only |
-| **P3** | Миграция running instances при publish новой версии definition | **L** | Ops для долгих процессов |
-| **P3** | SubProcess viewer drill-down (коллапс в bpmn-js) | **M** | Backend lifecycle ✓; UI отложен |
+| ~~**P2**~~ | ~~Inclusive Gateway first-class~~ | **M** | **✓** catalog + pack `or_inclusive` + ADR/UI tip |
+| **P3** | Миграция running instances при publish _(в S2)_ | **L** | Ops для долгих процессов |
+| **P3** | SubProcess bpmn-js collapse _(в S2)_ | **M** | List drill-down ✓; viewer collapse отложен |
+| ~~**P3**~~ | ~~SubProcess list drill-down~~ | **S** | **✓** children в instance detail |
 
 ### CRM
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| ~~**P2**~~ | ~~Guest portal: явный статус оплаты / paid_total для гостя~~ | **S** | **✓** `payment_status` / `balance_due` / payments |
-| **P3** | Live 1С OData / обмен номенклатурой _(нужен стенд)_ | **L** | Углубление после `pending_skus` |
+| ~~**P2**~~ | ~~Guest portal payment status~~ | **S** | **✓** |
+| **P3** | Live 1С OData _(в S3, нужен стенд)_ | **L** | Углубление после `pending_skus` |
 
 ### Отложено (ждём входных данных)
 
@@ -141,7 +155,7 @@
 |-------|---------|
 | MS Project XML import | образец `.xml` / экспорт из MS Project |
 | Углубление конкретного PBX / live 1С | боевой стенд заказчика |
-| Full SubProcess UI (коллапс/drill-down в viewer) | P3 в планах Process |
+| Full SubProcess UI (коллапс в bpmn-js) | спринт **S2** |
 
 ---
 

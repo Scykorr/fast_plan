@@ -77,8 +77,12 @@ EXECUTABLE_ELEMENTS = [
     {"type": "parallelGateway", "status": "supported"},
     {
         "type": "inclusiveGateway",
-        "status": "experimental",
-        "note": "Executed by Spiff when present; no Fast Plan-specific UI yet",
+        "status": "supported",
+        "note": (
+            "OR-split: each true outgoing (plus optional default). "
+            "OR-join waits for taken paths. Conditions: Spiff ScriptEngine "
+            "(same as XOR). Pack: or_inclusive."
+        ),
     },
     {
         "type": "intermediateCatchEvent/timer",

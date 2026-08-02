@@ -88,6 +88,7 @@ export function ProcessesPage() {
   const [showXml, setShowXml] = useState(false);
   const [instanceDetail, setInstanceDetail] = useState<{
     instance: ProcessInstance;
+    children: ProcessInstance[];
     bpmn_xml: string;
     active_element_ids: string[];
   } | null>(null);
@@ -370,6 +371,7 @@ export function ProcessesPage() {
                         const detail = await api.getInstance(i.id);
                         setInstanceDetail({
                           instance: detail.instance,
+                          children: detail.children || [],
                           bpmn_xml: detail.bpmn_xml,
                           active_element_ids: detail.active_element_ids || [],
                         });
@@ -421,12 +423,84 @@ export function ProcessesPage() {
                 {instanceDetail.active_element_ids.length
                   ? instanceDetail.active_element_ids.join(", ")
                   : "—"}
+                {instanceDetail.instance.parent != null && (
+                  <>
+                    {" "}
+                    · parent #
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() =>
+                        void (async () => {
+                          if (!api || instanceDetail.instance.parent == null) return;
+                          try {
+                            const detail = await api.getInstance(
+                              instanceDetail.instance.parent,
+                            );
+                            setInstanceDetail({
+                              instance: detail.instance,
+                              children: detail.children || [],
+                              bpmn_xml: detail.bpmn_xml,
+                              active_element_ids: detail.active_element_ids || [],
+                            });
+                          } catch (err) {
+                            setError(parseApiError(err));
+                          }
+                        })()
+                      }
+                    >
+                      {instanceDetail.instance.parent}
+                    </button>
+                    {instanceDetail.instance.subprocess_bpmn_id
+                      ? ` · ${instanceDetail.instance.subprocess_bpmn_id}`
+                      : ""}
+                  </>
+                )}
               </p>
+              {instanceDetail.children.length > 0 && (
+                <div className="mb-3 rounded-lg border border-border bg-cream px-3 py-2 text-xs">
+                  <p className="mb-1 font-medium text-text">Дочерние SubProcess</p>
+                  <ul className="space-y-1">
+                    {instanceDetail.children.map((child) => (
+                      <li key={child.id}>
+                        <button
+                          type="button"
+                          className="text-primary hover:underline"
+                          onClick={() =>
+                            void (async () => {
+                              if (!api) return;
+                              try {
+                                const detail = await api.getInstance(child.id);
+                                setInstanceDetail({
+                                  instance: detail.instance,
+                                  children: detail.children || [],
+                                  bpmn_xml: detail.bpmn_xml,
+                                  active_element_ids:
+                                    detail.active_element_ids || [],
+                                });
+                              } catch (err) {
+                                setError(parseApiError(err));
+                              }
+                            })()
+                          }
+                        >
+                          #{child.id} · {child.subprocess_bpmn_id || child.definition_name}{" "}
+                          · {child.status}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <BpmnViewer
                 xml={instanceDetail.bpmn_xml}
                 activeElementIds={instanceDetail.active_element_ids}
                 height={320}
               />
+              <p className="mt-2 text-xs text-text-muted">
+                Inclusive Gateway: каждое истинное исходящее + optional default;
+                join ждёт взятые ветки. Пример-пак: <code>or_inclusive</code>.
+              </p>
             </div>
           )}
         </div>

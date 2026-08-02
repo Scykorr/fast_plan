@@ -1133,6 +1133,24 @@ export function ProjectDetailPage() {
         <GanttChart
           activities={schedule.activities}
           dependencies={schedule.dependencies}
+          onProposeLeveling={
+            projectsApi
+              ? () => projectsApi.proposeLeveling(id)
+              : undefined
+          }
+          onApplyProposal={
+            projectsApi
+              ? async (proposal) => {
+                  await projectsApi.updateActivity(proposal.activity_id, {
+                    start_date: proposal.proposed.start_date,
+                    end_date: proposal.proposed.end_date,
+                    duration_days: proposal.proposed.duration_days,
+                  });
+                  const next = await projectsApi.getSchedule(id);
+                  setSchedule(next);
+                }
+              : undefined
+          }
         />
       )}
 

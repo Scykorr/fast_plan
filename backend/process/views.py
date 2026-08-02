@@ -174,9 +174,13 @@ class ProcessInstanceDetailView(WorkspaceMixin, APIView):
         if obj is None:
             raise NotFound()
         tasks = UserTask.objects.filter(instance=obj)
+        children = ProcessInstance.objects.filter(parent=obj).select_related(
+            "deployment__definition"
+        )
         return Response(
             {
                 "instance": ProcessInstanceSerializer(obj).data,
+                "children": ProcessInstanceSerializer(children, many=True).data,
                 "user_tasks": UserTaskSerializer(tasks, many=True).data,
                 "bpmn_xml": obj.deployment.bpmn_xml,
                 "active_element_ids": active_bpmn_element_ids(obj),

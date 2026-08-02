@@ -156,6 +156,31 @@ export type CapacityHint = {
   hint: string | null;
 };
 
+export type LevelingProposal = {
+  activity_id: number;
+  wbs_id: number;
+  code: string;
+  name: string;
+  assignee_id: number;
+  current: { start_date: string; end_date: string; duration_days: number };
+  proposed: { start_date: string; end_date: string; duration_days: number };
+  shift_days: number;
+  reason: string;
+};
+
+export type LevelingProposeResult = {
+  week_start: string;
+  week_end: string;
+  overloaded_assignees: Array<{
+    assignee_id: number;
+    utilization_before: number | null;
+    capacity_hours: number;
+    allocated_hours: number;
+  }>;
+  proposals: LevelingProposal[];
+  unresolved: Array<{ assignee_id: number; detail: string }>;
+};
+
 export type WBSNode = {
   id: number;
   code: string;
@@ -500,6 +525,15 @@ export function createProjectsApi() {
 
     getSchedule: (projectId: number) =>
       request<ProjectSchedule>(`/projects/${projectId}/schedule/`, {}),
+
+    proposeLeveling: (
+      projectId: number,
+      body: { week_start?: string; max_shift_days?: number; assignee_id?: number } = {},
+    ) =>
+      request<LevelingProposeResult>(
+        `/projects/${projectId}/schedule/leveling/propose/`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
 
     updateActivity: (
       activityId: number,

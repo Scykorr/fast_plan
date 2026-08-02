@@ -2,7 +2,7 @@
 
 Личный мультипользовательский планировщик: Kanban, календарь дней рождения, проекты (WBS/Gantt), трекеры и кастомные поля.
 
-**Текущая версия:** см. [`VERSION`](VERSION) · история изменений — [`CHANGELOG.md`](CHANGELOG.md) · бэклог — [`ROADMAP.md`](ROADMAP.md) · staging — [`STAGING.md`](STAGING.md) · **сервер / обновления** — [`DEPLOY.md`](DEPLOY.md)
+**Текущая версия:** см. [`VERSION`](VERSION) · история изменений — [`CHANGELOG.md`](CHANGELOG.md) · бэклог — [`ROADMAP.md`](ROADMAP.md) · staging — [`STAGING.md`](STAGING.md) · **сервер / обновления** — [`DEPLOY.md`](DEPLOY.md) · **почта SMTP** — [`docs/SMTP.md`](docs/SMTP.md)
 
 ## Стек
 

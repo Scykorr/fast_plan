@@ -23,7 +23,7 @@
 
 - Workspace-scoped definitions/deployments/instances/user tasks.
 - Immutable deployments; running instances stay on the version they started.
-- Executable BPMN MVP whitelist: Start/End, UserTask, ServiceTask, Exclusive/Parallel Gateway, Timer (via Celery), Message start (domain events).
+- Executable BPMN MVP whitelist: Start/End, UserTask, ServiceTask, Exclusive/Parallel/**Inclusive** Gateway, Timer (via Celery), Message start (domain events), embedded SubProcess.
 - DMN, CMMN, form schemas, packs, mining lite — same Django app.
 
 ## Related

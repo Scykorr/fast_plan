@@ -361,6 +361,39 @@ class ProjectScheduleView(WorkspaceMixin, APIView):
         )
 
 
+class ProjectLevelingProposeView(WorkspaceMixin, APIView):
+    """Propose date shifts to relieve weekly assignee overload (no writes)."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, project_id):
+        from projects.leveling import propose_leveling
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        week_raw = request.data.get("week_start")
+        week_start = None
+        if week_raw:
+            try:
+                week_start = date.fromisoformat(str(week_raw)[:10])
+            except ValueError as exc:
+                raise ValidationError({"week_start": "Use YYYY-MM-DD."}) from exc
+        assignee_raw = request.data.get("assignee_id")
+        assignee_id = int(assignee_raw) if assignee_raw not in (None, "") else None
+        max_shift = request.data.get("max_shift_days", 14)
+        try:
+            max_shift_days = int(max_shift)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"max_shift_days": "Must be an integer."}) from exc
+        return Response(
+            propose_leveling(
+                project,
+                week_start=week_start,
+                max_shift_days=max_shift_days,
+                assignee_id=assignee_id,
+            )
+        )
+
+
 class ScheduleActivityDetailView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 

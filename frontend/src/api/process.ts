@@ -214,6 +214,7 @@ export function createProcessApi() {
     getInstance: (id: number) =>
       request<{
         instance: ProcessInstance;
+        children?: ProcessInstance[];
         user_tasks: ProcessUserTask[];
         bpmn_xml: string;
         active_element_ids: string[];

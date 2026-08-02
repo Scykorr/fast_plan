@@ -23,15 +23,19 @@
 - **BPMN SubProcess** — `subprocess_specs` в engine; child `ProcessInstance` (`parent`, `parent_spiff_task_id`); catalog `supported`
 - **SMTP status / test-send** — `GET/POST /api/workspace/email/status|test/` (owner session); панель «Почта / SMTP» в Settings
 - **Guest payment status** — `payment_status` / `balance_due` / `payments[]` в публичном share; бейдж на `/commerce/:token`
+- **SMTP setup guide** — [`docs/SMTP.md`](docs/SMTP.md) (`.env`, mail.ru/Gmail, deliverability, verification flip)
+- **Resource leveling lite** — `POST /api/projects/<id>/schedule/leveling/propose/`; кнопка на Gantt + apply через `PATCH /activities/`
+- **Inclusive Gateway** — catalog `supported`; pack `or_inclusive`; ADR whitelist + tip на `/processes`
+- **SubProcess children UI** — `children[]` в instance detail; drill-down parent/child на `/processes`
 
 ### Changed
 
-- **Email verification** — по умолчанию отключено (`REQUIRE_EMAIL_VERIFICATION=false`): регистрация сразу `verify_email()`, вход без письма; снова включить после настройки SMTP (см. ROADMAP)
+- **Email verification** — по умолчанию отключено (`REQUIRE_EMAIL_VERIFICATION=false`): регистрация сразу `verify_email()`, вход без письма; снова включить после настройки SMTP (см. [`docs/SMTP.md`](docs/SMTP.md))
 - **WBS interaction** — ПКМ открывает только контекстное меню (без карточки); карточка задачи/проекта — по двойному ЛКМ; подсказка на холсте обновлена
 
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) § **Планы**: SMTP credentials → email verification on; leveling / Inclusive GW / MS Project.
+См. [ROADMAP.md](ROADMAP.md) § **Крупные спринты**: S1 Schedule intelligence · S2 Process ops · S3 Integrations · S4 Trust/mail.
 
 ## [0.18.0] — 2026-07-31
 
