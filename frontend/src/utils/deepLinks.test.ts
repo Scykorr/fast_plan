@@ -9,7 +9,7 @@ import {
 describe("deepLinks", () => {
   it("parses known query params", () => {
     const params = new URLSearchParams(
-      "workspace=2&tab=wbs&node=10&card=5&risk=3&assignee=7&status=4&project=9",
+      "workspace=2&tab=wbs&node=10&card=5&risk=3&assignee=7&status=4&project=9&board=11",
     );
     expect(parseDeepLinkParams(params)).toEqual({
       workspace: 2,
@@ -20,6 +20,7 @@ describe("deepLinks", () => {
       assignee: 7,
       status: 4,
       project: 9,
+      board: 11,
     });
   });
 
@@ -34,6 +35,7 @@ describe("deepLinks", () => {
       assignee: null,
       status: null,
       project: null,
+      board: null,
     });
   });
 
@@ -42,9 +44,10 @@ describe("deepLinks", () => {
       workspace: 1,
       tab: "kanban",
       card: 42,
+      board: 3,
       assignee: null,
     });
-    expect(built.toString()).toBe("workspace=1&tab=kanban&card=42");
+    expect(built.toString()).toBe("workspace=1&tab=kanban&card=42&board=3");
   });
 
   it("merges updates and removes keys with null", () => {
