@@ -262,7 +262,15 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   },
   "process-as-wbs": {
     label: "Process-as-WBS",
-    hint: "дерево работ экземпляра процесса, материализованное из BPMN",
+    hint: "дерево работ из BPMN: даты, RACI, Kanban, time log, вложения",
+  },
+  "time-log": {
+    label: "time log",
+    hint: "учёт часов на узле WBS или ProcessWorkNode",
+  },
+  attachment: {
+    label: "вложение",
+    hint: "файл, прикреплённый к узлу работ или карточке",
   },
   bant: {
     label: "BANT",

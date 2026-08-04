@@ -4,6 +4,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from process.models import ProcessWorkNode
 from projects.models import WBSNode
 from timelog.models import TimeEntry
 from timelog.serializers import TimeEntrySerializer, TimeEntryWriteSerializer
@@ -18,11 +19,14 @@ class TimeEntryListCreateView(WorkspaceMixin, APIView):
     def get(self, request):
         workspace = self.get_workspace()
         entries = TimeEntry.objects.filter(workspace=workspace).select_related(
-            "user", "wbs_node"
+            "user", "wbs_node", "process_work_node"
         )
         wbs_id = request.query_params.get("wbs_node")
         if wbs_id:
             entries = entries.filter(wbs_node_id=wbs_id)
+        pwn_id = request.query_params.get("process_work_node")
+        if pwn_id:
+            entries = entries.filter(process_work_node_id=pwn_id)
         user_id = request.query_params.get("user")
         if user_id:
             entries = entries.filter(user_id=user_id)
@@ -33,18 +37,34 @@ class TimeEntryListCreateView(WorkspaceMixin, APIView):
         serializer = TimeEntryWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        node = get_object_or_404(
-            WBSNode.objects.filter(project__workspace=workspace),
-            pk=data["wbs_node"].id,
-        )
-        entry = TimeEntry.objects.create(
-            workspace=workspace,
-            user=request.user,
-            wbs_node=node,
-            hours=data["hours"],
-            work_date=data["work_date"],
-            notes=data.get("notes", ""),
-        )
+        wbs = data.get("wbs_node")
+        pwn = data.get("process_work_node")
+        if wbs:
+            node = get_object_or_404(
+                WBSNode.objects.filter(project__workspace=workspace),
+                pk=wbs.id,
+            )
+            entry = TimeEntry.objects.create(
+                workspace=workspace,
+                user=request.user,
+                wbs_node=node,
+                hours=data["hours"],
+                work_date=data["work_date"],
+                notes=data.get("notes", ""),
+            )
+        else:
+            node = get_object_or_404(
+                ProcessWorkNode.objects.filter(workspace=workspace),
+                pk=pwn.id,
+            )
+            entry = TimeEntry.objects.create(
+                workspace=workspace,
+                user=request.user,
+                process_work_node=node,
+                hours=data["hours"],
+                work_date=data["work_date"],
+                notes=data.get("notes", ""),
+            )
         return Response(TimeEntrySerializer(entry).data, status=status.HTTP_201_CREATED)
 
 
@@ -70,12 +90,21 @@ class TimeEntryDetailView(WorkspaceMixin, APIView):
         serializer = TimeEntryWriteSerializer(entry, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        if "wbs_node" in data:
-            node = get_object_or_404(
-                WBSNode.objects.filter(project__workspace=self.get_workspace()),
-                pk=data["wbs_node"].id,
-            )
-            entry.wbs_node = node
+        if "wbs_node" in data or "process_work_node" in data:
+            wbs = data.get("wbs_node")
+            pwn = data.get("process_work_node")
+            if wbs:
+                entry.wbs_node = get_object_or_404(
+                    WBSNode.objects.filter(project__workspace=self.get_workspace()),
+                    pk=wbs.id,
+                )
+                entry.process_work_node = None
+            elif pwn:
+                entry.process_work_node = get_object_or_404(
+                    ProcessWorkNode.objects.filter(workspace=self.get_workspace()),
+                    pk=pwn.id,
+                )
+                entry.wbs_node = None
         for field in ("hours", "work_date", "notes"):
             if field in data:
                 setattr(entry, field, data[field])

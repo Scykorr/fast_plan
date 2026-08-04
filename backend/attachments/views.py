@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from attachments.models import WorkItemAttachment
 from attachments.serializers import WorkItemAttachmentSerializer
 from kanban.models import Card
+from process.models import ProcessWorkNode
 from projects.models import WBSNode
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 from workspaces.models import WorkspaceMember
@@ -95,6 +96,39 @@ class CardAttachmentListCreateView(WorkspaceMixin, APIView):
         )
 
 
+class ProcessWorkNodeAttachmentListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_node(self, node_id):
+        return get_object_or_404(
+            ProcessWorkNode.objects.filter(workspace=self.get_workspace()),
+            pk=node_id,
+        )
+
+    def get(self, request, node_id):
+        node = self.get_node(node_id)
+        attachments = node.attachments.select_related("uploaded_by")
+        return Response(WorkItemAttachmentSerializer(attachments, many=True).data)
+
+    def post(self, request, node_id):
+        node = self.get_node(node_id)
+        upload = request.data.get("file")
+        _validate_upload(upload)
+        attachment = WorkItemAttachment.objects.create(
+            process_work_node=node,
+            file=upload,
+            uploaded_by=request.user,
+            name=upload.name,
+            size=upload.size,
+            content_type=getattr(upload, "content_type", "") or "",
+        )
+        return Response(
+            WorkItemAttachmentSerializer(attachment).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class AttachmentDetailView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 
@@ -104,6 +138,7 @@ class AttachmentDetailView(WorkspaceMixin, APIView):
             WorkItemAttachment.objects.filter(
                 Q(wbs_node__project__workspace=workspace)
                 | Q(card__column__board__workspace=workspace)
+                | Q(process_work_node__workspace=workspace)
             ),
             pk=attachment_id,
         )

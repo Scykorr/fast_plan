@@ -262,7 +262,9 @@ class ProcessWorkNodeDetailView(WorkspaceMixin, APIView):
             node.assignee_id = int(aid) if aid not in (None, "") else None
         node.save()
         from process.materialize import build_work_tree
+        from process.work_kanban import sync_card_from_work_node
 
+        sync_card_from_work_node(node)
         return Response(
             {
                 "node_id": node.id,

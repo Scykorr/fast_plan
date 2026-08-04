@@ -7,6 +7,7 @@ export type DeepLinkParams = {
   assignee?: number | null;
   status?: number | null;
   project?: number | null;
+  board?: number | null;
 };
 
 const INT_KEYS = [
@@ -17,6 +18,7 @@ const INT_KEYS = [
   "assignee",
   "status",
   "project",
+  "board",
 ] as const;
 
 function parseOptionalInt(value: string | null): number | null {
@@ -39,6 +41,7 @@ export function parseDeepLinkParams(
     assignee: parseOptionalInt(searchParams.get("assignee")),
     status: parseOptionalInt(searchParams.get("status")),
     project: parseOptionalInt(searchParams.get("project")),
+    board: parseOptionalInt(searchParams.get("board")),
   };
 }
 

@@ -15,9 +15,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Process-as-WBS deepen (S6)** — Kanban-доска на ProcessInstance (карточки ↔ UserTask-узлы); time entries и вложения на ProcessWorkNode; колонки/часы/файлы в дереве на `/processes`; deep-link `/kanban?board=`
+
 ### Planned
 
-См. [ROADMAP.md](ROADMAP.md) — S3 Integrations; углубление Process-as-WBS (Kanban/time/attachments); CRM health / Quote→WBS.
+См. [ROADMAP.md](ROADMAP.md) — S3 Integrations; CRM health / Quote→WBS; Process-as-WBS DnD/export/comments.
 
 ## [0.19.0] — 2026-08-04
 

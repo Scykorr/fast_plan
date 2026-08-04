@@ -198,6 +198,9 @@ class CardMoveView(BoardWorkspaceMixin, APIView):
                 moved_by=request.user,
             )
         sync_activity_from_card(card)
+        from process.work_kanban import sync_work_node_from_card
+
+        sync_work_node_from_card(card)
         publish_event(
             self.get_workspace().id,
             "card.moved",

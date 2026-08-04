@@ -28,6 +28,7 @@ export function KanbanPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLink = parseDeepLinkParams(searchParams);
   const projectId = deepLink.project;
+  const boardId = deepLink.board;
 
   const [board, setBoard] = useState<KanbanBoard | null>(null);
   const [boardTitle, setBoardTitle] = useState("");
@@ -75,6 +76,13 @@ export function KanbanPage() {
     setLoading(true);
     setError("");
     try {
+      if (boardId) {
+        const detail = await kanbanApi.getBoard(boardId);
+        setBoard(detail);
+        setAnalytics(await kanbanApi.getBoardAnalytics(detail.id));
+        setBoardTitle(detail.title);
+        return;
+      }
       if (projectId && projectsApi) {
         const project = await projectsApi.getProject(projectId);
         if (project.board_id) {
@@ -99,7 +107,7 @@ export function KanbanPage() {
     } finally {
       setLoading(false);
     }
-  }, [kanbanApi, projectsApi, projectId]);
+  }, [kanbanApi, projectsApi, projectId, boardId]);
 
   useEffect(() => {
     if (!workspaceReady) {

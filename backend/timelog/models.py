@@ -16,6 +16,15 @@ class TimeEntry(models.Model):
     wbs_node = models.ForeignKey(
         "projects.WBSNode",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="time_entries",
+    )
+    process_work_node = models.ForeignKey(
+        "process.ProcessWorkNode",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="time_entries",
     )
     hours = models.DecimalField(max_digits=6, decimal_places=2)
@@ -25,6 +34,16 @@ class TimeEntry(models.Model):
 
     class Meta:
         ordering = ["-work_date", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(wbs_node__isnull=False, process_work_node__isnull=True)
+                    | models.Q(wbs_node__isnull=True, process_work_node__isnull=False)
+                ),
+                name="timeentry_exactly_one_target",
+            )
+        ]
 
     def __str__(self):
-        return f"{self.user} — {self.wbs_node} — {self.hours}h ({self.work_date})"
+        target = self.wbs_node_id or self.process_work_node_id
+        return f"{self.user} — {target} — {self.hours}h ({self.work_date})"

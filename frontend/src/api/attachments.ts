@@ -10,6 +10,7 @@ export type Attachment = {
   uploaded_by_name: string | null;
   wbs_node_id: number | null;
   card_id: number | null;
+  process_work_node_id: number | null;
   created_at: string;
 };
 
@@ -31,6 +32,18 @@ export function createAttachmentsApi() {
       const form = new FormData();
       form.append("file", file);
       return requestForm<Attachment>(`/cards/${cardId}/attachments/`, form);
+    },
+
+    getProcessWorkNodeAttachments: (nodeId: number) =>
+      request<Attachment[]>(`/process/work-nodes/${nodeId}/attachments/`, {}),
+
+    uploadProcessWorkNodeAttachment: (nodeId: number, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return requestForm<Attachment>(
+        `/process/work-nodes/${nodeId}/attachments/`,
+        form,
+      );
     },
 
     deleteAttachment: (id: number) =>

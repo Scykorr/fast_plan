@@ -15,7 +15,7 @@
 |---|---|
 | **Текущая версия** | **v0.19.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | S3 Integrations (sample); углубление Process-as-WBS; CRM health |
+| **Следующий слой** | S3 Integrations (sample); CRM health; Process-as-WBS DnD/export |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -113,7 +113,7 @@
 | **S3** | **Integrations unlock** | MS Project XML + 1С OData | **L** | sample / стенд |
 | **S4** | **Trust & mail go-live** | SMTP + verification | **M** | **✓ код**; credentials на staging/prod |
 | **S5** | **Process-as-WBS — foundation** | materialize + tree UI | **L** | **✓ lite** |
-| **S6** | **Process-as-WBS — PM surface** | dates/RACI/Gantt-lite (+ Kanban/time later) | **L** | **✓ lite**; deepen |
+| **S6** | **Process-as-WBS — PM surface** | dates/RACI/Gantt-lite + Kanban/time/attachments | **L** | **✓** (DnD/export/comments later) |
 | **S7** | **Methodology + CRM depth** | PRINCE2/Scrum packs; BANT/playbook | **L** | **✓ lite** |
 
 Параллельно: **S4** (ops). После S5–S6 продукт закрывает разрыв «процесс рисуем в BPMN, работаем как в WBS».
@@ -157,13 +157,13 @@
 
 - [ ] иерархия + DnD reorder (где безопасно без ломки BPMN)
 - [ ] карточка узла (описание, статус, assignee)
-- [ ] даты / длительность / Gantt-lite
-- [ ] Kanban-синк для UserTask-узлов
-- [ ] комментарии / вложения / time log
-- [ ] RACI на узле
+- [x] даты / длительность / Gantt-lite
+- [x] Kanban-синк для UserTask-узлов
+- [x] комментарии / вложения / time log _(вложения + time; comments later)_
+- [x] RACI на узле
 - [ ] capacity hint при assignee+dates
 - [ ] экспорт flatten CSV
-- [ ] связка «открыть BPMN element» ↔ узел дерева (highlight)
+- [x] связка «открыть BPMN element» ↔ узел дерева (highlight)
 
 ---
 

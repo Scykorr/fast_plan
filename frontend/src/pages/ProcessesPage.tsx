@@ -576,6 +576,22 @@ export function ProcessesPage() {
                 <ProcessWorkTree
                   tree={instanceDetail.work_tree}
                   onSelectBpmn={(id) => setHighlightIds([id])}
+                  onReload={
+                    api
+                      ? async () => {
+                          const id = instanceDetail.instance.id;
+                          const detail = await api.getInstance(id);
+                          setInstanceDetail((cur) =>
+                            cur && cur.instance.id === id
+                              ? {
+                                  ...cur,
+                                  work_tree: detail.work_tree || [],
+                                }
+                              : cur,
+                          );
+                        }
+                      : undefined
+                  }
                   onPatch={
                     api
                       ? async (nodeId, body) => {

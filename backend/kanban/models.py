@@ -16,6 +16,13 @@ class Board(models.Model):
         blank=True,
         related_name="board",
     )
+    process_instance = models.OneToOneField(
+        "process.ProcessInstance",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="board",
+    )
     title = models.CharField(max_length=255)
     position = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,6 +58,13 @@ class Card(models.Model):
     )
     wbs_node = models.OneToOneField(
         "projects.WBSNode",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="card",
+    )
+    process_work_node = models.OneToOneField(
+        "process.ProcessWorkNode",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

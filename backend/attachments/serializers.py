@@ -5,8 +5,9 @@ from attachments.models import WorkItemAttachment
 
 class WorkItemAttachmentSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.SerializerMethodField()
-    wbs_node_id = serializers.IntegerField(source="wbs_node.id", read_only=True, allow_null=True)
-    card_id = serializers.IntegerField(source="card.id", read_only=True, allow_null=True)
+    wbs_node_id = serializers.IntegerField(read_only=True, allow_null=True)
+    card_id = serializers.IntegerField(read_only=True, allow_null=True)
+    process_work_node_id = serializers.IntegerField(read_only=True, allow_null=True)
     url = serializers.SerializerMethodField()
 
     class Meta:
@@ -21,6 +22,7 @@ class WorkItemAttachmentSerializer(serializers.ModelSerializer):
             "uploaded_by_name",
             "wbs_node_id",
             "card_id",
+            "process_work_node_id",
             "created_at",
         )
         read_only_fields = fields

@@ -9,6 +9,7 @@ export type KanbanCard = {
   created_at: string;
   updated_at: string;
   wbs_node_id: number | null;
+  process_work_node_id?: number | null;
   assignee_id: number | null;
   assignee_name: string | null;
   workflow_status_id: number | null;
@@ -27,6 +28,8 @@ export type KanbanBoard = {
   title: string;
   position: number;
   created_at: string;
+  project_id?: number | null;
+  process_instance_id?: number | null;
   columns: KanbanColumn[];
 };
 
@@ -35,6 +38,8 @@ export type KanbanBoardListItem = {
   title: string;
   position: number;
   created_at: string;
+  project_id?: number | null;
+  process_instance_id?: number | null;
 };
 
 export type BoardFlowAnalytics = {

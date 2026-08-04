@@ -5,6 +5,8 @@ from django.db import models
 def attachment_upload_path(instance, filename):
     if instance.wbs_node_id:
         return f"attachments/wbs/{instance.wbs_node_id}/{filename}"
+    if instance.process_work_node_id:
+        return f"attachments/process-work/{instance.process_work_node_id}/{filename}"
     return f"attachments/cards/{instance.card_id}/{filename}"
 
 
@@ -18,6 +20,13 @@ class WorkItemAttachment(models.Model):
     )
     card = models.ForeignKey(
         "kanban.Card",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="attachments",
+    )
+    process_work_node = models.ForeignKey(
+        "process.ProcessWorkNode",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -41,8 +50,21 @@ class WorkItemAttachment(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    models.Q(wbs_node__isnull=False, card__isnull=True)
-                    | models.Q(wbs_node__isnull=True, card__isnull=False)
+                    models.Q(
+                        wbs_node__isnull=False,
+                        card__isnull=True,
+                        process_work_node__isnull=True,
+                    )
+                    | models.Q(
+                        wbs_node__isnull=True,
+                        card__isnull=False,
+                        process_work_node__isnull=True,
+                    )
+                    | models.Q(
+                        wbs_node__isnull=True,
+                        card__isnull=True,
+                        process_work_node__isnull=False,
+                    )
                 ),
                 name="workitemattachment_exactly_one_target",
             )

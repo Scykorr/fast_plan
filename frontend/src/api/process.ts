@@ -75,6 +75,11 @@ export type ProcessWorkNode = {
   raci_i: string;
   predecessor_bpmn_id: string;
   user_task_id: number | null;
+  card_id?: number | null;
+  board_id?: number | null;
+  kanban_column?: string | null;
+  attachment_count?: number;
+  time_hours?: string;
   children: ProcessWorkNode[];
 };
 
@@ -260,6 +265,7 @@ export function createProcessApi() {
       request<{
         created: number;
         synced: boolean;
+        board_id?: number | null;
         tree: ProcessWorkNode[];
         detail?: string;
       }>(`/process/instances/${id}/materialize-wbs/`, {

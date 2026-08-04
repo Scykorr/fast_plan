@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 import xml.etree.ElementTree as ET
 
+from kanban.models import Card
 from process.models import ProcessInstance, ProcessWorkNode, UserTask
 
 
@@ -163,6 +165,9 @@ def sync_work_nodes_with_tasks(instance: ProcessInstance) -> int:
                 node.progress = max(node.progress, 0)
             fields.extend(["status", "progress"])
         node.save(update_fields=list(dict.fromkeys(fields)))
+        from process.work_kanban import sync_card_from_work_node
+
+        sync_card_from_work_node(node)
         updated += 1
     return updated
 
@@ -176,9 +181,13 @@ def materialize_work_tree(instance: ProcessInstance, *, replace: bool = False) -
         ProcessWorkNode.objects.filter(instance=instance).delete()
     elif ProcessWorkNode.objects.filter(instance=instance).exists():
         sync_work_nodes_with_tasks(instance)
+        from process.work_kanban import ensure_kanban_for_instance
+
+        board = ensure_kanban_for_instance(instance)
         return {
             "created": 0,
             "synced": True,
+            "board_id": board.id if board else None,
             "tree": build_work_tree(instance),
         }
 
@@ -222,9 +231,13 @@ def materialize_work_tree(instance: ProcessInstance, *, replace: bool = False) -
         created=created,
     )
     sync_work_nodes_with_tasks(instance)
+    from process.work_kanban import ensure_kanban_for_instance
+
+    board = ensure_kanban_for_instance(instance)
     return {
         "created": len(created),
         "synced": True,
+        "board_id": board.id if board else None,
         "tree": build_work_tree(instance),
     }
 
@@ -232,7 +245,14 @@ def materialize_work_tree(instance: ProcessInstance, *, replace: bool = False) -
 def build_work_tree(instance: ProcessInstance) -> list[dict]:
     nodes = list(
         ProcessWorkNode.objects.filter(instance=instance)
-        .select_related("assignee", "user_task")
+        .select_related(
+            "assignee",
+            "user_task",
+            "card",
+            "card__column",
+            "card__column__board",
+        )
+        .prefetch_related("attachments", "time_entries")
         .order_by("position", "id")
     )
     by_parent: dict[int | None, list] = {}
@@ -240,6 +260,13 @@ def build_work_tree(instance: ProcessInstance) -> list[dict]:
         by_parent.setdefault(n.parent_id, []).append(n)
 
     def serialize(n: ProcessWorkNode) -> dict:
+        try:
+            card = n.card
+        except Card.DoesNotExist:
+            card = None
+        hours = Decimal("0")
+        for entry in n.time_entries.all():
+            hours += entry.hours
         return {
             "id": n.id,
             "bpmn_id": n.bpmn_id,
@@ -265,6 +292,13 @@ def build_work_tree(instance: ProcessInstance) -> list[dict]:
             "raci_i": n.raci_i,
             "predecessor_bpmn_id": n.predecessor_bpmn_id,
             "user_task_id": n.user_task_id,
+            "card_id": card.id if card is not None else None,
+            "board_id": (
+                card.column.board_id if card is not None else None
+            ),
+            "kanban_column": card.column.title if card is not None else None,
+            "attachment_count": len(n.attachments.all()),
+            "time_hours": str(hours),
             "children": [serialize(c) for c in by_parent.get(n.id, [])],
         }
 
