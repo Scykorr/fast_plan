@@ -183,5 +183,6 @@ def send_renewal_reminders(
         "within_days": within_days,
         "dry_run": dry_run,
         "items": items,
-        "notifications": notifications,
+        # Internal for digest wiring; strip before JSON responses.
+        "_notification_objs": notifications,
     }

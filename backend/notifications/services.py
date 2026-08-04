@@ -422,7 +422,7 @@ def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
         + milestone_items
         + deadline_items
         + deal_task_items
-        + list(renewal_stats.get("notifications") or [])
+        + list(renewal_stats.get("_notification_objs") or [])
     )
     emails = send_reminder_digest_emails(created_items, today=today)
     return {

@@ -510,13 +510,13 @@ class CrmRenewalsView(WorkspaceMixin, APIView):
         except (TypeError, ValueError):
             within_days = 30
         dry_run = bool(request.data.get("dry_run"))
-        return Response(
-            send_renewal_reminders(
-                workspace=self.get_workspace(),
-                within_days=within_days,
-                dry_run=dry_run,
-            )
+        result = send_renewal_reminders(
+            workspace=self.get_workspace(),
+            within_days=within_days,
+            dry_run=dry_run,
         )
+        result.pop("_notification_objs", None)
+        return Response(result)
 
 
 class CrmArApView(WorkspaceMixin, APIView):
