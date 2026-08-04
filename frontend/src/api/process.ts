@@ -54,6 +54,30 @@ export type ProcessUserTask = {
   wbs_title: string | null;
 };
 
+export type ProcessWorkNode = {
+  id: number;
+  bpmn_id: string;
+  code: string;
+  title: string;
+  description: string;
+  node_type: string;
+  position: number;
+  progress: number;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+  duration_days: number;
+  assignee_id: number | null;
+  assignee_name: string | null;
+  raci_r: string;
+  raci_a: string;
+  raci_c: string;
+  raci_i: string;
+  predecessor_bpmn_id: string;
+  user_task_id: number | null;
+  children: ProcessWorkNode[];
+};
+
 export type CasePlanItem = {
   id: string;
   name: string;
@@ -230,7 +254,23 @@ export function createProcessApi() {
         user_tasks: ProcessUserTask[];
         bpmn_xml: string;
         active_element_ids: string[];
+        work_tree?: ProcessWorkNode[];
       }>(`/process/instances/${id}/`, {}),
+    materializeWbs: (id: number, opts?: { replace?: boolean }) =>
+      request<{
+        created: number;
+        synced: boolean;
+        tree: ProcessWorkNode[];
+        detail?: string;
+      }>(`/process/instances/${id}/materialize-wbs/`, {
+        method: "POST",
+        body: JSON.stringify({ replace: Boolean(opts?.replace) }),
+      }),
+    patchWorkNode: (id: number, body: Record<string, unknown>) =>
+      request<{ node_id: number; tree: ProcessWorkNode[] }>(
+        `/process/work-nodes/${id}/`,
+        { method: "PATCH", body: JSON.stringify(body) },
+      ),
     listTasks: (params?: { status?: string; mine?: boolean }) => {
       const q = new URLSearchParams();
       if (params?.status) q.set("status", params.status);

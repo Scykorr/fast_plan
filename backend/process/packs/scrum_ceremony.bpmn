@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  id="Defs_scrum" targetNamespace="http://fastplan.local/bpmn">
+  <bpmn:process id="ScrumCeremony" name="Scrum ceremony lite" isExecutable="true">
+    <bpmn:startEvent id="Start_1" name="Sprint start">
+      <bpmn:outgoing>f1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_Planning" name="Sprint Planning">
+      <bpmn:incoming>f1</bpmn:incoming>
+      <bpmn:outgoing>f2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_Daily" name="Daily Scrum (sample)">
+      <bpmn:incoming>f2</bpmn:incoming>
+      <bpmn:outgoing>f3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_Review" name="Sprint Review">
+      <bpmn:incoming>f3</bpmn:incoming>
+      <bpmn:outgoing>f4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_Retro" name="Sprint Retrospective">
+      <bpmn:incoming>f4</bpmn:incoming>
+      <bpmn:outgoing>f5</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_1" name="Sprint done">
+      <bpmn:incoming>f5</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="f1" sourceRef="Start_1" targetRef="Task_Planning"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="Task_Planning" targetRef="Task_Daily"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="Task_Daily" targetRef="Task_Review"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="Task_Review" targetRef="Task_Retro"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="Task_Retro" targetRef="End_1"/>
+  </bpmn:process>
+</bpmn:definitions>

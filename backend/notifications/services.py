@@ -417,7 +417,13 @@ def run_all_reminders(*, today: date | None = None) -> dict[str, int]:
 
     deferred = process_deferred_automations()
     renewal_stats = send_renewal_reminders(within_days=30, dry_run=False)
-    created_items = birthday_items + milestone_items + deadline_items + deal_task_items
+    created_items = (
+        birthday_items
+        + milestone_items
+        + deadline_items
+        + deal_task_items
+        + list(renewal_stats.get("notifications") or [])
+    )
     emails = send_reminder_digest_emails(created_items, today=today)
     return {
         "birthdays": birthdays,

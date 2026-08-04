@@ -39,7 +39,7 @@ def test_create_invitation(authenticated_client, user, workspace, settings, mail
 
 @pytest.mark.django_db
 def test_accept_invitation(authenticated_client, user, workspace, other_user):
-    invitation = create_workspace_invitation(
+    invitation, _email_sent = create_workspace_invitation(
         workspace, other_user.email, WorkspaceMember.Role.EDITOR, user
     )
     client = __import__("rest_framework.test", fromlist=["APIClient"]).APIClient()

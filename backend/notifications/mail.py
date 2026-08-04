@@ -27,6 +27,9 @@ def send_app_email_result(
     Render text+html templates and send email.
     Returns (ok, detail). Detail is \"sent\" on success or the exception message.
     """
+    recipient = (to or "").strip()
+    if not recipient:
+        return False, "Recipient email is empty"
     ctx = dict(context or {})
     ctx.setdefault("frontend_base_url", absolute_frontend_url(""))
     try:
@@ -36,13 +39,13 @@ def send_app_email_result(
             subject=subject,
             body=text_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[to],
+            to=[recipient],
         )
         message.attach_alternative(html_body, "text/html")
         message.send(fail_silently=False)
         return True, "sent"
     except Exception as exc:
-        logger.exception("Failed to send email to %s (%s)", to, subject)
+        logger.exception("Failed to send email to %s (%s)", recipient, subject)
         return False, str(exc) or exc.__class__.__name__
 
 

@@ -228,6 +228,10 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() == "true"
+# Django forbids USE_TLS and USE_SSL together; prefer SSL (port 465).
+if EMAIL_USE_SSL and EMAIL_USE_TLS:
+    EMAIL_USE_TLS = False
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "20"))
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL",
     "Fast Plan <noreply@localhost>",

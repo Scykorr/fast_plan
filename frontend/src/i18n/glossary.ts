@@ -260,6 +260,27 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     label: "Migrate",
     hint: "перенос running instances на новый deployment при publish",
   },
+  "process-as-wbs": {
+    label: "Process-as-WBS",
+    hint: "дерево работ экземпляра процесса, материализованное из BPMN",
+  },
+  bant: {
+    label: "BANT",
+    full: "Budget / Authority / Need / Timeline",
+    hint: "квалификация сделки по бюджету, полномочиям, потребности и срокам",
+  },
+  playbook: {
+    label: "playbook",
+    hint: "чеклист next-best-action на стадии воронки",
+  },
+  prince2: {
+    label: "PRINCE2",
+    hint: "методология управления проектами (stage / gate lite-пак)",
+  },
+  scrum: {
+    label: "Scrum",
+    hint: "гибкий фреймворк: Planning / Daily / Review / Retro",
+  },
   uuid: {
     label: "UUID",
     hint: "универсальный уникальный идентификатор",

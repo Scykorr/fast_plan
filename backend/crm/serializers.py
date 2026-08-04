@@ -672,6 +672,7 @@ class PipelineStageSerializer(serializers.ModelSerializer):
             "default_probability",
             "is_won",
             "is_lost",
+            "playbook_checklist",
         ]
         read_only_fields = fields
 
@@ -694,6 +695,8 @@ class DealSerializer(serializers.ModelSerializer):
     owner_email = serializers.SerializerMethodField()
     weighted_amount = serializers.SerializerMethodField()
     is_open = serializers.SerializerMethodField()
+    qualification_score = serializers.IntegerField(read_only=True)
+    stage_playbook = serializers.SerializerMethodField()
     open_tasks_count = serializers.IntegerField(read_only=True, required=False)
 
     class Meta:
@@ -721,6 +724,14 @@ class DealSerializer(serializers.ModelSerializer):
             "notes",
             "is_open",
             "open_tasks_count",
+            "bant_budget",
+            "bant_authority",
+            "bant_need",
+            "bant_timeline",
+            "qualification_notes",
+            "qualification_score",
+            "playbook_done",
+            "stage_playbook",
             "created_at",
             "updated_at",
         ]
@@ -747,6 +758,9 @@ class DealSerializer(serializers.ModelSerializer):
     def get_is_open(self, obj):
         return obj.is_open
 
+    def get_stage_playbook(self, obj):
+        return list(obj.stage.playbook_checklist or []) if obj.stage_id else []
+
 
 class DealWriteSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255, required=False)
@@ -760,7 +774,14 @@ class DealWriteSerializer(serializers.Serializer):
     owner_id = serializers.IntegerField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default="")
     position = serializers.IntegerField(required=False, min_value=0)
-
+    bant_budget = serializers.BooleanField(required=False)
+    bant_authority = serializers.BooleanField(required=False)
+    bant_need = serializers.BooleanField(required=False)
+    bant_timeline = serializers.BooleanField(required=False)
+    qualification_notes = serializers.CharField(required=False, allow_blank=True)
+    playbook_done = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
 
 class DealMoveSerializer(serializers.Serializer):
     stage_id = serializers.IntegerField()

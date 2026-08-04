@@ -736,6 +736,80 @@ export function DealsPage() {
             <CrmCustomFieldsPanel target="deal" entityId={selected.id} />
           </div>
 
+          <div className="mt-3 rounded-lg border border-border bg-cream/50 p-3">
+            <p className="text-sm font-medium text-text">
+              Qualification (BANT) · score {selected.qualification_score ?? 0}%
+            </p>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              {(
+                [
+                  ["bant_budget", "Budget", selected.bant_budget],
+                  ["bant_authority", "Authority", selected.bant_authority],
+                  ["bant_need", "Need", selected.bant_need],
+                  ["bant_timeline", "Timeline", selected.bant_timeline],
+                ] as const
+              ).map(([key, label, value]) => (
+                <label key={key} className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(value)}
+                    onChange={(e) =>
+                      void (async () => {
+                        if (!crmApi) return;
+                        try {
+                          const updated = await crmApi.patchDeal(selected.id, {
+                            [key]: e.target.checked,
+                          });
+                          setSelected(updated);
+                          await load();
+                        } catch (err) {
+                          setError(parseApiError(err));
+                        }
+                      })()
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {(selected.stage_playbook?.length ?? 0) > 0 && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-medium text-text-muted">
+                  Stage playbook
+                </p>
+                {selected.stage_playbook!.map((item) => {
+                  const done = (selected.playbook_done || []).includes(item);
+                  return (
+                    <label key={item} className="flex items-center gap-1.5 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={done}
+                        onChange={(e) =>
+                          void (async () => {
+                            if (!crmApi) return;
+                            const current = new Set(selected.playbook_done || []);
+                            if (e.target.checked) current.add(item);
+                            else current.delete(item);
+                            try {
+                              const updated = await crmApi.patchDeal(selected.id, {
+                                playbook_done: [...current],
+                              });
+                              setSelected(updated);
+                              await load();
+                            } catch (err) {
+                              setError(parseApiError(err));
+                            }
+                          })()
+                        }
+                      />
+                      {item}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="mt-3">
             <label className="text-xs text-text-muted">Проект</label>
             <select

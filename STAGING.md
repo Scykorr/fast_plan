@@ -89,22 +89,25 @@ docker compose --profile ai up -d ollama ollama-init backend
 
 ## SMTP и email verification
 
-Полная инструкция: [`docs/SMTP.md`](docs/SMTP.md) (`.env`, mail.ru/Gmail, Settings test-send, deliverability).
+Полная инструкция: [`docs/SMTP.md`](docs/SMTP.md) (`.env`, mail.ru/Gmail/Яндекс, Settings test-send, deliverability).
+
+Tooling в продукте: status / test-send / `go_live_ready` / health `checks.email` — **готово**.
 
 - [ ] `EMAIL_BACKEND` = SMTP, не console (см. `.env.example`)
 - [ ] `DEFAULT_FROM_EMAIL` и SMTP credentials проверены
-- [ ] Settings (owner) → **Почта / SMTP**: статус показывает SMTP + `configured`
+- [ ] Settings (owner) → **Почта / SMTP**: `configured` + **Go-live ready**
 - [ ] Settings → **Отправить тест** → письмо в inbox (не только spam)
 - [ ] SPF / DKIM / DMARC для домена `From` (mail.ru / корпоративный DNS)
 - [ ] Forgot-password: `POST /api/auth/password/forgot/` → письмо со ссылкой
-- [ ] Invite участника workspace → письмо с ссылкой `/invite/accept/…`
+- [ ] Invite участника workspace → письмо с ссылкой `/invite/…`
 - [ ] Digest reminders (Celery) доходят при настроенном SMTP
 - [ ] После зелёного test-send: `REQUIRE_EMAIL_VERIFICATION=true` на staging
-- [ ] Регистрация → письмо с подтверждением
+- [ ] Регистрация → письмо с подтверждением (`email_sent=true`)
 - [ ] Ссылка `/verify-email?uid=…&token=…` подтверждает аккаунт
 - [ ] Login до подтверждения email отклоняется
 - [ ] Settings → «Подтвердить email» повторно отправляет письмо
 
+CI оставляет `REQUIRE_EMAIL_VERIFICATION=false`. Не коммитьте SMTP-пароли.
 ## Webhooks
 
 - [ ] Settings (owner) → создать webhook на тестовый HTTPS endpoint (например webhook.site)

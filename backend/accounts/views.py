@@ -63,15 +63,19 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        if getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False):
-            _send_verification_email(user)
+        require_verify = bool(
+            getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False)
+        )
+        email_sent = False
+        if require_verify:
+            email_sent = bool(_send_verification_email(user))
         else:
             # Skip mailbox verification until SMTP is configured.
             user.verify_email()
-        return Response(
-            UserSerializer(user, context={"request": request}).data,
-            status=status.HTTP_201_CREATED,
-        )
+        payload = UserSerializer(user, context={"request": request}).data
+        payload["email_verification_required"] = require_verify
+        payload["email_sent"] = email_sent
+        return Response(payload, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -142,22 +146,31 @@ class EmailVerificationResendView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"].lower().strip()
         user = User.objects.filter(email__iexact=email).first()
+        email_sent = False
         if (
             getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False)
             and user is not None
             and not user.is_email_verified
         ):
-            _send_verification_email(user)
-        return Response(
-            {
-                "detail": (
-                    "Если аккаунт существует и email ещё не подтверждён, "
-                    "новая ссылка отправлена."
-                    if getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False)
-                    else "Подтверждение email сейчас отключено — можно входить сразу."
-                )
-            }
+            email_sent = bool(_send_verification_email(user))
+        require_verify = bool(
+            getattr(settings, "REQUIRE_EMAIL_VERIFICATION", False)
         )
+        if not require_verify:
+            detail = "Подтверждение email сейчас отключено — можно входить сразу."
+        elif email_sent:
+            detail = (
+                "Если аккаунт существует и email ещё не подтверждён, "
+                "новая ссылка отправлена."
+            )
+        else:
+            # Enumeration-safe: same wording whether user missing or SMTP failed.
+            detail = (
+                "Если аккаунт существует и email ещё не подтверждён, "
+                "мы попытались отправить ссылку. "
+                "Не пришло — проверьте Спам или повторите позже."
+            )
+        return Response({"detail": detail, "email_sent": email_sent})
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")

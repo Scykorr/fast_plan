@@ -25,7 +25,10 @@ type AuthContextValue = {
     password: string;
     first_name?: string;
     last_name?: string;
-  }) => Promise<void>;
+  }) => Promise<{
+    email_verification_required?: boolean;
+    email_sent?: boolean;
+  }>;
   updateProfile: (formData: FormData) => Promise<void>;
   setUser: (user: User | null) => void;
   logout: () => Promise<void>;
@@ -90,7 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       first_name?: string;
       last_name?: string;
     }) => {
-      await api.register(data);
+      const result = await api.register(data);
+      return {
+        email_verification_required: result.email_verification_required,
+        email_sent: result.email_sent,
+      };
     },
     [],
   );

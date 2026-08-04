@@ -16,8 +16,10 @@ import type {
 } from "../api/process";
 import { BpmnModelerEditor } from "../components/process/BpmnModelerEditor";
 import { BpmnViewer } from "../components/process/BpmnViewer";
+import { ProcessWorkTree } from "../components/process/ProcessWorkTree";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { GlossaryText } from "../components/TermHint";
+import type { ProcessWorkNode } from "../api/process";
 import { useProcessApi } from "../hooks/useProcessApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 
@@ -93,7 +95,9 @@ export function ProcessesPage() {
     children: ProcessInstance[];
     bpmn_xml: string;
     active_element_ids: string[];
+    work_tree: ProcessWorkNode[];
   } | null>(null);
+  const [highlightIds, setHighlightIds] = useState<string[]>([]);
   const [tab, setTab] = useState<
     | "defs"
     | "instances"
@@ -399,7 +403,9 @@ export function ProcessesPage() {
                           children: detail.children || [],
                           bpmn_xml: detail.bpmn_xml,
                           active_element_ids: detail.active_element_ids || [],
+                          work_tree: detail.work_tree || [],
                         });
+                        setHighlightIds([]);
                       } catch (err) {
                         setError(parseApiError(err));
                       }
@@ -467,7 +473,9 @@ export function ProcessesPage() {
                               children: detail.children || [],
                               bpmn_xml: detail.bpmn_xml,
                               active_element_ids: detail.active_element_ids || [],
+                              work_tree: detail.work_tree || [],
                             });
+                            setHighlightIds([]);
                           } catch (err) {
                             setError(parseApiError(err));
                           }
@@ -502,7 +510,9 @@ export function ProcessesPage() {
                                   bpmn_xml: detail.bpmn_xml,
                                   active_element_ids:
                                     detail.active_element_ids || [],
+                                  work_tree: detail.work_tree || [],
                                 });
+                                setHighlightIds([]);
                               } catch (err) {
                                 setError(parseApiError(err));
                               }
@@ -521,12 +531,66 @@ export function ProcessesPage() {
                 xml={instanceDetail.bpmn_xml}
                 activeElementIds={instanceDetail.active_element_ids}
                 highlightElementIds={
-                  instanceDetail.instance.subprocess_bpmn_id
-                    ? [instanceDetail.instance.subprocess_bpmn_id]
-                    : []
+                  highlightIds.length
+                    ? highlightIds
+                    : instanceDetail.instance.subprocess_bpmn_id
+                      ? [instanceDetail.instance.subprocess_bpmn_id]
+                      : []
                 }
                 height={320}
               />
+              <div className="mt-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-text">
+                    <GlossaryText text="Process-as-WBS" /> дерево
+                  </p>
+                  <button
+                    type="button"
+                    className="rounded-lg bg-secondary px-3 py-1 text-xs font-semibold text-white"
+                    onClick={() =>
+                      void (async () => {
+                        if (!api || !instanceDetail) return;
+                        try {
+                          const result = await api.materializeWbs(
+                            instanceDetail.instance.id,
+                            { replace: instanceDetail.work_tree.length > 0 },
+                          );
+                          setInstanceDetail({
+                            ...instanceDetail,
+                            work_tree: result.tree || [],
+                          });
+                          setMessage(
+                            result.created
+                              ? `Materialized ${result.created} узлов`
+                              : "Дерево синхронизировано",
+                          );
+                        } catch (err) {
+                          setError(parseApiError(err));
+                        }
+                      })()
+                    }
+                  >
+                    Materialize WBS
+                  </button>
+                </div>
+                <ProcessWorkTree
+                  tree={instanceDetail.work_tree}
+                  onSelectBpmn={(id) => setHighlightIds([id])}
+                  onPatch={
+                    api
+                      ? async (nodeId, body) => {
+                          const result = await api.patchWorkNode(nodeId, body);
+                          setInstanceDetail((cur) =>
+                            cur
+                              ? { ...cur, work_tree: result.tree }
+                              : cur,
+                          );
+                          return result.tree;
+                        }
+                      : undefined
+                  }
+                />
+              </div>
               <p className="mt-2 text-xs text-text-muted">
                 <GlossaryText text="Inclusive Gateway" />: каждое истинное исходящее +
                 optional default; join ждёт взятые ветки. Пример-пак:{" "}

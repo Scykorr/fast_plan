@@ -9,41 +9,34 @@
 - **MINOR** — новая функциональность без ломающих изменений
 - **PATCH** — исправления и мелкие улучшения
 
-Источник истины версии: файл [`VERSION`](VERSION) в корне репозитория.
-При релизе обновляйте `VERSION`, этот файл, `frontend/package.json` и убедитесь,
-что `GET /api/health/` отдаёт ту же версию.
+Источник истины версии: файл [VERSION](VERSION) в корне репозитория.
+При релизе обновляйте VERSION, этот файл, rontend/package.json и убедитесь,
+что GET /api/health/ отдаёт ту же версию.
 
 ## [Unreleased]
 
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md) — S3 Integrations; углубление Process-as-WBS (Kanban/time/attachments); CRM health / Quote→WBS.
+
+## [0.19.0] — 2026-08-04
+
 ### Added
 
-- **PERT Monte Carlo** — `GET …/pert/?method=monte_carlo&trials=`; UI toggle Normal / Monte Carlo
-- **Leveling apply-all / undo** — `POST …/schedule/leveling/apply|undo/`; Gantt apply-all + Undo
-- **Capacity propose** — кнопка «Предложить leveling» для overload на `/capacity`
-- **Publish migrate** — `migrate_running` на publish; lite restart running instances на новый deployment
-- **SubProcess collapse** — свернуть/развернуть содержимое в BPMN viewer; highlight child SubProcess
-- **Inclusive tip** — подсказка условий у modeler на `/processes`
-- **SMTP go-live guards** — `go_live_ready` в email status; `checks.email` в `/api/health/?extended=1`
-- **Renewal reminders** — `POST /api/crm/renewals/` → DealTask + in-app notify (idempotent); кнопка на `/crm-commerce`; в `run_all_reminders`
-- **Activity spawn pickers** — выбор проекта / published process на `/clients` (без `prompt`)
-- **Workspace schedule activities** — `GET /api/workspace/schedule-activities/`; cross-deps picker на `/portfolio`
-- **BPMN SubProcess** — `subprocess_specs` в engine; child `ProcessInstance` (`parent`, `parent_spiff_task_id`); catalog `supported`
-- **SMTP status / test-send** — `GET/POST /api/workspace/email/status|test/` (owner session); панель «Почта / SMTP» в Settings
-- **Guest payment status** — `payment_status` / `balance_due` / `payments[]` в публичном share; бейдж на `/commerce/:token`
-- **SMTP setup guide** — [`docs/SMTP.md`](docs/SMTP.md) (`.env`, mail.ru/Gmail, deliverability, verification flip)
-- **Resource leveling lite** — `POST /api/projects/<id>/schedule/leveling/propose/`; кнопка на Gantt + apply через `PATCH /activities/`
-- **Inclusive Gateway** — catalog `supported`; pack `or_inclusive`; ADR whitelist + tip на `/processes`
-- **SubProcess children UI** — `children[]` в instance detail; drill-down parent/child на `/processes`
+- **Process-as-WBS (S5/S6 lite)** — ProcessWorkNode; POST …/instances/<id>/materialize-wbs/; дерево + RACI/даты/Gantt-lite на /processes; highlight BPMN
+- **Methodology packs (S7)** — prince2_stage, scrum_ceremony
+- **Deal BANT + stage playbook (S7)** — BANT flags, qualification_score, playbook checklist UI на /deals
+- **PERT Monte Carlo** — ?method=monte_carlo&trials=; UI toggle
+- **Leveling apply-all / undo** — apply/undo API; Gantt + Capacity propose
+- **Publish migrate** — migrate_running; SubProcess collapse; Inclusive tip
+- **SMTP go-live guards** — go_live_ready, health checks.email; Яндекс в docs/SMTP.md
+- **SMTP status / test-send**, guest payment, Inclusive GW, SubProcess children, leveling propose
 
 ### Changed
 
-- **Email verification** — по умолчанию отключено (`REQUIRE_EMAIL_VERIFICATION=false`): регистрация сразу `verify_email()`, вход без письма; снова включить после настройки SMTP (см. [`docs/SMTP.md`](docs/SMTP.md))
-- **WBS interaction** — ПКМ открывает только контекстное меню (без карточки); карточка задачи/проекта — по двойному ЛКМ; подсказка на холсте обновлена
-- **Term glossary** — Monte Carlo / leveling / SubProcess / Inclusive / Go-live / Undo и др.
-
-### Planned
-
-См. [ROADMAP.md](ROADMAP.md) § **Крупные спринты** S1–S7 и эпик **Process-as-WBS**. S1/S2 код ✓; S4 credentials + verification flip — ops.
+- **Email delivery honesty** — register email_sent; invite resend не ротирует token при SMTP fail; renewals в digest; EMAIL_TIMEOUT + TLS/SSL guard
+- **Email verification** — default alse в CI; после SMTP на staging: REQUIRE_EMAIL_VERIFICATION=true
+- **Term glossary** — Process-as-WBS, BANT, PRINCE2, Scrum, Monte Carlo, leveling…
 
 ## [0.18.0] — 2026-07-31
 

@@ -22,8 +22,8 @@ def create_workspace_invitation(workspace, email, role, invited_by):
             "accepted_at": None,
         },
     )
-    send_invitation_email(invitation)
-    return invitation
+    email_sent = send_invitation_email(invitation)
+    return invitation, email_sent
 
 
 def send_invitation_email(invitation) -> bool:
@@ -46,14 +46,21 @@ def send_invitation_email(invitation) -> bool:
     )
 
 
-def resend_workspace_invitation(invitation) -> WorkspaceInvitation:
+def resend_workspace_invitation(invitation) -> tuple[WorkspaceInvitation, bool]:
+    """Rotate token only after a successful send so old links stay valid on SMTP fail."""
     if invitation.is_accepted:
         raise ValueError("Invitation already accepted.")
+    old_token = invitation.token
+    old_expires = invitation.expires_at
     invitation.token = secrets.token_urlsafe(32)
     invitation.expires_at = timezone.now() + timedelta(days=7)
+    email_sent = send_invitation_email(invitation)
+    if not email_sent:
+        invitation.token = old_token
+        invitation.expires_at = old_expires
+        return invitation, False
     invitation.save(update_fields=["token", "expires_at"])
-    send_invitation_email(invitation)
-    return invitation
+    return invitation, True
 
 
 def accept_invitation(token, user):

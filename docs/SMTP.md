@@ -38,6 +38,7 @@ REQUIRE_EMAIL_VERIFICATION=true
 | `EMAIL_HOST_PASSWORD` | Пароль приложения / SMTP | *(секрет)* |
 | `EMAIL_USE_TLS` | STARTTLS | `true` для 587 |
 | `EMAIL_USE_SSL` | Implicit SSL | `true` для 465; тогда TLS обычно `false` |
+| `EMAIL_TIMEOUT` | Таймаут SMTP (сек) | `20` |
 | `DEFAULT_FROM_EMAIL` | From (должен быть разрешён провайдером) | `Fast Plan <you@mail.ru>` |
 | `FRONTEND_BASE_URL` | База ссылок в письмах | `https://your-domain` или `http://localhost:8080` |
 | `REQUIRE_EMAIL_VERIFICATION` | Требовать confirm перед логином | `false` → `true` после теста |
@@ -78,7 +79,41 @@ EMAIL_USE_SSL=false
 
 ---
 
-## 4. Пример: Gmail
+## 4. Пример: Яндекс (Яндекс Почта / Яндекс 360)
+
+1. В [Яндекс ID → Безопасность](https://id.yandex.ru/security) включите **пароли приложений** (если есть 2FA) и создайте пароль для «Почта».  
+   Либо в настройках почты: **Все настройки → Почтовые программы** — разрешите доступ по протоколу IMAP/SMTP и создайте пароль приложения.
+2. Логин SMTP — **полный адрес** (`you@yandex.ru`, `you@yandex.com` или домен Яндекс 360).
+3. В `.env` (рекомендуется SSL на 465):
+
+```env
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.yandex.ru
+EMAIL_PORT=465
+EMAIL_USE_SSL=true
+EMAIL_USE_TLS=false
+EMAIL_HOST_USER=you@yandex.ru
+EMAIL_HOST_PASSWORD=your-app-password
+DEFAULT_FROM_EMAIL=Fast Plan <you@yandex.ru>
+FRONTEND_BASE_URL=http://localhost:8080
+REQUIRE_EMAIL_VERIFICATION=false
+```
+
+Альтернатива STARTTLS на 587:
+
+```env
+EMAIL_HOST=smtp.yandex.ru
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_USE_SSL=false
+```
+
+4. Перезапуск backend → Settings → **Отправить тест** на тот же ящик.  
+   `DEFAULT_FROM_EMAIL` должен совпадать с `EMAIL_HOST_USER` (или быть алиасом этого ящика) — иначе Яндекс часто отклоняет отправку.
+
+---
+
+## 5. Пример: Gmail
 
 Нужен пароль приложения Google (аккаунт с 2FA):
 
@@ -95,7 +130,7 @@ DEFAULT_FROM_EMAIL=Fast Plan <you@gmail.com>
 
 ---
 
-## 5. Какие письма зависят от SMTP
+## 6. Какие письма зависят от SMTP
 
 | Сценарий | Когда уходит |
 |----------|----------------|
@@ -109,7 +144,7 @@ DEFAULT_FROM_EMAIL=Fast Plan <you@gmail.com>
 
 ---
 
-## 6. Deliverability (чтобы не уходило в спам)
+## 7. Deliverability (чтобы не уходило в спам)
 
 - `DEFAULT_FROM_EMAIL` — ящик/домен, с которого реально шлёте.
 - Для своего домена: **SPF**, **DKIM**, **DMARC** у DNS-провайдера.
@@ -118,7 +153,7 @@ DEFAULT_FROM_EMAIL=Fast Plan <you@gmail.com>
 
 ---
 
-## 7. Диагностика
+## 8. Диагностика
 
 | Симптом | Что проверить |
 |---------|----------------|
@@ -138,7 +173,7 @@ REQUIRE_EMAIL_VERIFICATION=false
 
 ---
 
-## 8. Порядок на staging / production
+## 9. Порядок на staging / production
 
 1. Прописать `EMAIL_*` + `FRONTEND_BASE_URL` на реальный URL.  
 2. Owner → Settings → тест → inbox.  

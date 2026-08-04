@@ -41,7 +41,9 @@ def email_status_payload() -> dict:
             configured
             and not is_console
             and not is_locmem
+            and bool(user)
             and bool(getattr(settings, "DEFAULT_FROM_EMAIL", ""))
+            and host.lower() not in ("localhost", "127.0.0.1", "")
         ),
     }
 

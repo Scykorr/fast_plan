@@ -12,6 +12,7 @@ from process.views import (
     ProcessExportView,
     ProcessInstanceDetailView,
     ProcessInstanceListView,
+    ProcessInstanceMaterializeView,
     ProcessMetricsView,
     ProcessMiningView,
     ProcessOpsView,
@@ -21,6 +22,7 @@ from process.views import (
     ProcessPackListView,
     ProcessPublishView,
     ProcessStartView,
+    ProcessWorkNodeDetailView,
     UserTaskCompleteView,
     UserTaskBindView,
     UserTaskListView,
@@ -61,6 +63,16 @@ urlpatterns = [
         "process/instances/<int:pk>/",
         ProcessInstanceDetailView.as_view(),
         name="process-instance-detail",
+    ),
+    path(
+        "process/instances/<int:pk>/materialize-wbs/",
+        ProcessInstanceMaterializeView.as_view(),
+        name="process-instance-materialize",
+    ),
+    path(
+        "process/work-nodes/<int:pk>/",
+        ProcessWorkNodeDetailView.as_view(),
+        name="process-work-node-detail",
     ),
     path("process/tasks/", UserTaskListView.as_view(), name="process-tasks"),
     path(

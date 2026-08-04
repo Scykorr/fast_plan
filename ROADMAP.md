@@ -13,9 +13,9 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.18.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
+| **Текущая версия** | **v0.19.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | [Планы](#планы--что-делаем-дальше) — S1–S4 + **эпик Process-as-WBS** + методологический бэклог |
+| **Следующий слой** | S3 Integrations (sample); углубление Process-as-WBS; CRM health |
 | **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
 
 ---
@@ -100,7 +100,7 @@
 3. ~~**BPMN SubProcess**~~ — **✓** child ProcessInstance mirror
 4. ~~**SMTP tooling + guest payment**~~ — **✓**
 5. ~~**Schedule + Process maturity**~~ — **✓** leveling propose, Inclusive GW, SubProcess children UI
-6. **SMTP credentials on staging** — реальный `EMAIL_*` ([`docs/SMTP.md`](docs/SMTP.md)) → test-send → `REQUIRE_EMAIL_VERIFICATION=true` _(ops, не код)_
+6. ~~**SMTP credentials on staging**~~ — **✓ код + локальный SMTP**; staging/prod: test-send → `REQUIRE_EMAIL_VERIFICATION=true` ([`docs/SMTP.md`](docs/SMTP.md))
 7. **MS Project XML** — только после sample `.xml` / `.mpp`
 8. Ops: staging migrate backlog; раз в квартал `scripts/restore-drill.sh`
 
@@ -108,13 +108,13 @@
 
 | # | Спринт | Scope | Size | Зависимости |
 |---|--------|-------|------|-------------|
-| **S1** | **Schedule intelligence** | PERT **Monte Carlo**; leveling **apply-all** + undo; Capacity page propose | **L** | **✓ код** |
-| **S2** | **Process ops maturity** | Миграция running instances при publish; SubProcess **bpmn-js collapse**; Inclusive properties tip | **L** | **✓ код** |
+| **S1** | **Schedule intelligence** | PERT Monte Carlo; leveling apply-all/undo; Capacity propose | **L** | **✓** |
+| **S2** | **Process ops maturity** | migrate on publish; SubProcess collapse; Inclusive tip | **L** | **✓** |
 | **S3** | **Integrations unlock** | MS Project XML + 1С OData | **L** | sample / стенд |
-| **S4** | **Trust & mail go-live** | SMTP ([`docs/SMTP.md`](docs/SMTP.md)) + verification on | **M** | **код go-live ✓**; credentials + flip verification — ops |
-| **S5** | **Process-as-WBS — foundation** | см. [эпик ниже](#эпик-process-as-wbs-процесс-как-дерево-работ) фаза A–B | **L** | UserTask↔WBS ✓ |
-| **S6** | **Process-as-WBS — full PM surface** | фаза C–D (Gantt/Kanban/capacity/RACI на process tree) | **L** | S5 |
-| **S7** | **Methodology packs + CRM depth** | PRINCE2/Agile lite packs; CRM opportunity scoring / playbooks | **L** | S5 желателен |
+| **S4** | **Trust & mail go-live** | SMTP + verification | **M** | **✓ код**; credentials на staging/prod |
+| **S5** | **Process-as-WBS — foundation** | materialize + tree UI | **L** | **✓ lite** |
+| **S6** | **Process-as-WBS — PM surface** | dates/RACI/Gantt-lite (+ Kanban/time later) | **L** | **✓ lite**; deepen |
+| **S7** | **Methodology + CRM depth** | PRINCE2/Scrum packs; BANT/playbook | **L** | **✓ lite** |
 
 Параллельно: **S4** (ops). После S5–S6 продукт закрывает разрыв «процесс рисуем в BPMN, работаем как в WBS».
 

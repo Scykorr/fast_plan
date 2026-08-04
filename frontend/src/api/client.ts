@@ -263,7 +263,12 @@ export const api = {
     first_name?: string;
     last_name?: string;
   }) =>
-    request<User>("/auth/register/", {
+    request<
+      User & {
+        email_verification_required?: boolean;
+        email_sent?: boolean;
+      }
+    >("/auth/register/", {
       method: "POST",
       body: JSON.stringify(body),
     }),

@@ -51,7 +51,7 @@ def viewer_client(viewer_user):
 
 @pytest.mark.django_db
 def test_list_workspaces_and_activate(authenticated_client, user, workspace, other_user):
-    invitation = create_workspace_invitation(
+    invitation, _email_sent = create_workspace_invitation(
         workspace, other_user.email, WorkspaceMember.Role.EDITOR, user
     )
     other_client = APIClient()
@@ -139,7 +139,7 @@ def test_editor_cannot_create_tracker(editor_client):
 
 @pytest.mark.django_db
 def test_accept_invitation_sets_active_workspace(user, workspace, other_user):
-    invitation = create_workspace_invitation(
+    invitation, _email_sent = create_workspace_invitation(
         workspace, other_user.email, WorkspaceMember.Role.VIEWER, user
     )
     client = APIClient()

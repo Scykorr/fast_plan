@@ -63,6 +63,8 @@ def test_registration_requires_email_verification(api_client, settings, mailoutb
     )
     assert registration.status_code == status.HTTP_201_CREATED
     assert registration.data["is_email_verified"] is False
+    assert registration.data["email_verification_required"] is True
+    assert registration.data["email_sent"] is True
     assert len(mailoutbox) == 1
     assert "/verify-email?uid=" in mailoutbox[0].body
 

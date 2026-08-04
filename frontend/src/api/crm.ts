@@ -448,6 +448,14 @@ export type CrmDeal = {
   notes: string;
   is_open: boolean;
   open_tasks_count?: number;
+  bant_budget?: boolean;
+  bant_authority?: boolean;
+  bant_need?: boolean;
+  bant_timeline?: boolean;
+  qualification_notes?: string;
+  qualification_score?: number;
+  playbook_done?: string[];
+  stage_playbook?: string[];
   created_at: string;
   updated_at: string;
 };

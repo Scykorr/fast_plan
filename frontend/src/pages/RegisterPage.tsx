@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { ApiError } from "../api/client";
+import { parseApiError } from "../api/errors";
 import { useAuth } from "../context/AuthContext";
 
 export function RegisterPage() {
@@ -16,6 +16,8 @@ export function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [registered, setRegistered] = useState(false);
+  const [emailSent, setEmailSent] = useState<boolean | null>(null);
+  const [verifyRequired, setVerifyRequired] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -23,34 +25,40 @@ export function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      await register({
+      const result = await register({
         email,
         username,
         password,
         first_name: firstName,
         last_name: lastName,
       });
+      setVerifyRequired(Boolean(result.email_verification_required));
+      setEmailSent(
+        result.email_verification_required ? Boolean(result.email_sent) : null,
+      );
       setRegistered(true);
     } catch (err) {
-      if (err instanceof ApiError && err.data.email) {
-        setError("Пользователь с таким email уже существует");
-      } else {
-        setError("Не удалось зарегистрироваться. Проверьте данные.");
-      }
+      setError(
+        parseApiError(err, "Не удалось зарегистрироваться. Проверьте данные."),
+      );
     } finally {
       setLoading(false);
     }
   };
 
   if (registered) {
+    let statusText =
+      "Аккаунт создан. Можно сразу войти — подтверждение email сейчас не требуется.";
+    if (verifyRequired && emailSent) {
+      statusText = `Письмо со ссылкой подтверждения отправлено на ${email}. Проверьте Входящие и Спам.`;
+    } else if (verifyRequired && emailSent === false) {
+      statusText = `Аккаунт создан, но письмо на ${email} не удалось отправить (SMTP). На экране входа нажмите «Отправить письмо ещё раз» или попросите администратора проверить почту.`;
+    }
     return (
       <div className="flex min-h-screen items-center justify-center auth-hero px-4">
         <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-sm">
           <h1 className="text-2xl font-bold text-text">Аккаунт создан</h1>
-          <p className="mt-3 text-sm text-text-muted">
-            Можно сразу войти с адресом <strong>{email}</strong>.
-            Подтверждение email по почте временно отключено (до настройки SMTP).
-          </p>
+          <p className="mt-3 text-sm text-text-muted">{statusText}</p>
           <div className="mt-6 flex justify-center gap-3">
             <Link
               to={loginHref}
@@ -122,10 +130,16 @@ export function RegisterPage() {
               id="username"
               type="text"
               required
+              pattern="[\w.@+-]+"
+              title="Буквы, цифры и символы @ . + - _ без пробелов"
+              placeholder="tony_fedos"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-border bg-cream px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
+            <p className="mt-1 text-xs text-text-muted">
+              Без пробелов: буквы, цифры, @ . + - _
+            </p>
           </div>
 
           <div>

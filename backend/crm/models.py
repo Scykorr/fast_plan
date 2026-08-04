@@ -497,6 +497,8 @@ class PipelineStage(models.Model):
     )
     is_won = models.BooleanField(default=False)
     is_lost = models.BooleanField(default=False)
+    # Stage playbook: list of checklist item strings for next-best-action
+    playbook_checklist = models.JSONField(blank=True, default=list)
 
     class Meta:
         ordering = ["position", "id"]
@@ -566,6 +568,14 @@ class Deal(models.Model):
     )
     position = models.PositiveIntegerField(default=0)
     notes = models.TextField(blank=True, default="")
+    # BANT qualification lite
+    bant_budget = models.BooleanField(default=False)
+    bant_authority = models.BooleanField(default=False)
+    bant_need = models.BooleanField(default=False)
+    bant_timeline = models.BooleanField(default=False)
+    qualification_notes = models.TextField(blank=True, default="")
+    # Checked playbook item ids/labels for current stage
+    playbook_done = models.JSONField(blank=True, default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -587,6 +597,16 @@ class Deal(models.Model):
     def is_open(self):
         return not self.stage.is_won and not self.stage.is_lost
 
+    @property
+    def qualification_score(self) -> int:
+        """0–100 from BANT flags (25 each)."""
+        flags = (
+            self.bant_budget,
+            self.bant_authority,
+            self.bant_need,
+            self.bant_timeline,
+        )
+        return sum(25 for f in flags if f)
 
 class DealTask(models.Model):
     class Priority(models.TextChoices):

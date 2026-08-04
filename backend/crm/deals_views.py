@@ -243,6 +243,18 @@ class DealDetailView(WorkspaceMixin, APIView):
             )
         if "owner_id" in request.data:
             deal.owner = _resolve_owner(workspace, data.get("owner_id"))
+        for flag in (
+            "bant_budget",
+            "bant_authority",
+            "bant_need",
+            "bant_timeline",
+        ):
+            if flag in data:
+                setattr(deal, flag, data[flag])
+        if "qualification_notes" in data:
+            deal.qualification_notes = data["qualification_notes"]
+        if "playbook_done" in data:
+            deal.playbook_done = list(data["playbook_done"] or [])
         deal.save()
         deal = self.get_object(deal.id)
         return Response(DealSerializer(deal).data)

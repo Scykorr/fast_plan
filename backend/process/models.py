@@ -361,3 +361,89 @@ class ProcessTimer(models.Model):
 
     class Meta:
         ordering = ["fire_at"]
+
+
+class ProcessWorkNode(models.Model):
+    """Process-as-WBS: hierarchical work view materialized from BPMN."""
+
+    class NodeType(models.TextChoices):
+        ROOT = "root", "Root"
+        SUBPROCESS = "subprocess", "SubProcess"
+        USER_TASK = "user_task", "UserTask"
+        SERVICE_TASK = "service_task", "ServiceTask"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        DONE = "done", "Done"
+        CANCELLED = "cancelled", "Cancelled"
+        NA = "na", "N/A"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="process_work_nodes",
+    )
+    instance = models.ForeignKey(
+        ProcessInstance,
+        on_delete=models.CASCADE,
+        related_name="work_nodes",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    bpmn_id = models.CharField(max_length=120)
+    code = models.CharField(max_length=64, blank=True, default="")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    node_type = models.CharField(
+        max_length=20, choices=NodeType.choices, default=NodeType.OTHER
+    )
+    position = models.PositiveIntegerField(default=0)
+    progress = models.PositiveSmallIntegerField(default=0)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.OPEN
+    )
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    duration_days = models.PositiveIntegerField(default=1)
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="process_work_nodes",
+    )
+    raci_r = models.CharField(max_length=120, blank=True, default="")
+    raci_a = models.CharField(max_length=120, blank=True, default="")
+    raci_c = models.CharField(max_length=120, blank=True, default="")
+    raci_i = models.CharField(max_length=120, blank=True, default="")
+    predecessor_bpmn_id = models.CharField(max_length=120, blank=True, default="")
+    user_task = models.ForeignKey(
+        UserTask,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="work_nodes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        indexes = [
+            models.Index(fields=["instance", "parent"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["instance", "bpmn_id"],
+                name="uniq_process_work_node_bpmn",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.code} {self.title}"

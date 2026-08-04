@@ -412,7 +412,9 @@ class WorkspaceInvitationListCreateView(WorkspaceMixin, APIView):
             raise ValidationError({"email": "Email is required."})
         if WorkspaceMember.objects.filter(workspace=workspace, user__email__iexact=email).exists():
             raise ValidationError({"email": "User is already a member."})
-        invitation = create_workspace_invitation(workspace, email, role, request.user)
+        invitation, email_sent = create_workspace_invitation(
+            workspace, email, role, request.user
+        )
         log_audit(
             workspace,
             request.user,
@@ -420,12 +422,15 @@ class WorkspaceInvitationListCreateView(WorkspaceMixin, APIView):
             "WorkspaceInvitation",
             invitation.id,
             summary=f"Invited {invitation.email} as {invitation.role}",
-            changes={"email": invitation.email, "role": invitation.role},
+            changes={
+                "email": invitation.email,
+                "role": invitation.role,
+                "email_sent": email_sent,
+            },
         )
-        return Response(
-            WorkspaceInvitationSerializer(invitation).data,
-            status=status.HTTP_201_CREATED,
-        )
+        payload = WorkspaceInvitationSerializer(invitation).data
+        payload["email_sent"] = email_sent
+        return Response(payload, status=status.HTTP_201_CREATED)
 
 
 class WorkspaceInvitationAcceptView(APIView):
@@ -486,8 +491,20 @@ class WorkspaceInvitationDetailView(WorkspaceMixin, APIView):
     def post(self, request, invitation_id):
         """Resend invitation email (also used via .../resend/ route)."""
         invitation = self.get_pending(invitation_id)
-        updated = resend_workspace_invitation(invitation)
-        return Response(WorkspaceInvitationSerializer(updated).data)
+        updated, email_sent = resend_workspace_invitation(invitation)
+        if not email_sent:
+            raise ValidationError(
+                {
+                    "detail": (
+                        "Не удалось отправить приглашение по SMTP. "
+                        "Ссылка в интерфейсе по-прежнему действительна — "
+                        "скопируйте её вручную или повторите позже."
+                    )
+                }
+            )
+        payload = WorkspaceInvitationSerializer(updated).data
+        payload["email_sent"] = True
+        return Response(payload)
 
 
 class WorkspaceMemberDetailView(WorkspaceMixin, APIView):

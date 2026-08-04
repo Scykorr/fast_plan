@@ -92,6 +92,7 @@ def send_renewal_reminders(
     created_notifications = 0
     skipped = 0
     items = []
+    notifications = []
 
     for doc in qs:
         dedupe = f"renewal:{doc.id}:{doc.renewal_date.isoformat()}"
@@ -139,8 +140,9 @@ def send_renewal_reminders(
                 notify_user = member.user
 
         notif_created = False
+        notification = None
         if notify_user and not dry_run:
-            _, notif_created = create_notification(
+            notification, notif_created = create_notification(
                 user=notify_user,
                 workspace=doc.workspace,
                 notification_type=Notification.NotificationType.DEADLINE,
@@ -151,6 +153,7 @@ def send_renewal_reminders(
             )
             if notif_created:
                 created_notifications += 1
+                notifications.append(notification)
             else:
                 skipped += 1
         elif dry_run:
@@ -180,4 +183,5 @@ def send_renewal_reminders(
         "within_days": within_days,
         "dry_run": dry_run,
         "items": items,
+        "notifications": notifications,
     }

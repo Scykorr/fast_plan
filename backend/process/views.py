@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 from django.utils import timezone
@@ -27,12 +28,14 @@ from process.cases import (
     is_item_available,
     required_incomplete,
 )
+from process.materialize import build_work_tree
 from process.models import (
     CaseDefinition,
     CaseInstance,
     DecisionDefinition,
     ProcessDefinition,
     ProcessInstance,
+    ProcessWorkNode,
     UserTask,
 )
 from process.serializers import (
@@ -188,6 +191,82 @@ class ProcessInstanceDetailView(WorkspaceMixin, APIView):
                 "user_tasks": UserTaskSerializer(tasks, many=True).data,
                 "bpmn_xml": obj.deployment.bpmn_xml,
                 "active_element_ids": active_bpmn_element_ids(obj),
+                "work_tree": build_work_tree(obj)
+                if ProcessWorkNode.objects.filter(instance=obj).exists()
+                else [],
+            }
+        )
+
+
+class ProcessInstanceMaterializeView(WorkspaceMixin, APIView):
+    """Materialize BPMN → ProcessWorkNode tree (Process-as-WBS)."""
+
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, pk):
+        from process.materialize import materialize_work_tree
+
+        obj = ProcessInstance.objects.filter(
+            workspace=self.get_workspace(), pk=pk
+        ).select_related("deployment__definition").first()
+        if obj is None:
+            raise NotFound()
+        replace = bool(request.data.get("replace"))
+        result = materialize_work_tree(obj, replace=replace)
+        return Response(result)
+
+
+class ProcessWorkNodeDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def patch(self, request, pk):
+        node = (
+            ProcessWorkNode.objects.filter(workspace=self.get_workspace(), pk=pk)
+            .select_related("assignee", "user_task")
+            .first()
+        )
+        if node is None:
+            raise NotFound()
+        for field in (
+            "title",
+            "description",
+            "raci_r",
+            "raci_a",
+            "raci_c",
+            "raci_i",
+        ):
+            if field in request.data:
+                setattr(node, field, str(request.data.get(field) or "")[:255 if field == "title" else 10000])
+        if "progress" in request.data:
+            try:
+                node.progress = max(0, min(100, int(request.data["progress"])))
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"progress": "Invalid"}) from exc
+        if "status" in request.data:
+            status_val = str(request.data["status"])
+            if status_val in ProcessWorkNode.Status.values:
+                node.status = status_val
+        if "duration_days" in request.data:
+            try:
+                node.duration_days = max(1, int(request.data["duration_days"]))
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"duration_days": "Invalid"}) from exc
+        if "start_date" in request.data:
+            raw = request.data.get("start_date")
+            node.start_date = date.fromisoformat(str(raw)[:10]) if raw else None
+        if "end_date" in request.data:
+            raw = request.data.get("end_date")
+            node.end_date = date.fromisoformat(str(raw)[:10]) if raw else None
+        if "assignee_id" in request.data:
+            aid = request.data.get("assignee_id")
+            node.assignee_id = int(aid) if aid not in (None, "") else None
+        node.save()
+        from process.materialize import build_work_tree
+
+        return Response(
+            {
+                "node_id": node.id,
+                "tree": build_work_tree(node.instance),
             }
         )
 
@@ -233,6 +312,9 @@ class UserTaskCompleteView(WorkspaceMixin, APIView):
         except ValueError as exc:
             raise ValidationError({"detail": str(exc)}) from exc
         task.refresh_from_db()
+        from process.materialize import sync_work_nodes_with_tasks
+
+        sync_work_nodes_with_tasks(instance)
         return Response(
             {
                 "task": UserTaskSerializer(task).data,
