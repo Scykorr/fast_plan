@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.22.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
+| **Текущая версия** | **v0.23.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
 | **Следующий слой** | Ops SMTP verification; S3 Integrations **в перспективе** |
 | **В перспективе** | S3 Integrations (MS Project XML + 1С OData) — без sample в ближайшее время |
@@ -29,6 +29,7 @@
 | Область | Что есть | Где |
 |---------|----------|-----|
 | Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter | `/projects/:id` |
+| Методологии | **Waterfall/predictive** (фазы+гейты+freeze), Scrum tab, hybrid | вкладки Waterfall / Scrum |
 | Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints + **leveling propose** | `/kanban`, `/tasks`, `/capacity`, Gantt |
 | Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM, baselines, **change requests**, burndown | вкладки проекта |
 | Портфель | сводка SPI/CPI/FX + **cross-project deps** (activity picker) | `/portfolio` |
@@ -137,6 +138,7 @@
 | **Lean / Value Stream** | Линейная/иерархическая раскладка шагов для lead time, WIP, bottlenecks (поверх mining lite) |
 | **ITIL / ISO 9001 packs** | Уже есть BPMN-пакеты — дерево работ делает их «исполняемыми как проект» без ручного bind |
 | **Agile / Scrum** | Не замена бэклога; опциональный mapping UserTask → WP → Kanban column (уже частично есть) |
+| **Waterfall / predictive** | Фазы и гейты живут в `projects` (не отдельное app); pack `waterfall_phase_gate` — опциональный BPMN-обзор гейта |
 
 #### Что **не** делаем в эпике
 
@@ -185,7 +187,7 @@
 | ~~**P2**~~ | ~~**Issue / action log** отдельно от Risk (проблемы + due + owner)~~ | **M** | **✓** PRINCE2 Issue Register (`ProjectIssue`) |
 | ~~**P2**~~ | ~~**Lessons learned** на закрытии проекта (шаблон + export)~~ | **S–M** | **✓** `ProjectLessonsLearned` |
 | **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | Современный EVM |
-| **P3** | **Stage / phase gates** на проекте (чеклист go/no-go) | **M** | PRINCE2 stages |
+| ~~**P3**~~ | ~~**Stage / phase gates** на проекте (чеклист go/no-go)~~ | **M** | **✓** Waterfall `PhaseGate` + predictive methodology ([`docs/adr-waterfall-methodology.md`](docs/adr-waterfall-methodology.md)) |
 | **P3** | **Quality checklist** на WP (pass/fail + evidence link) | **M** | Quality mgmt |
 | **P3** | **Benefit / outcome** поля на deliverable + tracking | **M** | Benefits realization |
 
@@ -203,7 +205,7 @@
 | ~~**P2**~~ | ~~**Process RACI** на definition (роль → lane/candidate)~~ | **M** | **✓** `ProcessDefinitionLaneRole` |
 | **P3** | **Value-stream metrics** (cycle/lead time per element) поверх mining | **M** | Lean |
 | **P3** | **Compensation / error boundary** lite в catalog + docs | **L** | BPMN advanced |
-| **P3** | Pack: **PRINCE2 stage** + **Scrum ceremony** (не сертификация) | **M** | Methodology packs |
+| ~~**P3**~~ | ~~Pack: **PRINCE2 stage** + **Scrum ceremony** + **Waterfall phase gate**~~ | **M** | **✓** packs в `process/packs/` |
 
 #### CRM
 

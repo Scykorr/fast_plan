@@ -19,6 +19,8 @@ import type { Attachment } from "../../api/attachments";
 import type { ProcessWorkNode } from "../../api/process";
 import type { WorkItemComment } from "../../api/projects";
 import type { TimeEntry } from "../../api/timelog";
+import type { WorkspaceMember } from "../../api/workspace";
+import { AssigneeSelect } from "../AssigneeSelect";
 import { useAttachmentsApi } from "../../hooks/useAttachmentsApi";
 import { useProcessApi } from "../../hooks/useProcessApi";
 import { useProjectsApi } from "../../hooks/useProjectsApi";
@@ -30,6 +32,7 @@ type FlatNode = ProcessWorkNode & { depth: number; parent_id: number | null };
 
 type Props = {
   tree: ProcessWorkNode[];
+  members?: WorkspaceMember[];
   onSelectBpmn?: (bpmnId: string) => void;
   onPatch?: (
     nodeId: number,
@@ -164,6 +167,7 @@ function SortableRow({
 
 export function ProcessWorkTree({
   tree,
+  members = [],
   onSelectBpmn,
   onPatch,
   onReload,
@@ -178,6 +182,7 @@ export function ProcessWorkTree({
   );
 
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [assigneeDraft, setAssigneeDraft] = useState<number | null>(null);
   const [raciDraft, setRaciDraft] = useState({ r: "", a: "", c: "", i: "" });
   const [datesDraft, setDatesDraft] = useState({
     start: "",
@@ -302,6 +307,7 @@ export function ProcessWorkTree({
                       onPatch
                         ? () => {
                             setEditingId(node.id);
+                            setAssigneeDraft(node.assignee_id);
                             setRaciDraft({
                               r: node.raci_r,
                               a: node.raci_a,
@@ -333,6 +339,13 @@ export function ProcessWorkTree({
           </p>
           {panelError && <p className="text-danger">{panelError}</p>}
           <div className="flex flex-wrap gap-2">
+            <AssigneeSelect
+              members={members}
+              value={assigneeDraft}
+              onChange={setAssigneeDraft}
+              className="rounded border border-border bg-surface px-2 py-1"
+              emptyLabel="Исполнитель"
+            />
             <input
               type="date"
               value={datesDraft.start}
@@ -378,6 +391,7 @@ export function ProcessWorkTree({
               onClick={() =>
                 void (async () => {
                   await onPatch(editingId, {
+                    assignee_id: assigneeDraft,
                     start_date: datesDraft.start || null,
                     end_date: datesDraft.end || null,
                     duration_days: Number(datesDraft.duration) || 1,

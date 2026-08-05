@@ -5,6 +5,8 @@ import { parseApiError } from "../../api/errors";
 import type { CustomField, CustomValue, IssueStatus, Tracker } from "../../api/tracking";
 import type { Project, WBSNode } from "../../api/projects";
 import type { TimeEntry } from "../../api/timelog";
+import type { WorkspaceMember } from "../../api/workspace";
+import { AssigneeSelect } from "../AssigneeSelect";
 import { useAttachmentsApi } from "../../hooks/useAttachmentsApi";
 import { useTimeLogApi } from "../../hooks/useTimeLogApi";
 import { CustomFieldInput } from "./CustomFieldInput";
@@ -277,6 +279,7 @@ type WorkItemDetailPanelProps = {
     statuses: IssueStatus[];
     custom_fields: CustomField[];
   };
+  members?: WorkspaceMember[];
   onClose: () => void;
   onSaveProject: (body: {
     name?: string;
@@ -317,6 +320,7 @@ export function WorkItemDetailPanel({
   project,
   node,
   metadata,
+  members = [],
   onClose,
   onSaveProject,
   onSaveNode,
@@ -477,17 +481,12 @@ export function WorkItemDetailPanel({
                   className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2"
                 />
               </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">ID исполнителя</span>
-                <input
-                  type="number"
-                  value={assigneeId}
-                  onChange={(event) =>
-                    setAssigneeId(event.target.value ? Number(event.target.value) : "")
-                  }
-                  className="mt-1 w-full rounded-lg border border-border px-3 py-2"
-                />
-              </label>
+              <AssigneeSelect
+                label="Исполнитель"
+                members={members}
+                value={assigneeId === "" ? null : assigneeId}
+                onChange={(userId) => setAssigneeId(userId ?? "")}
+              />
               {node?.schedule && (
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>

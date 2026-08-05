@@ -14,6 +14,8 @@ from projects.exports import (
     render_wbs_xlsx,
 )
 from projects.models import (
+    PhaseGate,
+    Project,
     ProjectBaseline,
     ProjectChangeRequest,
     ProjectCharter,
@@ -22,10 +24,12 @@ from projects.models import (
     RACIEntry,
     Risk,
     Stakeholder,
+    WBSNode,
 )
 from projects.pdf import render_lessons_learned_pdf, render_status_report_pdf
 from projects.reports import build_status_report
 from projects.serializers_pmbok import (
+    PhaseGateSerializer,
     ProjectBaselineSerializer,
     ProjectChangeRequestSerializer,
     ProjectCharterSerializer,
@@ -601,3 +605,204 @@ class ProjectMilestonesIcsView(WorkspaceMixin, APIView):
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         return project_milestones_ics(project)
+
+
+class ProjectWaterfallPhasesView(WorkspaceMixin, APIView):
+    """List Waterfall L1 phases + gate history; POST seeds SDLC tree."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, project_id):
+        from projects.waterfall import (
+            default_gate_checklist,
+            list_project_phases,
+            serialize_phase,
+        )
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        phases = list_project_phases(project)
+        gates = (
+            PhaseGate.objects.filter(project=project)
+            .select_related("wbs_phase_node", "decided_by", "baseline")
+            .order_by("-decided_at", "-id")
+        )
+        return Response(
+            {
+                "methodology": project.methodology,
+                "schedule_locked": project.schedule_locked,
+                "default_checklist": default_gate_checklist(),
+                "phases": [serialize_phase(p) for p in phases],
+                "gates": PhaseGateSerializer(gates, many=True).data,
+            }
+        )
+
+    def post(self, request, project_id):
+        from projects.services import build_wbs_tree
+        from projects.waterfall import seed_waterfall_wbs
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        replace = bool(request.data.get("replace"))
+        seed_waterfall_wbs(project, replace=replace)
+        if request.data.get("set_methodology") is True:
+            project.methodology = Project.Methodology.PREDICTIVE
+            project.save(update_fields=["methodology", "updated_at"])
+        nodes = (
+            project.wbs_nodes.select_related(
+                "schedule", "card", "tracker", "workflow_status", "assignee"
+            )
+            .order_by("position", "id")
+        )
+        log_audit(
+            project.workspace,
+            request.user,
+            "waterfall.seed",
+            "Project",
+            project.id,
+            summary="Seeded Waterfall SDLC phases",
+        )
+        return Response(
+            {
+                "project": {
+                    "id": project.id,
+                    "methodology": project.methodology,
+                    "schedule_locked": project.schedule_locked,
+                },
+                "wbs": build_wbs_tree(list(nodes)),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProjectPhaseGateDecideView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, project_id):
+        from projects.waterfall import decide_phase_gate
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        phase_id = request.data.get("wbs_phase_node_id")
+        if not phase_id:
+            raise ValidationError({"wbs_phase_node_id": "Required."})
+        phase = get_object_or_404(
+            WBSNode.objects.filter(project=project, phase_order__isnull=False),
+            pk=phase_id,
+        )
+        create_bl = request.data.get("create_baseline", True)
+        lock = request.data.get("lock_schedule", True)
+        gate = decide_phase_gate(
+            project,
+            phase,
+            decision=request.data.get("decision"),
+            user=request.user,
+            comment=str(request.data.get("comment") or ""),
+            checklist=request.data.get("checklist"),
+            create_baseline_on_pass=bool(create_bl),
+            lock_schedule_on_pass=bool(lock),
+        )
+        process_instance_id = request.data.get("process_instance_id")
+        if process_instance_id is not None:
+            from process.models import ProcessInstance
+
+            instance = ProcessInstance.objects.filter(
+                pk=process_instance_id,
+                workspace=project.workspace,
+            ).first()
+            if instance is None:
+                raise ValidationError({"process_instance_id": "Not found."})
+            gate.process_instance = instance
+            gate.save(update_fields=["process_instance"])
+        log_audit(
+            project.workspace,
+            request.user,
+            f"phase_gate.{gate.decision}",
+            "PhaseGate",
+            gate.id,
+            summary=f"Phase gate {gate.decision}: {phase.title}",
+        )
+        project.refresh_from_db()
+        return Response(
+            {
+                "gate": PhaseGateSerializer(gate).data,
+                "schedule_locked": project.schedule_locked,
+                "phase": {
+                    "id": phase.id,
+                    "gate_status": phase.gate_status,
+                    "phase_key": phase.phase_key,
+                },
+            }
+        )
+
+
+class ProjectWaterfallPhaseListCreateView(WorkspaceMixin, APIView):
+    """POST adds a custom Waterfall phase (append or after another phase)."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, project_id):
+        from projects.waterfall import add_waterfall_phase, serialize_phase
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        after = request.data.get("after_phase_id")
+        phase = add_waterfall_phase(
+            project,
+            title=str(request.data.get("title") or ""),
+            duration_days=int(request.data.get("duration_days") or 10),
+            after_phase_id=int(after) if after not in (None, "") else None,
+            phase_key=request.data.get("phase_key"),
+        )
+        log_audit(
+            project.workspace,
+            request.user,
+            "waterfall.phase_add",
+            "WBSNode",
+            phase.id,
+            summary=f"Added Waterfall phase {phase.title}",
+        )
+        return Response(serialize_phase(phase), status=status.HTTP_201_CREATED)
+
+
+class ProjectWaterfallPhaseDetailView(WorkspaceMixin, APIView):
+    """PATCH rename / DELETE remove a Waterfall phase."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get_phase(self, project, phase_id):
+        return get_object_or_404(
+            WBSNode.objects.filter(project=project, phase_order__isnull=False),
+            pk=phase_id,
+        )
+
+    def patch(self, request, project_id, phase_id):
+        from projects.waterfall import rename_waterfall_phase, serialize_phase
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        phase = self.get_phase(project, phase_id)
+        phase = rename_waterfall_phase(
+            project, phase, title=str(request.data.get("title") or "")
+        )
+        log_audit(
+            project.workspace,
+            request.user,
+            "waterfall.phase_rename",
+            "WBSNode",
+            phase.id,
+            summary=f"Renamed Waterfall phase to {phase.title}",
+        )
+        return Response(serialize_phase(phase))
+
+    def delete(self, request, project_id, phase_id):
+        from projects.waterfall import delete_waterfall_phase
+
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        phase = self.get_phase(project, phase_id)
+        title = phase.title
+        delete_waterfall_phase(project, phase)
+        log_audit(
+            project.workspace,
+            request.user,
+            "waterfall.phase_delete",
+            "WBSNode",
+            phase_id,
+            summary=f"Deleted Waterfall phase {title}",
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)

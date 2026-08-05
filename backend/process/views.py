@@ -401,6 +401,34 @@ class UserTaskListView(WorkspaceMixin, APIView):
         return Response(UserTaskSerializer(qs[:100], many=True).data)
 
 
+class UserTaskAssignView(WorkspaceMixin, APIView):
+    """Reassign an open UserTask to a workspace member."""
+
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def patch(self, request, pk):
+        task = UserTask.objects.filter(workspace=self.get_workspace(), pk=pk).first()
+        if task is None:
+            raise NotFound()
+        if "assignee_id" not in request.data:
+            raise ValidationError({"assignee_id": "Required."})
+        aid = request.data.get("assignee_id")
+        if aid in (None, ""):
+            task.assignee = None
+        else:
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
+            try:
+                task.assignee = User.objects.get(pk=int(aid))
+            except (User.DoesNotExist, TypeError, ValueError) as exc:
+                raise ValidationError({"assignee_id": "User not found."}) from exc
+        task.save(update_fields=["assignee"])
+        # Keep ProcessWorkNode in sync when linked
+        ProcessWorkNode.objects.filter(user_task=task).update(assignee=task.assignee)
+        return Response(UserTaskSerializer(task).data)
+
+
 class UserTaskCompleteView(WorkspaceMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 

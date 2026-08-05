@@ -30,6 +30,10 @@ from projects.pmbok_views import (
     ProjectLessonsLearnedExportView,
     ProjectLessonsLearnedView,
     ProjectMilestonesIcsView,
+    ProjectWaterfallPhasesView,
+    ProjectWaterfallPhaseListCreateView,
+    ProjectWaterfallPhaseDetailView,
+    ProjectPhaseGateDecideView,
     RACIDetailView,
     RACIListCreateView,
     RiskDetailView,
@@ -240,6 +244,26 @@ urlpatterns = [
         "projects/<int:project_id>/change-requests/",
         ChangeRequestListCreateView.as_view(),
         name="project-change-requests",
+    ),
+    path(
+        "projects/<int:project_id>/waterfall/",
+        ProjectWaterfallPhasesView.as_view(),
+        name="project-waterfall",
+    ),
+    path(
+        "projects/<int:project_id>/waterfall/gates/",
+        ProjectPhaseGateDecideView.as_view(),
+        name="project-waterfall-gates",
+    ),
+    path(
+        "projects/<int:project_id>/waterfall/phases/",
+        ProjectWaterfallPhaseListCreateView.as_view(),
+        name="project-waterfall-phases",
+    ),
+    path(
+        "projects/<int:project_id>/waterfall/phases/<int:phase_id>/",
+        ProjectWaterfallPhaseDetailView.as_view(),
+        name="project-waterfall-phase-detail",
     ),
     path(
         "change-requests/<int:cr_id>/",

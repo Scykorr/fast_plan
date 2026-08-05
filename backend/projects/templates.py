@@ -25,6 +25,9 @@ def capture_project_template(project, *, name, description, created_by):
                 "description": node.description,
                 "node_type": node.node_type,
                 "position": node.position,
+                "phase_key": node.phase_key,
+                "phase_order": node.phase_order,
+                "gate_status": node.gate_status,
                 "tracker": node.tracker.name if node.tracker else None,
                 "workflow_status": (
                     node.workflow_status.name if node.workflow_status else None
@@ -101,6 +104,9 @@ def apply_project_template(project, template):
             description=item.get("description", ""),
             node_type=item.get("node_type", WBSNode.NodeType.WORK_PACKAGE),
             position=item.get("position", 0),
+            phase_key=item.get("phase_key") or None,
+            phase_order=item.get("phase_order"),
+            gate_status=item.get("gate_status") or None,
             tracker=tracker,
             workflow_status=workflow_status,
         )

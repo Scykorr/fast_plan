@@ -11,6 +11,11 @@ class Project(models.Model):
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
 
+    class Methodology(models.TextChoices):
+        PREDICTIVE = "predictive", "Predictive (Waterfall)"
+        SCRUM = "scrum", "Scrum"
+        HYBRID = "hybrid", "Hybrid"
+
     workspace = models.ForeignKey(
         "workspaces.Workspace",
         on_delete=models.CASCADE,
@@ -22,6 +27,15 @@ class Project(models.Model):
         max_length=20,
         choices=Status.choices,
         default=Status.PLANNING,
+    )
+    methodology = models.CharField(
+        max_length=20,
+        choices=Methodology.choices,
+        default=Methodology.PREDICTIVE,
+    )
+    schedule_locked = models.BooleanField(
+        default=False,
+        help_text="When True, scope/schedule edits require an approved change request.",
     )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
@@ -97,6 +111,20 @@ class WBSNode(models.Model):
         WORK_PACKAGE = "work_package", "Work Package"
         MILESTONE = "milestone", "Milestone"
 
+    class PhaseKey(models.TextChoices):
+        REQUIREMENTS = "requirements", "Requirements"
+        DESIGN = "design", "Design"
+        IMPLEMENTATION = "implementation", "Implementation"
+        VERIFICATION = "verification", "Verification"
+        MAINTENANCE = "maintenance", "Maintenance"
+
+    class GateStatus(models.TextChoices):
+        LOCKED = "locked", "Locked"
+        OPEN = "open", "Open"
+        IN_REVIEW = "in_review", "In Review"
+        PASSED = "passed", "Passed"
+        FAILED = "failed", "Failed"
+
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -118,6 +146,20 @@ class WBSNode(models.Model):
         default=NodeType.DELIVERABLE,
     )
     position = models.PositiveIntegerField(default=0)
+    phase_key = models.CharField(
+        max_length=32,
+        choices=PhaseKey.choices,
+        null=True,
+        blank=True,
+        help_text="Set on L1 Waterfall phase deliverables.",
+    )
+    phase_order = models.PositiveSmallIntegerField(null=True, blank=True)
+    gate_status = models.CharField(
+        max_length=20,
+        choices=GateStatus.choices,
+        null=True,
+        blank=True,
+    )
     tracker = models.ForeignKey(
         "tracking.Tracker",
         on_delete=models.SET_NULL,
@@ -144,6 +186,9 @@ class WBSNode(models.Model):
     class Meta:
         ordering = ["position", "id"]
         unique_together = [("project", "code")]
+        indexes = [
+            models.Index(fields=["project", "phase_key"]),
+        ]
 
     def __str__(self):
         return f"{self.code} {self.title}"
@@ -531,6 +576,56 @@ class ProjectChangeRequest(models.Model):
 
     def __str__(self):
         return f"CR-{self.id}: {self.title}"
+
+
+class PhaseGate(models.Model):
+    """Formal Waterfall / predictive phase go/no-go decision."""
+
+    class Decision(models.TextChoices):
+        PASS = "pass", "Pass"
+        FAIL = "fail", "Fail"
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="phase_gates",
+    )
+    wbs_phase_node = models.ForeignKey(
+        WBSNode,
+        on_delete=models.CASCADE,
+        related_name="phase_gates",
+    )
+    checklist = models.JSONField(default=list, blank=True)
+    decision = models.CharField(max_length=10, choices=Decision.choices)
+    comment = models.TextField(blank=True, default="")
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decided_phase_gates",
+    )
+    decided_at = models.DateTimeField(auto_now_add=True)
+    baseline = models.ForeignKey(
+        ProjectBaseline,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="phase_gates",
+    )
+    process_instance = models.ForeignKey(
+        "process.ProcessInstance",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="phase_gates",
+    )
+
+    class Meta:
+        ordering = ["-decided_at", "-id"]
+
+    def __str__(self):
+        return f"Gate {self.wbs_phase_node_id}: {self.decision}"
 
 
 class BaselineActivity(models.Model):

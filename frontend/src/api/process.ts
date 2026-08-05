@@ -370,6 +370,11 @@ export function createProcessApi() {
         method: "PATCH",
         body: JSON.stringify({ wbs_node_id: wbsNodeId }),
       }),
+    assignTask: (id: number, assigneeId: number | null) =>
+      request<ProcessUserTask>(`/process/tasks/${id}/assign/`, {
+        method: "PATCH",
+        body: JSON.stringify({ assignee_id: assigneeId }),
+      }),
     listPacks: () => request<ProcessPack[]>("/process/packs/", {}),
     importPack: (packId: string) =>
       request<{ created: boolean; definition: ProcessDefinition }>(

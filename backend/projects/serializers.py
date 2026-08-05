@@ -31,6 +31,8 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "status",
+            "methodology",
+            "schedule_locked",
             "start_date",
             "end_date",
             "budget",
@@ -56,6 +58,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "board_id",
             "custom_values",
             "client_organization_name",
+            "schedule_locked",
         )
 
     def get_wbs_count(self, obj):
@@ -77,6 +80,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
 
 class ProjectWriteSerializer(serializers.ModelSerializer):
     template_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+    seed_waterfall = serializers.BooleanField(required=False, default=False, write_only=True)
     tracker_id = serializers.IntegerField(required=False, allow_null=True)
     workflow_status_id = serializers.IntegerField(required=False, allow_null=True)
     client_organization_id = serializers.IntegerField(required=False, allow_null=True)
@@ -91,6 +95,7 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "status",
+            "methodology",
             "start_date",
             "end_date",
             "budget",
@@ -99,12 +104,14 @@ class ProjectWriteSerializer(serializers.ModelSerializer):
             "workflow_status_id",
             "custom_values",
             "template_id",
+            "seed_waterfall",
             "ai_prompts",
             "client_organization_id",
         )
 
     def update(self, instance, validated_data):
         validated_data.pop("template_id", None)
+        validated_data.pop("seed_waterfall", None)
         custom_values = validated_data.pop("custom_values", None)
         ai_prompts = validated_data.pop("ai_prompts", None)
         tracker_id = validated_data.pop("tracker_id", None)

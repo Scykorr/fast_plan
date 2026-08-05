@@ -23,6 +23,8 @@ import { GlossaryText } from "../components/TermHint";
 import type { ProcessWorkNode } from "../api/process";
 import { useProcessApi } from "../hooks/useProcessApi";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
+import type { WorkspaceMember } from "../api/workspace";
 
 const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -94,8 +96,10 @@ function isProcessesTab(value: string | null): value is ProcessesTab {
 
 export function ProcessesPage() {
   const api = useProcessApi();
+  const workspaceApi = useWorkspaceApi();
   const { workspaceEpoch } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [definitions, setDefinitions] = useState<ProcessDefinition[]>([]);
   const [instances, setInstances] = useState<ProcessInstance[]>([]);
   const [packs, setPacks] = useState<ProcessPack[]>([]);
@@ -178,6 +182,11 @@ export function ProcessesPage() {
   useEffect(() => {
     void load();
   }, [load, workspaceEpoch]);
+
+  useEffect(() => {
+    if (!workspaceApi) return;
+    void workspaceApi.getMembers().then(setMembers).catch(() => undefined);
+  }, [workspaceApi, workspaceEpoch]);
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
@@ -629,6 +638,7 @@ export function ProcessesPage() {
                 </div>
                 <ProcessWorkTree
                   tree={instanceDetail.work_tree}
+                  members={members}
                   onSelectBpmn={(id) => setHighlightIds([id])}
                   onReload={
                     api

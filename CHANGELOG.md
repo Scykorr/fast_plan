@@ -15,15 +15,22 @@
 
 ## [Unreleased]
 
-### Added
-
-- **Lessons learned** — шаблон закрытия проекта (`/api/projects/<id>/lessons-learned/`, export MD/PDF) на overview
-- **Capacity leveling apply-all** — apply / undo прямо на `/capacity` (reuse project leveling APIs)
-- **Process RACI (lane → роль)** — `ProcessDefinitionLaneRole` + lanes extract; панель на `/processes` defs
-
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent polish.
+
+## [0.23.0] — 2026-08-05
+
+### Added
+
+- **Scrum module** — Product Backlog + Sprints (activate/commit/complete) + SP burndown; вкладка Scrum на проекте (`methodology=scrum|hybrid`)
+- **Waterfall / predictive methodology** — `Project.methodology` (`predictive`|`scrum`|`hybrid`), L1 phase markers on WBS, вкладка Waterfall (seed SDLC + go/no-go gates), pack `waterfall_phase_gate`
+- **Waterfall phase CRUD** — add / rename / delete фазы (`…/waterfall/phases/`); rename при lock; add/delete требуют unlock через CR
+- **Phase gates + freeze** — `PhaseGate` pass/fail; pass → baseline + `schedule_locked`; PATCH scope/дат → 409; approve Change Request → unlock
+- **Assignee UX** — общий `AssigneeSelect` (WBS detail, Process work tree, process inbox assign API)
+- **Lessons learned** — шаблон закрытия проекта (`/api/projects/<id>/lessons-learned/`, export MD/PDF) на overview
+- **Capacity leveling apply-all** — apply / undo прямо на `/capacity` (reuse project leveling APIs)
+- **Process RACI (lane → роль)** — `ProcessDefinitionLaneRole` + lanes extract; панель на `/processes` defs
 
 ## [0.22.0] — 2026-08-05
 

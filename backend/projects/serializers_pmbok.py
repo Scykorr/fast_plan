@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from projects.models import (
     BaselineActivity,
+    PhaseGate,
     ProjectBaseline,
     ProjectChangeRequest,
     ProjectCharter,
@@ -320,5 +321,40 @@ class ProjectChangeRequestSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "decided_at",
+        )
+        read_only_fields = fields
+
+
+class PhaseGateSerializer(serializers.ModelSerializer):
+    phase_title = serializers.CharField(
+        source="wbs_phase_node.title", read_only=True
+    )
+    phase_key = serializers.CharField(
+        source="wbs_phase_node.phase_key", read_only=True, allow_null=True
+    )
+    decided_by_email = serializers.EmailField(
+        source="decided_by.email", read_only=True, allow_null=True
+    )
+    baseline_name = serializers.CharField(
+        source="baseline.name", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = PhaseGate
+        fields = (
+            "id",
+            "project",
+            "wbs_phase_node",
+            "phase_title",
+            "phase_key",
+            "checklist",
+            "decision",
+            "comment",
+            "decided_by",
+            "decided_by_email",
+            "decided_at",
+            "baseline",
+            "baseline_name",
+            "process_instance",
         )
         read_only_fields = fields

@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "crm",
     "process",
     "delivery",
+    "scrum",
     "drf_spectacular",
 ]
 

@@ -27,6 +27,7 @@ from process.views import (
     ProcessPublishView,
     ProcessStartView,
     ProcessWorkNodeDetailView,
+    UserTaskAssignView,
     UserTaskCompleteView,
     UserTaskBindView,
     UserTaskListView,
@@ -105,6 +106,11 @@ urlpatterns = [
         name="process-work-node-comments",
     ),
     path("process/tasks/", UserTaskListView.as_view(), name="process-tasks"),
+    path(
+        "process/tasks/<int:pk>/assign/",
+        UserTaskAssignView.as_view(),
+        name="process-task-assign",
+    ),
     path(
         "process/tasks/<int:pk>/bind/",
         UserTaskBindView.as_view(),

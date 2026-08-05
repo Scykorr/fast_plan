@@ -48,6 +48,8 @@ import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { IssueRegister } from "../components/projects/IssueRegister";
 import { LessonsLearnedEditor } from "../components/projects/LessonsLearnedEditor";
 import { RiskRegister } from "../components/projects/RiskRegister";
+import { ScrumPanel } from "../components/projects/ScrumPanel";
+import { WaterfallPanel } from "../components/projects/WaterfallPanel";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
 import { StatusReportDigest } from "../components/projects/StatusReportDigest";
 import { WorkItemDetailPanel } from "../components/tracking/WorkItemDetailPanel";
@@ -83,6 +85,8 @@ type Tab =
   | "chat"
   | "risks"
   | "issues"
+  | "waterfall"
+  | "scrum"
   | "stakeholders"
   | "baseline"
   | "analytics";
@@ -97,6 +101,8 @@ const TABS: Tab[] = [
   "chat",
   "risks",
   "issues",
+  "waterfall",
+  "scrum",
   "stakeholders",
   "baseline",
   "analytics",
@@ -839,6 +845,11 @@ export function ProjectDetailPage() {
     return <p className="text-primary">Проект не найден</p>;
   }
 
+  const methodology = project.methodology || "predictive";
+  const showWaterfall =
+    methodology === "predictive" || methodology === "hybrid";
+  const showScrum = methodology === "scrum" || methodology === "hybrid";
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Обзор" },
     { id: "wbs", label: "WBS" },
@@ -855,6 +866,10 @@ export function ProjectDetailPage() {
           ? `Issues (${openHighPriorityIssues})`
           : "Issues",
     },
+    ...(showWaterfall
+      ? [{ id: "waterfall" as const, label: "Waterfall" }]
+      : []),
+    ...(showScrum ? [{ id: "scrum" as const, label: "Scrum" }] : []),
     { id: "stakeholders", label: "Стейкхолдеры" },
     { id: "baseline", label: "Baseline" },
     { id: "analytics", label: "CPM / EVM" },
@@ -1127,6 +1142,38 @@ export function ProjectDetailPage() {
                         <option value="cancelled">cancelled</option>
                       </select>
                     </label>
+                    <label className="flex items-center gap-2 text-sm text-text-muted">
+                      Методология
+                      <select
+                        className="rounded-lg border border-border bg-cream px-2 py-1.5 text-sm text-text"
+                        value={project.methodology || "predictive"}
+                        onChange={(event) => {
+                          if (!projectsApi) return;
+                          void projectsApi
+                            .patchProject(id, {
+                              methodology: event.target.value,
+                            })
+                            .then((updated) => setProject(updated))
+                            .catch((err) =>
+                              setError(
+                                parseApiError(
+                                  err,
+                                  "Не удалось обновить методологию",
+                                ),
+                              ),
+                            );
+                        }}
+                      >
+                        <option value="predictive">predictive (Waterfall)</option>
+                        <option value="scrum">scrum</option>
+                        <option value="hybrid">hybrid</option>
+                      </select>
+                    </label>
+                    {project.schedule_locked ? (
+                      <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-800">
+                        schedule locked — нужен Change Request
+                      </span>
+                    ) : null}
                     <button
                       type="button"
                       className="rounded-lg border border-border px-3 py-1.5 text-xs"
@@ -1329,6 +1376,7 @@ export function ProjectDetailPage() {
             project={project}
             node={detailMode === "project" ? null : selectedNode}
             metadata={trackingMetadata}
+            members={members}
             onClose={handleCloseDetail}
             onSaveProject={(body) => void handleSaveProjectDetail(body)}
             onSaveNode={(nodeId, body) => void handleSaveNodeDetail(nodeId, body)}
@@ -1547,6 +1595,30 @@ export function ProjectDetailPage() {
             setIssues(await projectsApi.getIssues(id));
           }}
         />
+      )}
+
+      {tab === "waterfall" && showWaterfall && (
+        <WaterfallPanel
+          projectId={id}
+          methodology={methodology}
+          scheduleLocked={Boolean(project.schedule_locked)}
+          onProjectMetaChange={(meta) => {
+            setProject((current) =>
+              current
+                ? {
+                    ...current,
+                    methodology: meta.methodology ?? current.methodology,
+                    schedule_locked:
+                      meta.schedule_locked ?? current.schedule_locked,
+                  }
+                : current,
+            );
+          }}
+        />
+      )}
+
+      {tab === "scrum" && showScrum && (
+        <ScrumPanel projectId={id} members={members} />
       )}
 
       {tab === "stakeholders" && (

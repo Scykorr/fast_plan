@@ -59,6 +59,10 @@ def decide_change_request(
                 user,
             )
             cr.baseline = baseline
+        # Unlock schedule so approved scope/schedule changes can be applied.
+        if cr.project.schedule_locked:
+            cr.project.schedule_locked = False
+            cr.project.save(update_fields=["schedule_locked", "updated_at"])
     elif action == "reject":
         cr.status = ProjectChangeRequest.Status.REJECTED
     else:

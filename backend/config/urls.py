@@ -30,6 +30,7 @@ urlpatterns = [
     path("api/", include("crm.urls")),
     path("api/", include("process.urls")),
     path("api/", include("delivery.urls")),
+    path("api/", include("scrum.urls")),
 ]
 
 if settings.DEBUG:

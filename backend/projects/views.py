@@ -65,6 +65,7 @@ class ProjectListCreateView(WorkspaceMixin, APIView):
         serializer = ProjectWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         template_id = serializer.validated_data.pop("template_id", None)
+        seed_waterfall = serializer.validated_data.pop("seed_waterfall", False)
         workspace = self.get_workspace()
         project = Project.objects.create(
             workspace=workspace,
@@ -78,6 +79,10 @@ class ProjectListCreateView(WorkspaceMixin, APIView):
                 workspace=workspace,
             )
             apply_project_template(project, template)
+        elif seed_waterfall:
+            from projects.waterfall import seed_waterfall_wbs
+
+            seed_waterfall_wbs(project)
         return Response(
             ProjectListSerializer(project).data,
             status=status.HTTP_201_CREATED,
@@ -227,6 +232,9 @@ class WBSTreeView(WorkspaceMixin, APIView):
 
     def post(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        from projects.waterfall import assert_phase_writable, assert_schedule_unlocked
+
+        assert_schedule_unlocked(project, fields={"structure"})
         serializer = WBSNodeWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -239,6 +247,8 @@ class WBSTreeView(WorkspaceMixin, APIView):
 
         if parent is None:
             raise ValidationError({"parent_id": "Parent WBS node is required."})
+
+        assert_phase_writable(parent)
 
         node = create_work_package(
             project,
@@ -280,6 +290,26 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
 
     def patch(self, request, wbs_id):
         node = self.get_node(wbs_id)
+        from projects.waterfall import assert_phase_writable, assert_schedule_unlocked
+
+        structure_keys = {
+            "title",
+            "description",
+            "parent_id",
+            "position",
+            "node_type",
+        }
+        if structure_keys.intersection(request.data.keys()):
+            assert_schedule_unlocked(node.project, fields=structure_keys)
+        assert_phase_writable(node)
+        if "parent_id" in request.data and request.data.get("parent_id") is not None:
+            parent = get_object_or_404(
+                self.get_wbs_queryset(),
+                pk=request.data["parent_id"],
+                project=node.project,
+            )
+            assert_phase_writable(parent)
+
         serializer = WBSNodeUpdateSerializer(node, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -311,6 +341,10 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
         node = self.get_node(wbs_id)
         if node.parent_id is None:
             raise ValidationError("Root WBS node cannot be deleted.")
+        from projects.waterfall import assert_phase_writable, assert_schedule_unlocked
+
+        assert_schedule_unlocked(node.project, fields={"structure"})
+        assert_phase_writable(node)
         log_audit(
             node.project.workspace,
             request.user,
@@ -429,6 +463,14 @@ class ScheduleActivityDetailView(WorkspaceMixin, APIView):
 
     def patch(self, request, activity_id):
         activity = get_object_or_404(self.get_activity_queryset(), pk=activity_id)
+        from projects.waterfall import assert_phase_writable, assert_schedule_unlocked
+
+        schedule_keys = {"start_date", "end_date", "duration_days"}
+        if schedule_keys.intersection(request.data.keys()):
+            assert_schedule_unlocked(
+                activity.wbs_node.project, fields=schedule_keys
+            )
+            assert_phase_writable(activity.wbs_node)
         serializer = ScheduleActivityUpdateSerializer(
             activity, data=request.data, partial=True
         )
@@ -446,6 +488,9 @@ class ActivityDependencyCreateView(WorkspaceMixin, APIView):
 
     def post(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        from projects.waterfall import assert_schedule_unlocked
+
+        assert_schedule_unlocked(project, fields={"dependency"})
         serializer = ActivityDependencyWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data

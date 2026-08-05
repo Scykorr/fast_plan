@@ -1,0 +1,61 @@
+from django.urls import path
+
+from scrum.views import (
+    ProductBacklogItemDetailView,
+    ProductBacklogListCreateView,
+    ScrumSprintActivateView,
+    ScrumSprintBacklogView,
+    ScrumSprintBurndownView,
+    ScrumSprintCommitView,
+    ScrumSprintCompleteView,
+    ScrumSprintDetailView,
+    ScrumSprintListCreateView,
+)
+
+urlpatterns = [
+    path(
+        "projects/<int:project_id>/scrum/backlog/",
+        ProductBacklogListCreateView.as_view(),
+        name="project-scrum-backlog",
+    ),
+    path(
+        "scrum/pbis/<int:pbi_id>/",
+        ProductBacklogItemDetailView.as_view(),
+        name="scrum-pbi-detail",
+    ),
+    path(
+        "projects/<int:project_id>/scrum/sprints/",
+        ScrumSprintListCreateView.as_view(),
+        name="project-scrum-sprints",
+    ),
+    path(
+        "scrum/sprints/<int:sprint_id>/",
+        ScrumSprintDetailView.as_view(),
+        name="scrum-sprint-detail",
+    ),
+    path(
+        "scrum/sprints/<int:sprint_id>/activate/",
+        ScrumSprintActivateView.as_view(),
+        name="scrum-sprint-activate",
+    ),
+    path(
+        "scrum/sprints/<int:sprint_id>/complete/",
+        ScrumSprintCompleteView.as_view(),
+        name="scrum-sprint-complete",
+    ),
+    path(
+        "scrum/sprints/<int:sprint_id>/commit/",
+        ScrumSprintCommitView.as_view(),
+        name="scrum-sprint-commit",
+    ),
+    path(
+        "scrum/sprints/<int:sprint_id>/backlog/",
+        ScrumSprintBacklogView.as_view(),
+        name="scrum-sprint-backlog",
+    ),
+    path(
+        "scrum/sprints/<int:sprint_id>/burndown/",
+        ScrumSprintBurndownView.as_view(),
+        name="scrum-sprint-burndown",
+    ),
+]

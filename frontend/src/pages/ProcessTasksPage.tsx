@@ -4,9 +4,12 @@ import { Link, useSearchParams } from "react-router-dom";
 import { parseApiError } from "../api/errors";
 import type { ProcessUserTask } from "../api/process";
 import type { WBSNode } from "../api/projects";
+import type { WorkspaceMember } from "../api/workspace";
+import { AssigneeSelect } from "../components/AssigneeSelect";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useProcessApi } from "../hooks/useProcessApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
+import { useWorkspaceApi } from "../hooks/useWorkspaceApi";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { getSlaInfo, slaBadgeClass } from "../utils/sla";
 
@@ -26,9 +29,11 @@ type SlaFilter = "all" | "overdue" | "soon" | "ok";
 export function ProcessTasksPage() {
   const api = useProcessApi();
   const projectsApi = useProjectsApi();
+  const workspaceApi = useWorkspaceApi();
   const { workspaceEpoch } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<ProcessUserTask[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [wbsByProject, setWbsByProject] = useState<Record<number, WBSNode[]>>({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -75,6 +80,22 @@ export function ProcessTasksPage() {
   useEffect(() => {
     void load();
   }, [load, workspaceEpoch]);
+
+  useEffect(() => {
+    if (!workspaceApi) return;
+    void workspaceApi.getMembers().then(setMembers).catch(() => undefined);
+  }, [workspaceApi, workspaceEpoch]);
+
+  const assign = async (task: ProcessUserTask, assigneeId: number | null) => {
+    if (!api) return;
+    try {
+      const updated = await api.assignTask(task.id, assigneeId);
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+      setMessage(`Задача #${task.id}: исполнитель обновлён`);
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
 
   const sortedFiltered = useMemo(() => {
     const withSla = tasks.map((task) => ({
@@ -276,6 +297,18 @@ export function ProcessTasksPage() {
                   </label>
                 </div>
               )}
+              <div className="mt-2 max-w-md">
+                <label className="block text-xs text-text-muted">
+                  Исполнитель
+                  <AssigneeSelect
+                    members={members}
+                    value={task.assignee}
+                    onChange={(id) => void assign(task, id)}
+                    className="mt-1 w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                    emptyLabel="Не назначен"
+                  />
+                </label>
+              </div>
               {Object.keys(task.form_schema || {}).length > 0 && (
                 <pre className="mt-2 overflow-x-auto rounded bg-cream p-2 text-xs">
                   {JSON.stringify(task.form_schema, null, 2)}

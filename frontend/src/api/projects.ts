@@ -5,6 +5,8 @@ export type Project = {
   name: string;
   description: string;
   status: string;
+  methodology?: "predictive" | "scrum" | "hybrid" | string;
+  schedule_locked?: boolean;
   start_date: string | null;
   end_date: string | null;
   budget: number;
@@ -219,6 +221,9 @@ export type WBSNode = {
   workflow_status_name: string | null;
   assignee_id: number | null;
   assignee_name: string | null;
+  phase_key?: string | null;
+  phase_order?: number | null;
+  gate_status?: string | null;
   custom_values: CustomValue[];
   schedule: ScheduleActivity | null;
   capacity_hint?: CapacityHint | null;
@@ -435,6 +440,7 @@ export type ProjectPatchBody = {
   name?: string;
   description?: string;
   status?: string;
+  methodology?: "predictive" | "scrum" | "hybrid" | string;
   start_date?: string | null;
   end_date?: string | null;
   budget?: number;
@@ -465,6 +471,43 @@ export type AiDraftWbsDependency = {
 
 export type AiDraftTarget = "risks" | "charter" | "wbs";
 
+export type WaterfallPhase = {
+  id: number;
+  code: string;
+  title: string;
+  phase_key: string | null;
+  phase_order: number | null;
+  gate_status: string | null;
+  progress: number;
+  start_date: string | null;
+  end_date: string | null;
+};
+
+export type PhaseGateRecord = {
+  id: number;
+  project: number;
+  wbs_phase_node: number;
+  phase_title: string;
+  phase_key: string | null;
+  checklist: Array<{ id: string; label: string; done?: boolean }>;
+  decision: "pass" | "fail" | string;
+  comment: string;
+  decided_by: number | null;
+  decided_by_email: string | null;
+  decided_at: string;
+  baseline: number | null;
+  baseline_name: string | null;
+  process_instance: number | null;
+};
+
+export type WaterfallOverview = {
+  methodology: string;
+  schedule_locked: boolean;
+  default_checklist: Array<{ id: string; label: string; done?: boolean }>;
+  phases: WaterfallPhase[];
+  gates: PhaseGateRecord[];
+};
+
 export function createProjectsApi() {
   return {
     getProjects: () => request<Project[]>("/projects/", {}),
@@ -473,6 +516,8 @@ export function createProjectsApi() {
       name: string;
       description?: string;
       status?: string;
+      methodology?: string;
+      seed_waterfall?: boolean;
       start_date?: string;
       end_date?: string;
       budget?: number;
@@ -786,6 +831,81 @@ export function createProjectsApi() {
       request<ProjectChangeRequest>(`/change-requests/${crId}/decide/`, {
         method: "POST",
         body: JSON.stringify(body),
+      }),
+
+    getWaterfall: (projectId: number) =>
+      request<WaterfallOverview>(`/projects/${projectId}/waterfall/`, {}),
+
+    seedWaterfall: (
+      projectId: number,
+      body: { replace?: boolean; set_methodology?: boolean } = {},
+    ) =>
+      request<{
+        project: {
+          id: number;
+          methodology: string;
+          schedule_locked: boolean;
+        };
+        wbs: WBSNode[];
+      }>(`/projects/${projectId}/waterfall/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    decidePhaseGate: (
+      projectId: number,
+      body: {
+        wbs_phase_node_id: number;
+        decision: "pass" | "fail";
+        comment?: string;
+        checklist?: Array<{ id: string; label: string; done?: boolean }>;
+        create_baseline?: boolean;
+        lock_schedule?: boolean;
+      },
+    ) =>
+      request<{
+        gate: PhaseGateRecord;
+        schedule_locked: boolean;
+        phase: {
+          id: number;
+          gate_status: string | null;
+          phase_key: string | null;
+        };
+      }>(`/projects/${projectId}/waterfall/gates/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    addWaterfallPhase: (
+      projectId: number,
+      body: {
+        title: string;
+        duration_days?: number;
+        after_phase_id?: number | null;
+        phase_key?: string | null;
+      },
+    ) =>
+      request<WaterfallPhase>(`/projects/${projectId}/waterfall/phases/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    renameWaterfallPhase: (
+      projectId: number,
+      phaseId: number,
+      title: string,
+    ) =>
+      request<WaterfallPhase>(
+        `/projects/${projectId}/waterfall/phases/${phaseId}/`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ title }),
+        },
+      ),
+
+    deleteWaterfallPhase: (projectId: number, phaseId: number) =>
+      request<void>(`/projects/${projectId}/waterfall/phases/${phaseId}/`, {
+        method: "DELETE",
       }),
 
     getCriticalPath: (projectId: number) =>

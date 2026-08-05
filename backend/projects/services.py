@@ -226,6 +226,9 @@ def build_wbs_tree(nodes: list[WBSNode]) -> list[dict]:
             "assignee_name": (
                 node.assignee.get_username() if node.assignee else None
             ),
+            "phase_key": node.phase_key,
+            "phase_order": node.phase_order,
+            "gate_status": node.gate_status,
             "custom_values": serialize_custom_values(node),
             "schedule": (
                 {
