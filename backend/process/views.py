@@ -29,11 +29,13 @@ from process.cases import (
     required_incomplete,
 )
 from process.materialize import build_work_tree
+from process.lanes import extract_lanes
 from process.models import (
     CaseDefinition,
     CaseInstance,
     DecisionDefinition,
     ProcessDefinition,
+    ProcessDefinitionLaneRole,
     ProcessInstance,
     ProcessWorkNode,
     UserTask,
@@ -42,6 +44,8 @@ from process.serializers import (
     CaseDefinitionSerializer,
     CaseInstanceSerializer,
     DecisionDefinitionSerializer,
+    ProcessDefinitionLaneRoleSerializer,
+    ProcessDefinitionLaneRoleWriteSerializer,
     ProcessDefinitionSerializer,
     ProcessInstanceSerializer,
     UserTaskSerializer,
@@ -108,6 +112,87 @@ class ProcessDefinitionDetailView(WorkspaceMixin, APIView):
 
     def delete(self, request, pk):
         self._get(pk).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProcessDefinitionLanesView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, pk):
+        obj = ProcessDefinition.objects.filter(
+            workspace=self.get_workspace(), pk=pk
+        ).first()
+        if obj is None:
+            raise NotFound()
+        return Response(extract_lanes(obj.bpmn_xml))
+
+
+class ProcessDefinitionLaneRoleListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, pk):
+        obj = ProcessDefinition.objects.filter(
+            workspace=self.get_workspace(), pk=pk
+        ).first()
+        if obj is None:
+            raise NotFound()
+        rows = obj.lane_roles.select_related("user").all()
+        return Response(ProcessDefinitionLaneRoleSerializer(rows, many=True).data)
+
+    def post(self, request, pk):
+        obj = ProcessDefinition.objects.filter(
+            workspace=self.get_workspace(), pk=pk
+        ).first()
+        if obj is None:
+            raise NotFound()
+        serializer = ProcessDefinitionLaneRoleWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        lane_id = data["lane_id"]
+        raci_type = data.get("raci_type") or ProcessDefinitionLaneRole.RACIType.RESPONSIBLE
+        existing = ProcessDefinitionLaneRole.objects.filter(
+            definition=obj, lane_id=lane_id, raci_type=raci_type
+        ).first()
+        if existing:
+            updated = ProcessDefinitionLaneRoleWriteSerializer(
+                existing, data=request.data, partial=True
+            )
+            updated.is_valid(raise_exception=True)
+            row = updated.save()
+        else:
+            row = serializer.save(definition=obj)
+        return Response(
+            ProcessDefinitionLaneRoleSerializer(row).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProcessDefinitionLaneRoleDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def _get(self, role_id):
+        row = (
+            ProcessDefinitionLaneRole.objects.filter(
+                definition__workspace=self.get_workspace(), pk=role_id
+            )
+            .select_related("user", "definition")
+            .first()
+        )
+        if row is None:
+            raise NotFound()
+        return row
+
+    def patch(self, request, role_id):
+        row = self._get(role_id)
+        serializer = ProcessDefinitionLaneRoleWriteSerializer(
+            row, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ProcessDefinitionLaneRoleSerializer(row).data)
+
+    def delete(self, request, role_id):
+        self._get(role_id).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

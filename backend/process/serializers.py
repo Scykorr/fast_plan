@@ -5,6 +5,7 @@ from process.models import (
     CaseInstance,
     DecisionDefinition,
     ProcessDefinition,
+    ProcessDefinitionLaneRole,
     ProcessDeployment,
     ProcessInstance,
     UserTask,
@@ -192,3 +193,71 @@ class CaseInstanceSerializer(serializers.ModelSerializer):
         from process.cases import required_incomplete
 
         return required_incomplete(obj)
+
+
+class ProcessDefinitionLaneRoleSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(read_only=True, allow_null=True)
+    user_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProcessDefinitionLaneRole
+        fields = (
+            "id",
+            "lane_id",
+            "lane_name",
+            "raci_type",
+            "role_key",
+            "user_id",
+            "user_email",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "user_id",
+            "user_email",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_user_email(self, obj):
+        if not obj.user_id:
+            return None
+        return obj.user.email
+
+
+class ProcessDefinitionLaneRoleWriteSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(required=False, allow_null=True)
+
+    class Meta:
+        model = ProcessDefinitionLaneRole
+        fields = ("lane_id", "lane_name", "raci_type", "role_key", "user_id")
+
+    def create(self, validated_data):
+        user_id = validated_data.pop("user_id", serializers.empty)
+        obj = ProcessDefinitionLaneRole(**validated_data)
+        self._apply_user(obj, user_id)
+        obj.save()
+        return obj
+
+    def update(self, instance, validated_data):
+        user_id = validated_data.pop("user_id", serializers.empty)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        self._apply_user(instance, user_id)
+        instance.save()
+        return instance
+
+    def _apply_user(self, obj, user_id):
+        if user_id is serializers.empty:
+            return
+        if user_id is None:
+            obj.user = None
+            return
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        try:
+            obj.user = User.objects.get(pk=user_id)
+        except User.DoesNotExist as exc:
+            raise serializers.ValidationError({"user_id": "User not found."}) from exc

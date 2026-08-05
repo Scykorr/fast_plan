@@ -6,6 +6,7 @@ from projects.models import (
     ProjectChangeRequest,
     ProjectCharter,
     ProjectIssue,
+    ProjectLessonsLearned,
     RACIEntry,
     Risk,
     Stakeholder,
@@ -219,6 +220,19 @@ class ProjectCharterSerializer(serializers.ModelSerializer):
             "success_criteria",
             "constraints",
             "assumptions",
+            "updated_at",
+        )
+        read_only_fields = ("updated_at",)
+
+
+class ProjectLessonsLearnedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectLessonsLearned
+        fields = (
+            "what_went_well",
+            "what_went_wrong",
+            "recommendations",
+            "knowledge_to_reuse",
             "updated_at",
         )
         read_only_fields = ("updated_at",)

@@ -18,11 +18,12 @@ from projects.models import (
     ProjectChangeRequest,
     ProjectCharter,
     ProjectIssue,
+    ProjectLessonsLearned,
     RACIEntry,
     Risk,
     Stakeholder,
 )
-from projects.pdf import render_status_report_pdf
+from projects.pdf import render_lessons_learned_pdf, render_status_report_pdf
 from projects.reports import build_status_report
 from projects.serializers_pmbok import (
     ProjectBaselineSerializer,
@@ -30,6 +31,7 @@ from projects.serializers_pmbok import (
     ProjectCharterSerializer,
     ProjectIssueSerializer,
     ProjectIssueWriteSerializer,
+    ProjectLessonsLearnedSerializer,
     RACIEntrySerializer,
     RACIWriteSerializer,
     RiskSerializer,
@@ -317,6 +319,59 @@ class ProjectCharterView(WorkspaceMixin, APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(ProjectCharterSerializer(charter).data)
+
+
+class ProjectLessonsLearnedView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        lessons, _ = ProjectLessonsLearned.objects.get_or_create(project=project)
+        return Response(ProjectLessonsLearnedSerializer(lessons).data)
+
+    def patch(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        lessons, _ = ProjectLessonsLearned.objects.get_or_create(project=project)
+        serializer = ProjectLessonsLearnedSerializer(
+            lessons, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ProjectLessonsLearnedSerializer(lessons).data)
+
+
+class ProjectLessonsLearnedExportView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        lessons, _ = ProjectLessonsLearned.objects.get_or_create(project=project)
+        output = (request.query_params.get("output") or "md").lower()
+        payload = {
+            "project_name": project.name,
+            "project_status": project.status,
+            **ProjectLessonsLearnedSerializer(lessons).data,
+        }
+        if output == "pdf":
+            pdf = render_lessons_learned_pdf(payload)
+            response = HttpResponse(pdf, content_type="application/pdf")
+            response["Content-Disposition"] = (
+                f'attachment; filename="lessons-{project.id}.pdf"'
+            )
+            return response
+        md = (
+            f"# Lessons learned — {project.name}\n\n"
+            f"Status: {project.status}\n\n"
+            f"## What went well\n\n{lessons.what_went_well or '—'}\n\n"
+            f"## What went wrong\n\n{lessons.what_went_wrong or '—'}\n\n"
+            f"## Recommendations\n\n{lessons.recommendations or '—'}\n\n"
+            f"## Knowledge to reuse\n\n{lessons.knowledge_to_reuse or '—'}\n"
+        )
+        response = HttpResponse(md, content_type="text/markdown; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="lessons-{project.id}.md"'
+        )
+        return response
 
 
 class RACIListCreateView(WorkspaceMixin, APIView):

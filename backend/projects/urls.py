@@ -27,6 +27,8 @@ from projects.pmbok_views import (
     ProjectExportView,
     ProjectIssueDetailView,
     ProjectIssueListCreateView,
+    ProjectLessonsLearnedExportView,
+    ProjectLessonsLearnedView,
     ProjectMilestonesIcsView,
     RACIDetailView,
     RACIListCreateView,
@@ -207,6 +209,16 @@ urlpatterns = [
         "projects/<int:project_id>/charter/",
         ProjectCharterView.as_view(),
         name="project-charter",
+    ),
+    path(
+        "projects/<int:project_id>/lessons-learned/",
+        ProjectLessonsLearnedView.as_view(),
+        name="project-lessons-learned",
+    ),
+    path(
+        "projects/<int:project_id>/lessons-learned/export/",
+        ProjectLessonsLearnedExportView.as_view(),
+        name="project-lessons-learned-export",
     ),
     path(
         "projects/<int:project_id>/raci/",

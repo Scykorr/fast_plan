@@ -403,6 +403,24 @@ class ProjectCharter(models.Model):
         return f"Charter: {self.project.name}"
 
 
+class ProjectLessonsLearned(models.Model):
+    """PMBOK-lite lessons learned register filled at project close."""
+
+    project = models.OneToOneField(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="lessons_learned",
+    )
+    what_went_well = models.TextField(blank=True)
+    what_went_wrong = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    knowledge_to_reuse = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Lessons: {self.project.name}"
+
+
 class RACIEntry(models.Model):
     class RACIType(models.TextChoices):
         RESPONSIBLE = "R", "Responsible"

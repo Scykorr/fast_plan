@@ -14,6 +14,24 @@ export type ProcessDefinition = {
   updated_at: string;
 };
 
+export type ProcessLane = {
+  lane_id: string;
+  lane_name: string;
+  flow_node_refs: string[];
+};
+
+export type ProcessLaneRole = {
+  id: number;
+  lane_id: string;
+  lane_name: string;
+  raci_type: string;
+  role_key: string;
+  user_id: number | null;
+  user_email: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProcessInstance = {
   id: number;
   deployment: number;
@@ -233,6 +251,26 @@ export function createProcessApi() {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    listLanes: (id: number) =>
+      request<ProcessLane[]>(`/process/definitions/${id}/lanes/`, {}),
+    listLaneRoles: (id: number) =>
+      request<ProcessLaneRole[]>(`/process/definitions/${id}/lane-roles/`, {}),
+    upsertLaneRole: (
+      id: number,
+      body: {
+        lane_id: string;
+        lane_name?: string;
+        raci_type?: string;
+        role_key?: string;
+        user_id?: number | null;
+      },
+    ) =>
+      request<ProcessLaneRole>(`/process/definitions/${id}/lane-roles/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    deleteLaneRole: (roleId: number) =>
+      request<void>(`/process/lane-roles/${roleId}/`, { method: "DELETE" }),
     publish: (id: number, opts?: { migrate_running?: boolean }) =>
       request<{
         definition: ProcessDefinition;

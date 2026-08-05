@@ -15,6 +15,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Lessons learned** — шаблон закрытия проекта (`/api/projects/<id>/lessons-learned/`, export MD/PDF) на overview
+- **Capacity leveling apply-all** — apply / undo прямо на `/capacity` (reuse project leveling APIs)
+- **Process RACI (lane → роль)** — `ProcessDefinitionLaneRole` + lanes extract; панель на `/processes` defs
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent polish.

@@ -447,3 +447,48 @@ class ProcessWorkNode(models.Model):
 
     def __str__(self):
         return f"{self.code} {self.title}"
+
+
+class ProcessDefinitionLaneRole(models.Model):
+    """Definition-level lane → role mapping (Process RACI lite)."""
+
+    class RACIType(models.TextChoices):
+        RESPONSIBLE = "R", "Responsible"
+        ACCOUNTABLE = "A", "Accountable"
+        CONSULTED = "C", "Consulted"
+        INFORMED = "I", "Informed"
+
+    definition = models.ForeignKey(
+        ProcessDefinition,
+        on_delete=models.CASCADE,
+        related_name="lane_roles",
+    )
+    lane_id = models.CharField(max_length=120)
+    lane_name = models.CharField(max_length=255, blank=True, default="")
+    raci_type = models.CharField(
+        max_length=1,
+        choices=RACIType.choices,
+        default=RACIType.RESPONSIBLE,
+    )
+    role_key = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="Workspace role or crm_role slug (e.g. editor, sales)",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="process_lane_roles",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["lane_name", "lane_id", "raci_type"]
+        unique_together = [("definition", "lane_id", "raci_type")]
+
+    def __str__(self):
+        return f"{self.lane_id}:{self.raci_type}→{self.role_key or self.user_id}"

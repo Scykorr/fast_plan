@@ -8,6 +8,9 @@ from process.views import (
     DecisionEvaluateView,
     DecisionListCreateView,
     ProcessDefinitionDetailView,
+    ProcessDefinitionLaneRoleDetailView,
+    ProcessDefinitionLaneRoleListCreateView,
+    ProcessDefinitionLanesView,
     ProcessDefinitionListCreateView,
     ProcessExportView,
     ProcessInstanceDetailView,
@@ -55,6 +58,21 @@ urlpatterns = [
         "process/definitions/<int:pk>/export/",
         ProcessExportView.as_view(),
         name="process-export",
+    ),
+    path(
+        "process/definitions/<int:pk>/lanes/",
+        ProcessDefinitionLanesView.as_view(),
+        name="process-definition-lanes",
+    ),
+    path(
+        "process/definitions/<int:pk>/lane-roles/",
+        ProcessDefinitionLaneRoleListCreateView.as_view(),
+        name="process-definition-lane-roles",
+    ),
+    path(
+        "process/lane-roles/<int:role_id>/",
+        ProcessDefinitionLaneRoleDetailView.as_view(),
+        name="process-lane-role-detail",
     ),
     path(
         "process/instances/",

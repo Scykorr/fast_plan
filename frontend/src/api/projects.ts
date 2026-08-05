@@ -45,6 +45,14 @@ export type ProjectCharter = {
   updated_at: string;
 };
 
+export type ProjectLessonsLearned = {
+  what_went_well: string;
+  what_went_wrong: string;
+  recommendations: string;
+  knowledge_to_reuse: string;
+  updated_at: string;
+};
+
 export type Risk = {
   id: number;
   title: string;
@@ -695,6 +703,29 @@ export function createProjectsApi() {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+
+    getLessonsLearned: (projectId: number) =>
+      request<ProjectLessonsLearned>(
+        `/projects/${projectId}/lessons-learned/`,
+        {},
+      ),
+
+    patchLessonsLearned: (
+      projectId: number,
+      body: Partial<ProjectLessonsLearned>,
+    ) =>
+      request<ProjectLessonsLearned>(
+        `/projects/${projectId}/lessons-learned/`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        },
+      ),
+
+    exportLessonsLearned: (projectId: number, output: "md" | "pdf" = "md") =>
+      requestBlob(
+        `/projects/${projectId}/lessons-learned/export/?output=${output}`,
+      ),
 
     getRACI: (projectId: number) =>
       request<RACIEntry[]>(`/projects/${projectId}/raci/`, {}),

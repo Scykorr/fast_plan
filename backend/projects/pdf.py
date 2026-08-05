@@ -142,3 +142,48 @@ def render_status_report_pdf(report: dict) -> bytes:
 
     doc.build(story)
     return buffer.getvalue()
+
+
+def render_lessons_learned_pdf(payload: dict) -> bytes:
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "LessonsTitle",
+        parent=styles["Heading1"],
+        fontSize=16,
+        spaceAfter=8,
+    )
+    heading = ParagraphStyle(
+        "LessonsHeading",
+        parent=styles["Heading2"],
+        fontSize=12,
+        spaceBefore=10,
+        spaceAfter=6,
+    )
+    body = styles["BodyText"]
+    story = [
+        Paragraph(
+            f"Lessons learned — {_fmt(payload.get('project_name'))}",
+            title_style,
+        ),
+        Paragraph(f"Status: {_fmt(payload.get('project_status'))}", body),
+        Spacer(1, 0.3 * cm),
+        Paragraph("What went well", heading),
+        Paragraph(_fmt(payload.get("what_went_well")), body),
+        Paragraph("What went wrong", heading),
+        Paragraph(_fmt(payload.get("what_went_wrong")), body),
+        Paragraph("Recommendations", heading),
+        Paragraph(_fmt(payload.get("recommendations")), body),
+        Paragraph("Knowledge to reuse", heading),
+        Paragraph(_fmt(payload.get("knowledge_to_reuse")), body),
+    ]
+    doc.build(story)
+    return buffer.getvalue()

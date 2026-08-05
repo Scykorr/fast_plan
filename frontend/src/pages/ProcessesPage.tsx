@@ -16,6 +16,7 @@ import type {
 } from "../api/process";
 import { BpmnModelerEditor } from "../components/process/BpmnModelerEditor";
 import { BpmnViewer } from "../components/process/BpmnViewer";
+import { ProcessLaneRaciPanel } from "../components/process/ProcessLaneRaciPanel";
 import { ProcessWorkTree } from "../components/process/ProcessWorkTree";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { GlossaryText } from "../components/TermHint";
@@ -405,6 +406,7 @@ export function ProcessesPage() {
                 </>
               )}
             </div>
+            {selected && <ProcessLaneRaciPanel definitionId={selected.id} />}
           </div>
         </div>
       )}

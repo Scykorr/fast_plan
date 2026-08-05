@@ -16,6 +16,16 @@ type MemberProposalBlock = {
   result: LevelingProposeResult;
 };
 
+type UndoBatch = {
+  projectId: number;
+  items: Array<{
+    activity_id: number;
+    start_date: string | null;
+    end_date: string | null;
+    duration_days?: number;
+  }>;
+};
+
 export function CapacityPage() {
   const workspaceApi = useWorkspaceApi();
   const projectsApi = useProjectsApi();
@@ -26,11 +36,16 @@ export function CapacityPage() {
   const [draftHours, setDraftHours] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [proposingId, setProposingId] = useState<number | null>(null);
+  const [applyingKey, setApplyingKey] = useState<string | null>(null);
   const [proposalsByMember, setProposalsByMember] = useState<
     Record<number, MemberProposalBlock[]>
   >({});
+  const [undoByMember, setUndoByMember] = useState<Record<number, UndoBatch[]>>(
+    {},
+  );
 
   const isOwner = activeWorkspace?.role === "owner";
 
@@ -100,6 +115,7 @@ export function CapacityPage() {
     }
     setProposingId(member.user_id);
     setError("");
+    setMessage("");
     try {
       const blocks: MemberProposalBlock[] = [];
       for (const [projectId, projectName] of byProject) {
@@ -126,6 +142,91 @@ export function CapacityPage() {
     }
   };
 
+  const handleApplyAll = async (memberId: number) => {
+    if (!projectsApi) return;
+    const blocks = proposalsByMember[memberId] ?? [];
+    if (blocks.length === 0) return;
+    setApplyingKey(`all-${memberId}`);
+    setError("");
+    try {
+      const undoBatches: UndoBatch[] = [];
+      for (const block of blocks) {
+        const result = await projectsApi.applyLeveling(
+          block.projectId,
+          block.result.proposals,
+        );
+        if (result.batch?.items?.length) {
+          undoBatches.push({
+            projectId: block.projectId,
+            items: result.batch.items,
+          });
+        }
+      }
+      setUndoByMember((prev) => ({ ...prev, [memberId]: undoBatches }));
+      setProposalsByMember((prev) => ({ ...prev, [memberId]: [] }));
+      setMessage("Leveling применён — capacity обновлён");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось применить leveling"));
+    } finally {
+      setApplyingKey(null);
+    }
+  };
+
+  const handleApplyBlock = async (memberId: number, projectId: number) => {
+    if (!projectsApi) return;
+    const blocks = proposalsByMember[memberId] ?? [];
+    const block = blocks.find((b) => b.projectId === projectId);
+    if (!block) return;
+    setApplyingKey(`${memberId}-${projectId}`);
+    setError("");
+    try {
+      const result = await projectsApi.applyLeveling(
+        block.projectId,
+        block.result.proposals,
+      );
+      if (result.batch?.items?.length) {
+        setUndoByMember((prev) => ({
+          ...prev,
+          [memberId]: [
+            ...(prev[memberId] ?? []),
+            { projectId: block.projectId, items: result.batch.items },
+          ],
+        }));
+      }
+      setProposalsByMember((prev) => ({
+        ...prev,
+        [memberId]: (prev[memberId] ?? []).filter((b) => b.projectId !== projectId),
+      }));
+      setMessage(`Leveling применён для проекта #${projectId}`);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось применить leveling"));
+    } finally {
+      setApplyingKey(null);
+    }
+  };
+
+  const handleUndo = async (memberId: number) => {
+    if (!projectsApi) return;
+    const batches = undoByMember[memberId] ?? [];
+    if (batches.length === 0) return;
+    setApplyingKey(`undo-${memberId}`);
+    setError("");
+    try {
+      for (const batch of batches) {
+        await projectsApi.undoLeveling(batch.projectId, batch.items);
+      }
+      setUndoByMember((prev) => ({ ...prev, [memberId]: [] }));
+      setMessage("Leveling откатан");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось откатить leveling"));
+    } finally {
+      setApplyingKey(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -139,6 +240,11 @@ export function CapacityPage() {
       </div>
 
       <ErrorMessage message={error} onDismiss={() => setError("")} />
+      {message && (
+        <p className="text-sm text-secondary" role="status">
+          {message}
+        </p>
+      )}
 
       {loading && <p className="text-sm text-text-muted">Загрузка...</p>}
 
@@ -172,6 +278,7 @@ export function CapacityPage() {
                 const overloaded =
                   member.utilization != null && member.utilization > 1;
                 const blocks = proposalsByMember[member.user_id] ?? [];
+                const undoBatches = undoByMember[member.user_id] ?? [];
                 return (
                   <tr
                     key={member.user_id}
@@ -181,24 +288,73 @@ export function CapacityPage() {
                       <p className="font-medium text-text">{member.name}</p>
                       <p className="text-xs text-text-muted">{member.email}</p>
                       {blocks.length > 0 && (
-                        <ul className="mt-2 space-y-1 text-xs text-text-muted">
+                        <ul className="mt-2 space-y-2 text-xs text-text-muted">
                           {blocks.map((block) => (
-                            <li key={block.projectId}>
-                              {block.projectName}: {block.result.proposals.length}{" "}
-                              сдвиг(ов) ·{" "}
-                              <Link
-                                className="text-primary hover:underline"
-                                to={`/projects/${block.projectId}`}
-                              >
-                                открыть Gantt
-                              </Link>
+                            <li
+                              key={block.projectId}
+                              className="rounded border border-border bg-cream/60 px-2 py-1.5"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span>
+                                  {block.projectName}:{" "}
+                                  {block.result.proposals.length} сдвиг(ов)
+                                </span>
+                                <span className="flex gap-2">
+                                  <Link
+                                    className="text-primary hover:underline"
+                                    to={`/projects/${block.projectId}?tab=gantt`}
+                                  >
+                                    Gantt
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    className="text-primary hover:underline"
+                                    disabled={
+                                      applyingKey ===
+                                      `${member.user_id}-${block.projectId}`
+                                    }
+                                    onClick={() =>
+                                      void handleApplyBlock(
+                                        member.user_id,
+                                        block.projectId,
+                                      )
+                                    }
+                                  >
+                                    Применить
+                                  </button>
+                                </span>
+                              </div>
+                              <ul className="mt-1 space-y-0.5">
+                                {block.result.proposals.slice(0, 4).map((p) => (
+                                  <li key={p.activity_id}>
+                                    {p.code || p.name}: +{p.shift_days}д →{" "}
+                                    {p.proposed.start_date}
+                                  </li>
+                                ))}
+                              </ul>
                             </li>
                           ))}
-                          <li>
-                            Применить на Gantt:{" "}
-                            <GlossaryText text="leveling" /> apply-all / Undo.
+                          <li className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="rounded border border-primary px-2 py-1 text-primary"
+                              disabled={applyingKey === `all-${member.user_id}`}
+                              onClick={() => void handleApplyAll(member.user_id)}
+                            >
+                              Применить все
+                            </button>
                           </li>
                         </ul>
+                      )}
+                      {undoBatches.length > 0 && (
+                        <button
+                          type="button"
+                          className="mt-2 text-xs text-text-muted hover:text-primary"
+                          disabled={applyingKey === `undo-${member.user_id}`}
+                          onClick={() => void handleUndo(member.user_id)}
+                        >
+                          Undo leveling
+                        </button>
                       )}
                     </td>
                     <td className="px-4 py-3 text-text-muted">{member.role}</td>

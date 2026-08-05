@@ -12,6 +12,7 @@ import type {
   ProjectChangeRequest,
   ProjectDashboard,
   ProjectIssue,
+  ProjectLessonsLearned,
   ProjectSchedule,
   ProjectStatusReport,
   RACIEntry,
@@ -45,6 +46,7 @@ import { useCrmApi } from "../hooks/useCrmApi";
 import type { CrmOrganization } from "../api/crm";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
 import { IssueRegister } from "../components/projects/IssueRegister";
+import { LessonsLearnedEditor } from "../components/projects/LessonsLearnedEditor";
 import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
 import { StatusReportDigest } from "../components/projects/StatusReportDigest";
@@ -137,6 +139,7 @@ export function ProjectDetailPage() {
   const [board, setBoard] = useState<KanbanBoard | null>(null);
   const [risks, setRisks] = useState<Risk[]>([]);
   const [issues, setIssues] = useState<ProjectIssue[]>([]);
+  const [lessons, setLessons] = useState<ProjectLessonsLearned | null>(null);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [raci, setRaci] = useState<RACIEntry[]>([]);
   const [baselines, setBaselines] = useState<ProjectBaseline[]>([]);
@@ -204,6 +207,7 @@ export function ProjectDetailPage() {
         scheduleData,
         risksData,
         issuesData,
+        lessonsData,
         stakeholdersData,
         raciData,
         baselinesData,
@@ -218,6 +222,7 @@ export function ProjectDetailPage() {
         projectsApi.getSchedule(id),
         projectsApi.getRisks(id),
         projectsApi.getIssues(id),
+        projectsApi.getLessonsLearned(id),
         projectsApi.getStakeholders(id),
         projectsApi.getRACI(id),
         projectsApi.getBaselines(id),
@@ -232,6 +237,7 @@ export function ProjectDetailPage() {
       setSchedule(scheduleData);
       setRisks(risksData);
       setIssues(issuesData);
+      setLessons(lessonsData);
       setStakeholders(stakeholdersData);
       setRaci(raciData);
       setBaselines(baselinesData);
@@ -1089,6 +1095,91 @@ export function ProjectDetailPage() {
                     );
                   }}
                 />
+              </div>
+
+              <div className="rounded-xl border border-border bg-surface p-5">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-text">
+                    Lessons learned
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm text-text-muted">
+                      Статус
+                      <select
+                        className="rounded-lg border border-border bg-cream px-2 py-1.5 text-sm text-text"
+                        value={project.status}
+                        onChange={(event) => {
+                          if (!projectsApi) return;
+                          void projectsApi
+                            .patchProject(id, { status: event.target.value })
+                            .then((updated) => setProject(updated))
+                            .catch((err) =>
+                              setError(
+                                parseApiError(err, "Не удалось обновить статус"),
+                              ),
+                            );
+                        }}
+                      >
+                        <option value="planning">planning</option>
+                        <option value="active">active</option>
+                        <option value="on_hold">on_hold</option>
+                        <option value="completed">completed</option>
+                        <option value="cancelled">cancelled</option>
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                      onClick={async () => {
+                        if (!projectsApi) return;
+                        try {
+                          const blob = await projectsApi.exportLessonsLearned(
+                            id,
+                            "md",
+                          );
+                          downloadBlob(blob, `lessons-${id}.md`);
+                        } catch (err) {
+                          setError(parseApiError(err, "Экспорт MD не удался"));
+                        }
+                      }}
+                    >
+                      Export MD
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                      onClick={async () => {
+                        if (!projectsApi) return;
+                        try {
+                          const blob = await projectsApi.exportLessonsLearned(
+                            id,
+                            "pdf",
+                          );
+                          downloadBlob(blob, `lessons-${id}.pdf`);
+                        } catch (err) {
+                          setError(parseApiError(err, "Экспорт PDF не удался"));
+                        }
+                      }}
+                    >
+                      Export PDF
+                    </button>
+                  </div>
+                </div>
+                <p className="mb-3 text-sm text-text-muted">
+                  Шаблон закрытия проекта (PMBOK). Рекомендуется заполнять при
+                  статусе completed / cancelled.
+                </p>
+                {lessons && (
+                  <LessonsLearnedEditor
+                    lessons={lessons}
+                    onSave={async (data) => {
+                      if (!projectsApi) return;
+                      setLessons(
+                        await projectsApi.patchLessonsLearned(id, data),
+                      );
+                    }}
+                  />
+                )}
               </div>
 
               {dashboard.top_risks.length > 0 && (

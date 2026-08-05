@@ -178,12 +178,12 @@
 | Pri | Пункт | Size | Методология / зачем |
 |-----|-------|------|---------------------|
 | ~~**P2**~~ | ~~Resource leveling lite~~ | **M** | **✓** |
-| **P2** | Leveling apply-all / Capacity propose _(S1)_ | **M** | Resource management |
+| ~~**P2**~~ | ~~Leveling apply-all / Capacity propose _(S1)_~~ | **M** | **✓** Capacity apply/undo + Gantt |
 | **P3** | PERT Monte Carlo _(S1)_ | **M** | Schedule risk |
 | **P3** | MS Project XML _(S3)_ | **M–L** | **в перспективе** |
 | **P2** | **OBS / org breakdown** — привязка WBS к оргструктуре (отдел/роль), не только user | **M** | PMBOK org / RACI scale |
 | ~~**P2**~~ | ~~**Issue / action log** отдельно от Risk (проблемы + due + owner)~~ | **M** | **✓** PRINCE2 Issue Register (`ProjectIssue`) |
-| **P2** | **Lessons learned** на закрытии проекта (шаблон + export) | **S–M** | PMBOK closing |
+| ~~**P2**~~ | ~~**Lessons learned** на закрытии проекта (шаблон + export)~~ | **S–M** | **✓** `ProjectLessonsLearned` |
 | **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | Современный EVM |
 | **P3** | **Stage / phase gates** на проекте (чеклист go/no-go) | **M** | PRINCE2 stages |
 | **P3** | **Quality checklist** на WP (pass/fail + evidence link) | **M** | Quality mgmt |
@@ -200,7 +200,7 @@
 | **P1** | **Process-as-WBS** фазы A–B _(S5)_ | **L** | см. эпик |
 | **P1** | **Process-as-WBS** фазы C–D _(S6)_ | **L** | «все функции WBS» |
 | ~~**P2**~~ | ~~**SLA timers UI** на UserTask (due из timer/duration) + breach board~~ | **M** | **✓** inbox badges + Ops breach board |
-| **P2** | **Process RACI** на definition (роль → lane/candidate) | **M** | Accountability |
+| ~~**P2**~~ | ~~**Process RACI** на definition (роль → lane/candidate)~~ | **M** | **✓** `ProcessDefinitionLaneRole` |
 | **P3** | **Value-stream metrics** (cycle/lead time per element) поверх mining | **M** | Lean |
 | **P3** | **Compensation / error boundary** lite в catalog + docs | **L** | BPMN advanced |
 | **P3** | Pack: **PRINCE2 stage** + **Scrum ceremony** (не сертификация) | **M** | Methodology packs |
