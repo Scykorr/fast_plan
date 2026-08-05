@@ -15,15 +15,21 @@
 
 ## [Unreleased]
 
+### Planned
+
+См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent polish.
+
+## [0.21.0] — 2026-08-05
+
 ### Added
 
 - **Process-as-WBS S6 хвост** — capacity hint на узлах; CSV/XLSX export дерева; comments на ProcessWorkNode; sibling DnD reorder
 - **Quote→WBS** — `POST /api/crm/documents/<id>/create-wbs/` (строки КП → work packages)
 - **CRM health lite** — `GET /api/crm/health/?deal_id=` / `organization_id=` + badge на `/deals`
 
-### Planned
+### Changed
 
-См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent/export polish.
+- **SMTP go-live ops** — локально verification включён после рабочего Yandex SMTP; staging/prod checklist в STAGING/DEPLOY уточнён
 
 ## [0.20.0] — 2026-08-04
 

@@ -93,19 +93,22 @@ docker compose --profile ai up -d ollama ollama-init backend
 
 Tooling в продукте: status / test-send / `go_live_ready` / health `checks.email` — **готово**.
 
-- [ ] `EMAIL_BACKEND` = SMTP, не console (см. `.env.example`)
-- [ ] `DEFAULT_FROM_EMAIL` и SMTP credentials проверены
-- [ ] Settings (owner) → **Почта / SMTP**: `configured` + **Go-live ready**
-- [ ] Settings → **Отправить тест** → письмо в inbox (не только spam)
-- [ ] SPF / DKIM / DMARC для домена `From` (mail.ru / корпоративный DNS)
+**Локально (dev):** SMTP Yandex + `REQUIRE_EMAIL_VERIFICATION=true` — **включено** после успешного test-send.  
+**Staging / prod:** повторите чеклист ниже на сервере (не копируйте локальный `.env` в git).
+
+- [x] `EMAIL_BACKEND` = SMTP, не console (локально ✓; staging — на сервере)
+- [x] `DEFAULT_FROM_EMAIL` и SMTP credentials проверены (локально ✓)
+- [x] Settings (owner) → **Почта / SMTP**: `configured` + **Go-live ready** (локально ✓)
+- [x] Settings → **Отправить тест** → письмо в inbox (локально ✓)
+- [ ] SPF / DKIM / DMARC для домена `From` (mail.ru / корпоративный DNS) — если свой домен
 - [ ] Forgot-password: `POST /api/auth/password/forgot/` → письмо со ссылкой
 - [ ] Invite участника workspace → письмо с ссылкой `/invite/…`
 - [ ] Digest reminders (Celery) доходят при настроенном SMTP
-- [ ] После зелёного test-send: `REQUIRE_EMAIL_VERIFICATION=true` на staging
-- [ ] Регистрация → письмо с подтверждением (`email_sent=true`)
-- [ ] Ссылка `/verify-email?uid=…&token=…` подтверждает аккаунт
-- [ ] Login до подтверждения email отклоняется
-- [ ] Settings → «Подтвердить email» повторно отправляет письмо
+- [x] После зелёного test-send: `REQUIRE_EMAIL_VERIFICATION=true` (**локально ✓**; staging/prod — то же в `.env` сервера)
+- [ ] Регистрация → письмо с подтверждением (`email_sent=true`) — smoke на staging
+- [ ] Ссылка `/verify-email?uid=…&token=…` подтверждает аккаунт — smoke на staging
+- [ ] Login до подтверждения email отклоняется — smoke на staging
+- [ ] Settings → «Подтвердить email» повторно отправляет письмо — smoke на staging
 
 CI оставляет `REQUIRE_EMAIL_VERIFICATION=false`. Не коммитьте SMTP-пароли.
 ## Webhooks

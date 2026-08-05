@@ -183,4 +183,6 @@ REQUIRE_EMAIL_VERIFICATION=false
 6. `REQUIRE_EMAIL_VERIFICATION=true` → register → письмо → `/verify-email` → login.  
 7. Не коммитьте `.env` с паролями в git.
 
-**Важно:** код не включает verification по умолчанию. Флаг `go_live_ready` — сигнал ops, что SMTP выглядит боевым (не console/locmem, заданы host и From).
+**Локальный go-live (dev):** после рабочего SMTP (например Яндекс) и test-send — `REQUIRE_EMAIL_VERIFICATION=true` в `.env` (уже сделано для текущего окружения). Staging/prod повторяют те же шаги на сервере.
+
+**Важно:** код не включает verification по умолчанию (CI остаётся `false`). Флаг `go_live_ready` — сигнал ops, что SMTP выглядит боевым (не console/locmem, заданы host и From).

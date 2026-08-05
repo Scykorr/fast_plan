@@ -99,9 +99,14 @@ EMAIL_HOST=...
 EMAIL_HOST_USER=...
 EMAIL_HOST_PASSWORD=...
 DEFAULT_FROM_EMAIL=Fast Plan <noreply@example.com>
+# После успешного Settings → test-send:
+REQUIRE_EMAIL_VERIFICATION=true
+FRONTEND_BASE_URL=https://your-domain.example
 ```
 
 Опционально: `SENTRY_DSN`, `VAPID_*` (Web Push), OAuth Microsoft/Google (SSO / календарь), `OPENAI_*` / `OLLAMA_*`.
+
+**Go-live почты:** `GET /api/workspace/email/status/` → `go_live_ready: true`; `GET /api/health/?extended=1` → `checks.email` без `warn` при включённой verification. См. [`docs/SMTP.md`](docs/SMTP.md).
 
 ### 3.3. Запуск стека
 

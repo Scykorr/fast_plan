@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.20.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
+| **Текущая версия** | **v0.21.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
 | **Следующий слой** | Ops SMTP verification; S3 Integrations **в перспективе** |
 | **В перспективе** | S3 Integrations (MS Project XML + 1С OData) — без sample в ближайшее время |
@@ -102,8 +102,9 @@
 5. ~~**Schedule + Process maturity**~~ — **✓** leveling propose, Inclusive GW, SubProcess children UI
 6. ~~**SMTP credentials on staging**~~ — **✓ код + локальный SMTP**; staging/prod: test-send → `REQUIRE_EMAIL_VERIFICATION=true` ([`docs/SMTP.md`](docs/SMTP.md))
 7. ~~**Release 0.19–0.20**~~ — Process-as-WBS + S6 Kanban/time/attachments
-8. **S6 хвост + CRM depth** — comments / capacity / CSV / sibling DnD; Quote→WBS; customer health lite
-9. Ops: staging migrate backlog; раз в квартал `scripts/restore-drill.sh`
+8. ~~**S6 хвост + CRM depth**~~ — **✓** (v0.21.0)
+9. ~~**SMTP verification (local)**~~ — **✓** `.env` + test-send; staging/prod: тот же чеклист в STAGING/DEPLOY
+10. Ops: staging migrate backlog; раз в квартал `scripts/restore-drill.sh`
 
 ### Крупные спринты вперёд (сформированы)
 
@@ -221,8 +222,8 @@
 
 | Pri | Пункт | Size | Зачем |
 |-----|-------|------|-------|
-| **P1** | **SMTP credentials** — реальный `EMAIL_*` ([docs/SMTP.md](docs/SMTP.md)) | **S–M** | Tooling ✓; нужны боевые credentials |
-| **P1** | Включить **email verification** после SMTP | **S** | Сейчас `false` по умолчанию |
+| ~~**P1**~~ | ~~**SMTP credentials**~~ | **S–M** | **✓** локально (Yandex); staging/prod — по STAGING.md |
+| ~~**P1**~~ | ~~Включить **email verification** после SMTP~~ | **S** | **✓** локально `REQUIRE_EMAIL_VERIFICATION=true` |
 | ~~**P2**~~ | ~~UI Settings: SMTP status / test-send~~ | **S** | **✓** |
 | ~~**P3**~~ | ~~Deliverability checklist~~ | **S** | **✓** STAGING + docs/SMTP.md |
 
