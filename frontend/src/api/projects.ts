@@ -402,6 +402,7 @@ export type WorkItemComment = {
   author_name: string;
   wbs_node_id: number | null;
   card_id: number | null;
+  process_work_node_id?: number | null;
   created_at: string;
   updated_at: string;
 };

@@ -311,6 +311,16 @@ urlpatterns = [
         name="crm-document-detail",
     ),
     path(
+        "crm/documents/<int:document_id>/create-wbs/",
+        commerce_views.CrmDocumentCreateWbsView.as_view(),
+        name="crm-document-create-wbs",
+    ),
+    path(
+        "crm/health/",
+        commerce_views.CrmHealthView.as_view(),
+        name="crm-health",
+    ),
+    path(
         "crm/documents/<int:document_id>/pdf/",
         commerce_views.CrmDocumentPdfView.as_view(),
         name="crm-document-pdf",

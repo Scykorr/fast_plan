@@ -243,6 +243,12 @@ def materialize_work_tree(instance: ProcessInstance, *, replace: bool = False) -
 
 
 def build_work_tree(instance: ProcessInstance) -> list[dict]:
+    from projects.capacity_hints import (
+        assignee_week_loads,
+        capacity_hint_for_assignee,
+    )
+
+    loads = assignee_week_loads(instance.workspace)
     nodes = list(
         ProcessWorkNode.objects.filter(instance=instance)
         .select_related(
@@ -269,6 +275,7 @@ def build_work_tree(instance: ProcessInstance) -> list[dict]:
             hours += entry.hours
         return {
             "id": n.id,
+            "parent_id": n.parent_id,
             "bpmn_id": n.bpmn_id,
             "code": n.code,
             "title": n.title,
@@ -299,6 +306,7 @@ def build_work_tree(instance: ProcessInstance) -> list[dict]:
             "kanban_column": card.column.title if card is not None else None,
             "attachment_count": len(n.attachments.all()),
             "time_hours": str(hours),
+            "capacity_hint": capacity_hint_for_assignee(loads, n.assignee_id),
             "children": [serialize(c) for c in by_parent.get(n.id, [])],
         }
 

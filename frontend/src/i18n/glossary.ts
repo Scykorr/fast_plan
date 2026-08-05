@@ -262,7 +262,15 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   },
   "process-as-wbs": {
     label: "Process-as-WBS",
-    hint: "дерево работ из BPMN: даты, RACI, Kanban, time log, вложения",
+    hint: "дерево работ из BPMN: даты, RACI, Kanban, time, вложения, comments, capacity",
+  },
+  "quote-wbs": {
+    label: "Quote→WBS",
+    hint: "создание work packages проекта из строк коммерческого предложения",
+  },
+  "customer-health": {
+    label: "customer health",
+    hint: "скоринг риска клиента/сделки: BANT, просрочки, renewal, активность",
   },
   "time-log": {
     label: "time log",

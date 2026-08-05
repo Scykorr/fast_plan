@@ -51,6 +51,48 @@ function money(value: string | number | undefined) {
   return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
 }
 
+function DealHealthBadge({
+  dealId,
+  crmApi,
+}: {
+  dealId: number;
+  crmApi: ReturnType<typeof useCrmApi>;
+}) {
+  const [health, setHealth] = useState<{
+    score: number;
+    band: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!crmApi) return;
+    let cancelled = false;
+    void crmApi
+      .getCrmHealth({ dealId })
+      .then((h) => {
+        if (!cancelled) setHealth({ score: h.score, band: h.band });
+      })
+      .catch(() => {
+        if (!cancelled) setHealth(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [crmApi, dealId]);
+
+  if (!health) return null;
+  const color =
+    health.band === "healthy"
+      ? "text-emerald-700"
+      : health.band === "watch"
+        ? "text-amber-700"
+        : "text-red-700";
+  return (
+    <p className={`mt-1 text-xs ${color}`}>
+      Health {health.score} · {health.band}
+    </p>
+  );
+}
+
 function DealCard({
   deal,
   selected,
@@ -740,6 +782,7 @@ export function DealsPage() {
             <p className="text-sm font-medium text-text">
               Qualification (BANT) · score {selected.qualification_score ?? 0}%
             </p>
+            <DealHealthBadge dealId={selected.id} crmApi={crmApi} />
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
               {(
                 [

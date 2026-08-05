@@ -13,10 +13,10 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.19.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
+| **Текущая версия** | **v0.20.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
-| **Следующий слой** | S3 Integrations (sample); CRM health; Process-as-WBS DnD/export |
-| **Блокер** | MS Project XML — нужен sample `.xml` / `.mpp` |
+| **Следующий слой** | Ops SMTP verification; S3 Integrations **в перспективе** |
+| **В перспективе** | S3 Integrations (MS Project XML + 1С OData) — без sample в ближайшее время |
 
 ---
 
@@ -101,8 +101,9 @@
 4. ~~**SMTP tooling + guest payment**~~ — **✓**
 5. ~~**Schedule + Process maturity**~~ — **✓** leveling propose, Inclusive GW, SubProcess children UI
 6. ~~**SMTP credentials on staging**~~ — **✓ код + локальный SMTP**; staging/prod: test-send → `REQUIRE_EMAIL_VERIFICATION=true` ([`docs/SMTP.md`](docs/SMTP.md))
-7. **MS Project XML** — только после sample `.xml` / `.mpp`
-8. Ops: staging migrate backlog; раз в квартал `scripts/restore-drill.sh`
+7. ~~**Release 0.19–0.20**~~ — Process-as-WBS + S6 Kanban/time/attachments
+8. **S6 хвост + CRM depth** — comments / capacity / CSV / sibling DnD; Quote→WBS; customer health lite
+9. Ops: staging migrate backlog; раз в квартал `scripts/restore-drill.sh`
 
 ### Крупные спринты вперёд (сформированы)
 
@@ -110,11 +111,11 @@
 |---|--------|-------|------|-------------|
 | **S1** | **Schedule intelligence** | PERT Monte Carlo; leveling apply-all/undo; Capacity propose | **L** | **✓** |
 | **S2** | **Process ops maturity** | migrate on publish; SubProcess collapse; Inclusive tip | **L** | **✓** |
-| **S3** | **Integrations unlock** | MS Project XML + 1С OData | **L** | sample / стенд |
+| **S3** | **Integrations unlock** | MS Project XML + 1С OData | **L** | **в перспективе** (нет sample) |
 | **S4** | **Trust & mail go-live** | SMTP + verification | **M** | **✓ код**; credentials на staging/prod |
-| **S5** | **Process-as-WBS — foundation** | materialize + tree UI | **L** | **✓ lite** |
-| **S6** | **Process-as-WBS — PM surface** | dates/RACI/Gantt-lite + Kanban/time/attachments | **L** | **✓** (DnD/export/comments later) |
-| **S7** | **Methodology + CRM depth** | PRINCE2/Scrum packs; BANT/playbook | **L** | **✓ lite** |
+| **S5** | **Process-as-WBS — foundation** | materialize + tree UI | **L** | **✓** |
+| **S6** | **Process-as-WBS — PM surface** | dates/RACI/Gantt/Kanban/time/files + comments/capacity/CSV/DnD | **L** | **✓** |
+| **S7** | **Methodology + CRM depth** | packs; BANT/playbook + health/Quote→WBS | **L** | **✓ lite** + health/Quote→WBS |
 
 Параллельно: **S4** (ops). После S5–S6 продукт закрывает разрыв «процесс рисуем в BPMN, работаем как в WBS».
 
@@ -155,14 +156,14 @@
 
 **Критерий «все возможные функции» (чеклист MVP C):**
 
-- [ ] иерархия + DnD reorder (где безопасно без ломки BPMN)
-- [ ] карточка узла (описание, статус, assignee)
+- [x] иерархия + DnD reorder (sibling-only; без reparent BPMN)
+- [x] карточка узла (описание, статус, assignee)
 - [x] даты / длительность / Gantt-lite
 - [x] Kanban-синк для UserTask-узлов
-- [x] комментарии / вложения / time log _(вложения + time; comments later)_
+- [x] комментарии / вложения / time log
 - [x] RACI на узле
-- [ ] capacity hint при assignee+dates
-- [ ] экспорт flatten CSV
+- [x] capacity hint при assignee+dates
+- [x] экспорт flatten CSV
 - [x] связка «открыть BPMN element» ↔ узел дерева (highlight)
 
 ---
@@ -178,7 +179,7 @@
 | ~~**P2**~~ | ~~Resource leveling lite~~ | **M** | **✓** |
 | **P2** | Leveling apply-all / Capacity propose _(S1)_ | **M** | Resource management |
 | **P3** | PERT Monte Carlo _(S1)_ | **M** | Schedule risk |
-| **P3** | MS Project XML _(S3)_ | **M–L** | Interop |
+| **P3** | MS Project XML _(S3)_ | **M–L** | **в перспективе** |
 | **P2** | **OBS / org breakdown** — привязка WBS к оргструктуре (отдел/роль), не только user | **M** | PMBOK org / RACI scale |
 | **P2** | **Issue / action log** отдельно от Risk (проблемы + due + owner) | **M** | PRINCE2 Issue Register |
 | **P2** | **Lessons learned** на закрытии проекта (шаблон + export) | **S–M** | PMBOK closing |
@@ -208,11 +209,11 @@
 | Pri | Пункт | Size | Методология / зачем |
 |-----|-------|------|---------------------|
 | ~~**P2**~~ | ~~Guest payment status~~ | **S** | **✓** |
-| **P3** | Live 1С OData _(S3)_ | **L** | ERP |
-| **P2** | **Qualification score** (BANT/MEDDIC lite поля + rollup на Deal) | **M** | Sales methodology |
-| **P2** | **Playbooks / next-best-action** на стадии pipeline (чеклист + auto task) | **M** | Sales process |
-| **P2** | **Customer health** (renewal risk = usage/ARR/overdue invoices) | **M** | CS / ARR |
-| **P3** | **Quote→WBS estimate** — из строк КП черновик WP/budget | **M** | Handoff commercial→PM |
+| **P3** | Live 1С OData _(S3)_ | **L** | **в перспективе** |
+| ~~**P2**~~ | ~~**Qualification score** (BANT)~~ | **M** | **✓** |
+| ~~**P2**~~ | ~~**Playbooks** на стадии pipeline~~ | **M** | **✓** |
+| ~~**P2**~~ | ~~**Customer health**~~ | **M** | **✓ lite** |
+| ~~**P3**~~ | ~~**Quote→WBS estimate**~~ | **M** | **✓ lite** |
 | **P3** | **Multi-currency deal rollup** с FX уже в workspace | **S–M** | Finance/CRM |
 | **P3** | **Consent / GDPR lite** на Person (legal basis, retention flag) | **M** | Compliance |
 
@@ -225,13 +226,14 @@
 | ~~**P2**~~ | ~~UI Settings: SMTP status / test-send~~ | **S** | **✓** |
 | ~~**P3**~~ | ~~Deliverability checklist~~ | **S** | **✓** STAGING + docs/SMTP.md |
 
-### Отложено (ждём входных данных)
+### Отложено / в перспективе
 
 | Пункт | Условие |
 |-------|---------|
-| MS Project XML import | образец `.xml` / экспорт из MS Project |
-| Углубление конкретного PBX / live 1С | боевой стенд заказчика |
-| Full SubProcess UI (коллапс в bpmn-js) | спринт **S2** |
+| **S3** MS Project XML import | образец `.xml` / `.mpp` — **не ожидается в ближайшее время** |
+| **S3** Live 1С OData | боевой стенд заказчика |
+| Углубление конкретного PBX | боевой стенд заказчика |
+| Full SubProcess UI (коллапс в bpmn-js) | позже при необходимости |
 | Camunda-grade conformance / full FEEL | вне scope (см. ниже) |
 
 ---

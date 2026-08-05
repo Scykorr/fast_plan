@@ -410,6 +410,50 @@ class CrmDocumentDetailView(WorkspaceMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class CrmDocumentCreateWbsView(WorkspaceMixin, APIView):
+    """Quote line_items → project WBS work packages (Quote→WBS)."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, document_id):
+        from crm.quote_wbs import create_wbs_from_quote
+
+        doc = get_object_or_404(
+            CrmDocument.objects.filter(workspace=self.get_workspace()).select_related(
+                "deal", "project"
+            ),
+            pk=document_id,
+        )
+        result = create_wbs_from_quote(doc, user=request.user)
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
+class CrmHealthView(WorkspaceMixin, APIView):
+    """Read-only customer/deal health aggregate."""
+
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from crm.health import compute_deal_health, compute_organization_health
+
+        workspace = self.get_workspace()
+        deal_id = request.query_params.get("deal_id")
+        org_id = request.query_params.get("organization_id")
+        if deal_id:
+            deal = get_object_or_404(
+                Deal.objects.filter(workspace=workspace), pk=deal_id
+            )
+            return Response(compute_deal_health(deal))
+        if org_id:
+            org = get_object_or_404(
+                Organization.objects.filter(workspace=workspace), pk=org_id
+            )
+            return Response(compute_organization_health(workspace, org))
+        raise ValidationError(
+            {"detail": "Provide deal_id or organization_id query param."}
+        )
+
+
 class CrmDocumentPdfView(WorkspaceMixin, APIView):
     permission_classes = [IsWorkspaceEditorOrReadOnly]
 

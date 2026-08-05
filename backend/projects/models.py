@@ -501,6 +501,13 @@ class WorkItemComment(models.Model):
         blank=True,
         related_name="comments",
     )
+    process_work_node = models.ForeignKey(
+        "process.ProcessWorkNode",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
     kind = models.CharField(
         max_length=20,
         choices=Kind.choices,
@@ -515,8 +522,21 @@ class WorkItemComment(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    models.Q(wbs_node__isnull=False, card__isnull=True)
-                    | models.Q(wbs_node__isnull=True, card__isnull=False)
+                    models.Q(
+                        wbs_node__isnull=False,
+                        card__isnull=True,
+                        process_work_node__isnull=True,
+                    )
+                    | models.Q(
+                        wbs_node__isnull=True,
+                        card__isnull=False,
+                        process_work_node__isnull=True,
+                    )
+                    | models.Q(
+                        wbs_node__isnull=True,
+                        card__isnull=True,
+                        process_work_node__isnull=False,
+                    )
                 ),
                 name="workitemcomment_exactly_one_target",
             )

@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, requestBlob } from "./client";
 
 export type ProcessDefinition = {
   id: number;
@@ -56,6 +56,7 @@ export type ProcessUserTask = {
 
 export type ProcessWorkNode = {
   id: number;
+  parent_id?: number | null;
   bpmn_id: string;
   code: string;
   title: string;
@@ -80,6 +81,15 @@ export type ProcessWorkNode = {
   kanban_column?: string | null;
   attachment_count?: number;
   time_hours?: string;
+  capacity_hint?: {
+    week_start: string;
+    week_end: string;
+    capacity_hours: number;
+    allocated_hours: number;
+    utilization: number | null;
+    overloaded: boolean;
+    hint: string | null;
+  } | null;
   children: ProcessWorkNode[];
 };
 
@@ -277,6 +287,31 @@ export function createProcessApi() {
         `/process/work-nodes/${id}/`,
         { method: "PATCH", body: JSON.stringify(body) },
       ),
+    exportWorkTree: (instanceId: number, format: "csv" | "xlsx" = "csv") =>
+      requestBlob(
+        `/process/instances/${instanceId}/work-tree/export/?output=${format}`,
+      ),
+    getWorkNodeComments: (nodeId: number) =>
+      request<
+        Array<{
+          id: number;
+          kind: "comment" | "decision";
+          body: string;
+          author: number;
+          author_name: string;
+          process_work_node_id?: number | null;
+          created_at: string;
+          updated_at: string;
+        }>
+      >(`/process/work-nodes/${nodeId}/comments/`, {}),
+    createWorkNodeComment: (
+      nodeId: number,
+      body: { body: string; kind?: "comment" | "decision" },
+    ) =>
+      request(`/process/work-nodes/${nodeId}/comments/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     listTasks: (params?: { status?: string; mine?: boolean }) => {
       const q = new URLSearchParams();
       if (params?.status) q.set("status", params.status);

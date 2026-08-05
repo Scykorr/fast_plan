@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from kanban.models import Card
 from notifications.services import notify_new_comment
+from process.models import ProcessWorkNode
 from projects.models import WBSNode, WorkItemComment
 from projects.serializers_comments import (
     WorkItemCommentSerializer,
@@ -15,7 +16,7 @@ from projects.views import WorkspaceMixin
 from workspaces.events import publish_event
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly
 from workspaces.models import WorkspaceMember
-from workspaces.services import get_membership, has_min_role
+from workspaces.services import has_min_role
 
 
 class WBSCommentListCreateView(WorkspaceMixin, APIView):
@@ -82,6 +83,43 @@ class CardCommentListCreateView(WorkspaceMixin, APIView):
             card.column.board.workspace_id,
             "comment.created",
             {"comment_id": comment.id, "card_id": card.id},
+        )
+        return Response(
+            WorkItemCommentSerializer(comment).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProcessWorkNodeCommentListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get_node(self, node_id):
+        return get_object_or_404(
+            ProcessWorkNode.objects.filter(workspace=self.get_workspace()),
+            pk=node_id,
+        )
+
+    def get(self, request, node_id):
+        node = self.get_node(node_id)
+        comments = node.comments.select_related("author").all()
+        return Response(WorkItemCommentSerializer(comments, many=True).data)
+
+    def post(self, request, node_id):
+        node = self.get_node(node_id)
+        serializer = WorkItemCommentWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = WorkItemComment.objects.create(
+            workspace=node.workspace,
+            author=request.user,
+            process_work_node=node,
+            kind=serializer.validated_data["kind"],
+            body=serializer.validated_data["body"].strip(),
+        )
+        notify_new_comment(comment)
+        publish_event(
+            node.workspace_id,
+            "comment.created",
+            {"comment_id": comment.id, "process_work_node_id": node.id},
         )
         return Response(
             WorkItemCommentSerializer(comment).data,

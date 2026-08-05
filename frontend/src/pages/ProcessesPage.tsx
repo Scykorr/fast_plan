@@ -572,6 +572,34 @@ export function ProcessesPage() {
                   >
                     Materialize WBS
                   </button>
+                  {instanceDetail.work_tree.length > 0 && (
+                    <button
+                      type="button"
+                      className="rounded-lg border border-border px-3 py-1 text-xs"
+                      onClick={() =>
+                        void (async () => {
+                          if (!api || !instanceDetail) return;
+                          try {
+                            const blob = await api.exportWorkTree(
+                              instanceDetail.instance.id,
+                              "csv",
+                            );
+                            const { downloadBlob } = await import(
+                              "../utils/download"
+                            );
+                            downloadBlob(
+                              blob,
+                              `process-${instanceDetail.instance.id}-work-tree.csv`,
+                            );
+                          } catch (err) {
+                            setError(parseApiError(err));
+                          }
+                        })()
+                      }
+                    >
+                      Export CSV
+                    </button>
+                  )}
                 </div>
                 <ProcessWorkTree
                   tree={instanceDetail.work_tree}

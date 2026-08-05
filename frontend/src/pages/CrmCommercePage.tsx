@@ -799,6 +799,29 @@ export function CrmCommercePage() {
                     Открыть
                   </a>
                 )}
+                {doc.doc_type === "quote" && doc.deal && (
+                  <button
+                    type="button"
+                    className="rounded border border-border px-2 py-1 text-xs"
+                    onClick={() =>
+                      void crmApi
+                        ?.createWbsFromQuote(doc.id)
+                        .then((result) => {
+                          setMessage(
+                            `Quote→WBS: проект #${result.project_id}, WP: ${result.created_count}`,
+                          );
+                          return load();
+                        })
+                        .catch((err) =>
+                          setError(
+                            parseApiError(err, "Не удалось создать WBS из КП"),
+                          ),
+                        )
+                    }
+                  >
+                    → WBS
+                  </button>
+                )}
                 {doc.doc_type === "invoice" && doc.status !== "paid" && (
                   <button
                     type="button"

@@ -1,12 +1,32 @@
-import { useEffect, useState } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { Attachment } from "../../api/attachments";
 import type { ProcessWorkNode } from "../../api/process";
+import type { WorkItemComment } from "../../api/projects";
 import type { TimeEntry } from "../../api/timelog";
 import { useAttachmentsApi } from "../../hooks/useAttachmentsApi";
+import { useProcessApi } from "../../hooks/useProcessApi";
+import { useProjectsApi } from "../../hooks/useProjectsApi";
 import { useTimeLogApi } from "../../hooks/useTimeLogApi";
+import { CommentThread } from "../comments/CommentThread";
 import { GlossaryText, TermHint } from "../TermHint";
+
+type FlatNode = ProcessWorkNode & { depth: number; parent_id: number | null };
 
 type Props = {
   tree: ProcessWorkNode[];
@@ -21,11 +41,16 @@ type Props = {
 function flatten(
   nodes: ProcessWorkNode[],
   depth = 0,
-): Array<ProcessWorkNode & { depth: number }> {
-  const out: Array<ProcessWorkNode & { depth: number }> = [];
+  parentId: number | null = null,
+): FlatNode[] {
+  const out: FlatNode[] = [];
   for (const n of nodes) {
-    out.push({ ...n, depth });
-    out.push(...flatten(n.children || [], depth + 1));
+    out.push({
+      ...n,
+      depth,
+      parent_id: n.parent_id ?? parentId,
+    });
+    out.push(...flatten(n.children || [], depth + 1, n.id));
   }
   return out;
 }
@@ -42,15 +67,116 @@ function findNode(
   return null;
 }
 
+function SortableRow({
+  node,
+  onSelectBpmn,
+  onEdit,
+}: {
+  node: FlatNode;
+  onSelectBpmn?: (bpmnId: string) => void;
+  onEdit?: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: node.id, data: { parentId: node.parent_id } });
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+      className="border-t border-border align-top"
+    >
+      <td className="px-1 py-1.5 text-text-muted">
+        <button
+          type="button"
+          className="cursor-grab px-1 active:cursor-grabbing"
+          aria-label="Drag"
+          {...attributes}
+          {...listeners}
+        >
+          ⋮⋮
+        </button>
+      </td>
+      <td className="px-2 py-1.5">
+        <button
+          type="button"
+          className="text-left hover:text-primary"
+          style={{ paddingLeft: node.depth * 12 }}
+          onClick={() =>
+            node.bpmn_id && !node.bpmn_id.startsWith("__root__")
+              ? onSelectBpmn?.(node.bpmn_id)
+              : undefined
+          }
+        >
+          <span className="font-medium text-text">
+            {node.code} {node.title}
+          </span>
+          {node.assignee_name && (
+            <span className="ml-1 text-text-muted">· {node.assignee_name}</span>
+          )}
+          {node.capacity_hint?.overloaded && (
+            <span
+              className="ml-1 rounded bg-amber-100 px-1 text-[10px] text-amber-800"
+              title={node.capacity_hint.hint || "Перегруз"}
+            >
+              capacity!
+            </span>
+          )}
+        </button>
+      </td>
+      <td className="px-2 py-1.5 text-text-muted">{node.node_type}</td>
+      <td className="px-2 py-1.5">{node.status}</td>
+      <td className="px-2 py-1.5">{node.progress}</td>
+      <td className="px-2 py-1.5 text-text-muted">
+        {node.kanban_column || "—"}
+      </td>
+      <td className="px-2 py-1.5 text-text-muted">
+        {node.time_hours && Number(node.time_hours) > 0 ? node.time_hours : "—"}
+      </td>
+      <td className="px-2 py-1.5 text-text-muted">
+        {node.attachment_count || "—"}
+      </td>
+      <td className="px-2 py-1.5 text-text-muted">
+        {node.start_date || "—"} → {node.end_date || "—"} ({node.duration_days}
+        д)
+      </td>
+      <td className="px-2 py-1.5 text-text-muted">
+        R:{node.raci_r || "—"} A:{node.raci_a || "—"} C:{node.raci_c || "—"} I:
+        {node.raci_i || "—"}
+      </td>
+      <td className="px-2 py-1.5">
+        {onEdit && (
+          <button
+            type="button"
+            className="text-primary hover:underline"
+            onClick={onEdit}
+          >
+            Edit
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 export function ProcessWorkTree({
   tree,
   onSelectBpmn,
   onPatch,
   onReload,
 }: Props) {
-  const rows = flatten(tree);
+  const rows = useMemo(() => flatten(tree), [tree]);
   const timeApi = useTimeLogApi();
   const attachmentsApi = useAttachmentsApi();
+  const processApi = useProcessApi();
+  const projectsApi = useProjectsApi();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [raciDraft, setRaciDraft] = useState({ r: "", a: "", c: "", i: "" });
   const [datesDraft, setDatesDraft] = useState({
@@ -65,37 +191,55 @@ export function ProcessWorkTree({
   const [timeNotes, setTimeNotes] = useState("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [files, setFiles] = useState<Attachment[]>([]);
+  const [comments, setComments] = useState<WorkItemComment[]>([]);
   const [panelError, setPanelError] = useState("");
 
   const editingNode =
     editingId != null ? findNode(tree, editingId) : null;
 
   useEffect(() => {
-    if (editingId == null || !timeApi || !attachmentsApi) {
+    if (editingId == null || !timeApi || !attachmentsApi || !processApi) {
       setEntries([]);
       setFiles([]);
+      setComments([]);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const [timeList, fileList] = await Promise.all([
+        const [timeList, fileList, commentList] = await Promise.all([
           timeApi.getEntries({ processWorkNode: editingId }),
           attachmentsApi.getProcessWorkNodeAttachments(editingId),
+          processApi.getWorkNodeComments(editingId),
         ]);
         if (!cancelled) {
           setEntries(timeList);
           setFiles(fileList);
+          setComments(commentList as WorkItemComment[]);
           setPanelError("");
         }
       } catch {
-        if (!cancelled) setPanelError("Не удалось загрузить time/вложения");
+        if (!cancelled) setPanelError("Не удалось загрузить панель узла");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [editingId, timeApi, attachmentsApi]);
+  }, [editingId, timeApi, attachmentsApi, processApi]);
+
+  const onDragEnd = (event: DragEndEvent) => {
+    if (!onPatch) return;
+    const activeId = Number(event.active.id);
+    const overId = event.over ? Number(event.over.id) : null;
+    if (!overId || activeId === overId) return;
+    const active = rows.find((r) => r.id === activeId);
+    const over = rows.find((r) => r.id === overId);
+    if (!active || !over || active.parent_id !== over.parent_id) return;
+    const siblings = rows.filter((r) => r.parent_id === active.parent_id);
+    const newIndex = siblings.findIndex((r) => r.id === overId);
+    if (newIndex < 0) return;
+    void onPatch(activeId, { position: newIndex });
+  };
 
   if (rows.length === 0) {
     return (
@@ -105,8 +249,7 @@ export function ProcessWorkTree({
     );
   }
 
-  const boardId =
-    rows.find((r) => r.board_id != null)?.board_id ?? null;
+  const boardId = rows.find((r) => r.board_id != null)?.board_id ?? null;
 
   return (
     <div className="space-y-3">
@@ -121,115 +264,74 @@ export function ProcessWorkTree({
           </Link>
         </p>
       )}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="min-w-full text-left text-xs">
-          <thead className="bg-cream text-text-muted">
-            <tr>
-              <th className="px-2 py-1.5">Код / узел</th>
-              <th className="px-2 py-1.5">Тип</th>
-              <th className="px-2 py-1.5">Статус</th>
-              <th className="px-2 py-1.5">%</th>
-              <th className="px-2 py-1.5">Kanban</th>
-              <th className="px-2 py-1.5">Часы</th>
-              <th className="px-2 py-1.5">Файлы</th>
-              <th className="px-2 py-1.5">Даты</th>
-              <th className="px-2 py-1.5">
-                <TermHint term="raci">RACI</TermHint>
-              </th>
-              <th className="px-2 py-1.5" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((node) => (
-              <tr key={node.id} className="border-t border-border align-top">
-                <td className="px-2 py-1.5">
-                  <button
-                    type="button"
-                    className="text-left hover:text-primary"
-                    style={{ paddingLeft: node.depth * 12 }}
-                    onClick={() =>
-                      node.bpmn_id && !node.bpmn_id.startsWith("__root__")
-                        ? onSelectBpmn?.(node.bpmn_id)
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={onDragEnd}
+      >
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="min-w-full text-left text-xs">
+            <thead className="bg-cream text-text-muted">
+              <tr>
+                <th className="px-1 py-1.5" />
+                <th className="px-2 py-1.5">Код / узел</th>
+                <th className="px-2 py-1.5">Тип</th>
+                <th className="px-2 py-1.5">Статус</th>
+                <th className="px-2 py-1.5">%</th>
+                <th className="px-2 py-1.5">Kanban</th>
+                <th className="px-2 py-1.5">Часы</th>
+                <th className="px-2 py-1.5">Файлы</th>
+                <th className="px-2 py-1.5">Даты</th>
+                <th className="px-2 py-1.5">
+                  <TermHint term="raci">RACI</TermHint>
+                </th>
+                <th className="px-2 py-1.5" />
+              </tr>
+            </thead>
+            <SortableContext
+              items={rows.map((r) => r.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <tbody>
+                {rows.map((node) => (
+                  <SortableRow
+                    key={node.id}
+                    node={node}
+                    onSelectBpmn={onSelectBpmn}
+                    onEdit={
+                      onPatch
+                        ? () => {
+                            setEditingId(node.id);
+                            setRaciDraft({
+                              r: node.raci_r,
+                              a: node.raci_a,
+                              c: node.raci_c,
+                              i: node.raci_i,
+                            });
+                            setDatesDraft({
+                              start: node.start_date || "",
+                              end: node.end_date || "",
+                              duration: String(node.duration_days || 1),
+                            });
+                          }
                         : undefined
                     }
-                  >
-                    <span className="font-medium text-text">
-                      {node.code} {node.title}
-                    </span>
-                    {node.assignee_name && (
-                      <span className="ml-1 text-text-muted">
-                        · {node.assignee_name}
-                      </span>
-                    )}
-                  </button>
-                </td>
-                <td className="px-2 py-1.5 text-text-muted">{node.node_type}</td>
-                <td className="px-2 py-1.5">{node.status}</td>
-                <td className="px-2 py-1.5">{node.progress}</td>
-                <td className="px-2 py-1.5 text-text-muted">
-                  {node.kanban_column || "—"}
-                </td>
-                <td className="px-2 py-1.5 text-text-muted">
-                  {node.time_hours && Number(node.time_hours) > 0
-                    ? node.time_hours
-                    : "—"}
-                </td>
-                <td className="px-2 py-1.5 text-text-muted">
-                  {node.attachment_count || "—"}
-                </td>
-                <td className="px-2 py-1.5 text-text-muted">
-                  {node.start_date || "—"} → {node.end_date || "—"} (
-                  {node.duration_days}д)
-                  {node.predecessor_bpmn_id ? (
-                    <div className="text-[10px]">
-                      FS ← {node.predecessor_bpmn_id}
-                    </div>
-                  ) : null}
-                </td>
-                <td className="px-2 py-1.5 text-text-muted">
-                  R:{node.raci_r || "—"} A:{node.raci_a || "—"} C:
-                  {node.raci_c || "—"} I:{node.raci_i || "—"}
-                </td>
-                <td className="px-2 py-1.5">
-                  {onPatch && (
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      onClick={() => {
-                        setEditingId(node.id);
-                        setRaciDraft({
-                          r: node.raci_r,
-                          a: node.raci_a,
-                          c: node.raci_c,
-                          i: node.raci_i,
-                        });
-                        setDatesDraft({
-                          start: node.start_date || "",
-                          end: node.end_date || "",
-                          duration: String(node.duration_days || 1),
-                        });
-                      }}
-                    >
-                      Edit
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  />
+                ))}
+              </tbody>
+            </SortableContext>
+          </table>
+        </div>
+      </DndContext>
 
       {editingId != null && onPatch && (
-        <div className="rounded-lg border border-border bg-cream p-3 text-xs space-y-3">
+        <div className="space-y-3 rounded-lg border border-border bg-cream p-3 text-xs">
           <p className="font-medium text-text">
             Узел #{editingId}
             {editingNode ? ` · ${editingNode.title}` : ""} · даты /{" "}
-            <GlossaryText text="RACI" /> / time / вложения
+            <GlossaryText text="RACI" /> / time / вложения / comments
           </p>
-          {panelError && (
-            <p className="text-danger">{panelError}</p>
-          )}
+          {panelError && <p className="text-danger">{panelError}</p>}
           <div className="flex flex-wrap gap-2">
             <input
               type="date"
@@ -297,19 +399,11 @@ export function ProcessWorkTree({
             >
               Отмена
             </button>
-            {editingNode?.board_id != null && editingNode.card_id != null && (
-              <Link
-                to={`/kanban?board=${editingNode.board_id}&card=${editingNode.card_id}`}
-                className="rounded border border-border px-3 py-1 text-primary"
-              >
-                Карточка Kanban
-              </Link>
-            )}
           </div>
 
-          <div className="border-t border-border pt-2 space-y-2">
+          <div className="space-y-2 border-t border-border pt-2">
             <p className="font-medium text-text">Time log</p>
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="number"
                 min={0.25}
@@ -317,7 +411,6 @@ export function ProcessWorkTree({
                 value={timeHours}
                 onChange={(e) => setTimeHours(e.target.value)}
                 className="w-20 rounded border border-border bg-surface px-2 py-1"
-                aria-label="hours"
               />
               <input
                 type="date"
@@ -352,7 +445,6 @@ export function ProcessWorkTree({
                         }),
                       );
                       setTimeNotes("");
-                      setPanelError("");
                       await onReload?.();
                     } catch {
                       setPanelError("Не удалось добавить time entry");
@@ -368,39 +460,18 @@ export function ProcessWorkTree({
                 <li>Нет записей</li>
               ) : (
                 entries.map((e) => (
-                  <li key={e.id} className="flex justify-between gap-2">
-                    <span>
-                      {e.work_date} · {e.hours}h · {e.user_name}
-                      {e.notes ? ` — ${e.notes}` : ""}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-danger hover:underline"
-                      onClick={() =>
-                        void (async () => {
-                          if (!timeApi) return;
-                          await timeApi.deleteEntry(e.id);
-                          setEntries(
-                            await timeApi.getEntries({
-                              processWorkNode: editingId,
-                            }),
-                          );
-                        })()
-                      }
-                    >
-                      удалить
-                    </button>
+                  <li key={e.id}>
+                    {e.work_date} · {e.hours}h · {e.user_name}
                   </li>
                 ))
               )}
             </ul>
           </div>
 
-          <div className="border-t border-border pt-2 space-y-2">
+          <div className="space-y-2 border-t border-border pt-2">
             <p className="font-medium text-text">Вложения</p>
             <input
               type="file"
-              className="text-text-muted"
               disabled={!attachmentsApi}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -417,7 +488,6 @@ export function ProcessWorkTree({
                         editingId,
                       ),
                     );
-                    setPanelError("");
                     await onReload?.();
                   } catch {
                     setPanelError("Не удалось загрузить файл");
@@ -426,40 +496,43 @@ export function ProcessWorkTree({
               }}
             />
             <ul className="space-y-1 text-text-muted">
-              {files.length === 0 ? (
-                <li>Нет файлов</li>
-              ) : (
-                files.map((f) => (
-                  <li key={f.id} className="flex justify-between gap-2">
-                    <a
-                      href={f.url || "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {f.name}
-                    </a>
-                    <button
-                      type="button"
-                      className="text-danger hover:underline"
-                      onClick={() =>
-                        void (async () => {
-                          if (!attachmentsApi) return;
-                          await attachmentsApi.deleteAttachment(f.id);
-                          setFiles(
-                            await attachmentsApi.getProcessWorkNodeAttachments(
-                              editingId,
-                            ),
-                          );
-                        })()
-                      }
-                    >
-                      удалить
-                    </button>
-                  </li>
-                ))
-              )}
+              {files.map((f) => (
+                <li key={f.id}>{f.name}</li>
+              ))}
             </ul>
+          </div>
+
+          <div className="space-y-2 border-t border-border pt-2">
+            <p className="font-medium text-text">Comments</p>
+            <CommentThread
+              comments={comments}
+              onAdd={async (body, kind) => {
+                if (!processApi) return;
+                await processApi.createWorkNodeComment(editingId, {
+                  body,
+                  kind,
+                });
+                setComments(
+                  (await processApi.getWorkNodeComments(
+                    editingId,
+                  )) as WorkItemComment[],
+                );
+              }}
+              onDelete={
+                projectsApi
+                  ? async (id) => {
+                      await projectsApi.deleteComment(id);
+                      if (!processApi) return;
+                      setComments(
+                        (await processApi.getWorkNodeComments(
+                          editingId,
+                        )) as WorkItemComment[],
+                      );
+                    }
+                  : undefined
+              }
+              canDelete
+            />
           </div>
         </div>
       )}
@@ -472,7 +545,10 @@ export function ProcessWorkTree({
           {rows
             .filter((n) => n.node_type !== "root")
             .map((n) => (
-              <div key={`g-${n.id}`} className="flex items-center gap-2 text-[11px]">
+              <div
+                key={`g-${n.id}`}
+                className="flex items-center gap-2 text-[11px]"
+              >
                 <span className="w-40 truncate text-text-muted">
                   {n.code} {n.title}
                 </span>

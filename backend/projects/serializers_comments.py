@@ -5,8 +5,9 @@ from projects.models import WorkItemComment
 
 class WorkItemCommentSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
-    wbs_node_id = serializers.IntegerField(source="wbs_node.id", read_only=True, allow_null=True)
-    card_id = serializers.IntegerField(source="card.id", read_only=True, allow_null=True)
+    wbs_node_id = serializers.IntegerField(read_only=True, allow_null=True)
+    card_id = serializers.IntegerField(read_only=True, allow_null=True)
+    process_work_node_id = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = WorkItemComment
@@ -18,6 +19,7 @@ class WorkItemCommentSerializer(serializers.ModelSerializer):
             "author_name",
             "wbs_node_id",
             "card_id",
+            "process_work_node_id",
             "created_at",
             "updated_at",
         )

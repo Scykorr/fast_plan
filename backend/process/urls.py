@@ -13,6 +13,7 @@ from process.views import (
     ProcessInstanceDetailView,
     ProcessInstanceListView,
     ProcessInstanceMaterializeView,
+    ProcessInstanceWorkTreeExportView,
     ProcessMetricsView,
     ProcessMiningView,
     ProcessOpsView,
@@ -27,6 +28,7 @@ from process.views import (
     UserTaskBindView,
     UserTaskListView,
 )
+from projects.comment_views import ProcessWorkNodeCommentListCreateView
 
 urlpatterns = [
     path(
@@ -70,9 +72,19 @@ urlpatterns = [
         name="process-instance-materialize",
     ),
     path(
+        "process/instances/<int:pk>/work-tree/export/",
+        ProcessInstanceWorkTreeExportView.as_view(),
+        name="process-instance-work-tree-export",
+    ),
+    path(
         "process/work-nodes/<int:pk>/",
         ProcessWorkNodeDetailView.as_view(),
         name="process-work-node-detail",
+    ),
+    path(
+        "process/work-nodes/<int:node_id>/comments/",
+        ProcessWorkNodeCommentListCreateView.as_view(),
+        name="process-work-node-comments",
     ),
     path("process/tasks/", UserTaskListView.as_view(), name="process-tasks"),
     path(

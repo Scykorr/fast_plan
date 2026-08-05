@@ -38,6 +38,39 @@ const ACTIVITY_KINDS: CrmActivityKind[] = [
   "other",
 ];
 
+function OrgHealthLine({
+  organizationId,
+  crmApi,
+}: {
+  organizationId: number;
+  crmApi: ReturnType<typeof useCrmApi>;
+}) {
+  const [health, setHealth] = useState<{ score: number; band: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!crmApi) return;
+    let cancelled = false;
+    void crmApi
+      .getCrmHealth({ organizationId })
+      .then((h) => {
+        if (!cancelled) setHealth({ score: h.score, band: h.band });
+      })
+      .catch(() => {
+        if (!cancelled) setHealth(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [crmApi, organizationId]);
+  if (!health) return null;
+  return (
+    <p className="text-xs">
+      Health {health.score} · {health.band}
+    </p>
+  );
+}
+
 const KIND_LABELS: Record<CrmActivityKind, string> = {
   note: "Заметка",
   call: "Звонок",
@@ -1096,6 +1129,10 @@ export function ClientsPage() {
                   )}
                   {selectedOrg && (
                     <div className="space-y-1 text-sm text-text-muted">
+                      <OrgHealthLine
+                        organizationId={selectedOrg.id}
+                        crmApi={crmApi}
+                      />
                       {selectedOrg.website && (
                         <a
                           href={selectedOrg.website}

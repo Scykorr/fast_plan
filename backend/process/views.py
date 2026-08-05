@@ -260,7 +260,14 @@ class ProcessWorkNodeDetailView(WorkspaceMixin, APIView):
         if "assignee_id" in request.data:
             aid = request.data.get("assignee_id")
             node.assignee_id = int(aid) if aid not in (None, "") else None
-        node.save()
+        if "position" in request.data:
+            from process.services import move_process_work_node, require_sibling_position
+
+            position = require_sibling_position(request.data["position"])
+            node.save()
+            move_process_work_node(node, position=position)
+        else:
+            node.save()
         from process.materialize import build_work_tree
         from process.work_kanban import sync_card_from_work_node
 
@@ -271,6 +278,25 @@ class ProcessWorkNodeDetailView(WorkspaceMixin, APIView):
                 "tree": build_work_tree(node.instance),
             }
         )
+
+
+class ProcessInstanceWorkTreeExportView(WorkspaceMixin, APIView):
+    """Flatten ProcessWorkNode tree to CSV/XLSX."""
+
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, pk):
+        from process.exports import render_process_work_csv, render_process_work_xlsx
+
+        obj = ProcessInstance.objects.filter(
+            workspace=self.get_workspace(), pk=pk
+        ).first()
+        if obj is None:
+            raise NotFound()
+        output = (request.query_params.get("output") or "csv").lower()
+        if output == "xlsx":
+            return render_process_work_xlsx(obj)
+        return render_process_work_csv(obj)
 
 
 class UserTaskListView(WorkspaceMixin, APIView):

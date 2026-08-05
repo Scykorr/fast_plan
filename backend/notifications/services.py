@@ -81,6 +81,11 @@ def notify_new_comment(comment) -> list[Notification]:
         link = project_deep_link(project, tab="wbs", node=node.id)
         target_title = node.title
         assignee = node.assignee
+    elif comment.process_work_node_id:
+        node = comment.process_work_node
+        link = f"/processes?workspace={workspace.id}&node={node.id}"
+        target_title = node.title
+        assignee = node.assignee
     else:
         card = comment.card
         node = card.wbs_node

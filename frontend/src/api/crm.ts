@@ -1202,6 +1202,35 @@ export function createCrmApi() {
       }),
     deleteDocument: (id: number) =>
       request<void>(`/crm/documents/${id}/`, { method: "DELETE" }),
+    createWbsFromQuote: (documentId: number) =>
+      request<{
+        document_id: number;
+        deal_id: number;
+        project_id: number;
+        created_project: boolean;
+        created_wbs_ids: number[];
+        created_count: number;
+      }>(`/crm/documents/${documentId}/create-wbs/`, {
+        method: "POST",
+        body: "{}",
+      }),
+    getCrmHealth: (params: { dealId?: number; organizationId?: number }) => {
+      const query = new URLSearchParams();
+      if (params.dealId != null) query.set("deal_id", String(params.dealId));
+      if (params.organizationId != null) {
+        query.set("organization_id", String(params.organizationId));
+      }
+      return request<{
+        score: number;
+        band: "healthy" | "watch" | "at_risk";
+        deal_id: number | null;
+        organization_id: number | null;
+        factors: Array<{ key: string; value: unknown; delta: number }>;
+        renewal_date?: string | null;
+        deals_sampled?: number;
+        worst_deal_id?: number;
+      }>(`/crm/health/?${query.toString()}`, {});
+    },
     renderDocumentPdf: (id: number) =>
       request<CrmDocument>(`/crm/documents/${id}/pdf/`, {
         method: "POST",

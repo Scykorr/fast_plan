@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from django.db import transaction
+from rest_framework.exceptions import ValidationError
+
 from process.engine import parse_process_id
-from process.models import ProcessDefinition, ProcessDeployment
+from process.models import ProcessDefinition, ProcessDeployment, ProcessWorkNode
 
 
 def deploy_if_needed(definition: ProcessDefinition, *, user=None) -> ProcessDeployment:
@@ -57,3 +60,30 @@ def publish_definition(
             parent__isnull=True,
         ).exclude(deployment_id=deployment.id).count()
     return deployment, migration
+
+
+@transaction.atomic
+def move_process_work_node(node: ProcessWorkNode, *, position: int) -> ProcessWorkNode:
+    """Reorder among siblings only (no reparent — preserves BPMN hierarchy)."""
+    siblings = list(
+        ProcessWorkNode.objects.filter(
+            instance_id=node.instance_id,
+            parent_id=node.parent_id,
+        )
+        .exclude(pk=node.pk)
+        .order_by("position", "id")
+    )
+    position = min(max(int(position), 0), len(siblings))
+    siblings.insert(position, node)
+    for index, sibling in enumerate(siblings):
+        if sibling.position != index:
+            ProcessWorkNode.objects.filter(pk=sibling.pk).update(position=index)
+    node.refresh_from_db()
+    return node
+
+
+def require_sibling_position(raw) -> int:
+    try:
+        return int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError({"position": "Invalid"}) from exc
