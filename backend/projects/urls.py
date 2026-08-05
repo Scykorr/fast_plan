@@ -25,6 +25,8 @@ from projects.pmbok_views import (
     CriticalPathView,
     ProjectCharterView,
     ProjectExportView,
+    ProjectIssueDetailView,
+    ProjectIssueListCreateView,
     ProjectMilestonesIcsView,
     RACIDetailView,
     RACIListCreateView,
@@ -181,6 +183,16 @@ urlpatterns = [
         name="project-risks",
     ),
     path("risks/<int:risk_id>/", RiskDetailView.as_view(), name="risk-detail"),
+    path(
+        "projects/<int:project_id>/issues/",
+        ProjectIssueListCreateView.as_view(),
+        name="project-issues",
+    ),
+    path(
+        "issues/<int:issue_id>/",
+        ProjectIssueDetailView.as_view(),
+        name="issue-detail",
+    ),
     path(
         "projects/<int:project_id>/stakeholders/",
         StakeholderListCreateView.as_view(),

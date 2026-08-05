@@ -848,6 +848,9 @@ export function SettingsPage() {
                     "risk.created",
                     "risk.updated",
                     "risk.deleted",
+                    "issue.created",
+                    "issue.updated",
+                    "issue.deleted",
                     "deadline.upcoming",
                   ],
                 });

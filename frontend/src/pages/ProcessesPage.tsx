@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
 import type {
@@ -66,9 +66,35 @@ const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`;
 
+type ProcessesTab =
+  | "defs"
+  | "instances"
+  | "packs"
+  | "cases"
+  | "dmn"
+  | "ops"
+  | "adapters"
+  | "metrics";
+
+const PROCESS_TABS: ProcessesTab[] = [
+  "defs",
+  "instances",
+  "packs",
+  "cases",
+  "dmn",
+  "ops",
+  "adapters",
+  "metrics",
+];
+
+function isProcessesTab(value: string | null): value is ProcessesTab {
+  return value != null && (PROCESS_TABS as string[]).includes(value);
+}
+
 export function ProcessesPage() {
   const api = useProcessApi();
   const { workspaceEpoch } = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [definitions, setDefinitions] = useState<ProcessDefinition[]>([]);
   const [instances, setInstances] = useState<ProcessInstance[]>([]);
   const [packs, setPacks] = useState<ProcessPack[]>([]);
@@ -98,16 +124,14 @@ export function ProcessesPage() {
     work_tree: ProcessWorkNode[];
   } | null>(null);
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
-  const [tab, setTab] = useState<
-    | "defs"
-    | "instances"
-    | "packs"
-    | "cases"
-    | "dmn"
-    | "ops"
-    | "adapters"
-    | "metrics"
-  >("defs");
+  const tabParam = searchParams.get("tab");
+  const tab: ProcessesTab = isProcessesTab(tabParam) ? tabParam : "defs";
+  const setTab = (next: ProcessesTab) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "defs") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
 
   const load = useCallback(async () => {
     if (!api) return;
@@ -957,20 +981,55 @@ export function ProcessesPage() {
           </section>
 
           <section className="rounded-xl border border-border bg-surface p-4 text-sm">
-            <h3 className="font-semibold text-text">SLA / просроченные</h3>
-            <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto text-xs">
-              {ops.sla_breaches.map((row) => (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-semibold text-text">SLA / просроченные</h3>
+              <Link
+                to="/process-tasks?sla=overdue"
+                className="text-xs text-primary hover:underline"
+              >
+                Inbox · только просроченные →
+              </Link>
+            </div>
+            <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto text-xs">
+              {[...ops.sla_breaches]
+                .sort((a, b) => (b.overdue_hours ?? 0) - (a.overdue_hours ?? 0))
+                .map((row) => (
                 <li
                   key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1.5"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-red-200 bg-red-50/60 px-2 py-1.5"
                 >
                   <span>
-                    {row.name} · overdue {row.overdue_hours}ч
+                    <span className="font-medium text-red-800">
+                      overdue {row.overdue_hours}ч
+                    </span>
+                    {" · "}
+                    {row.name}
                     {row.due_at ? ` · due ${row.due_at.slice(0, 16)}` : ""}
+                    {row.instance_id != null
+                      ? ` · instance #${row.instance_id}`
+                      : ""}
                   </span>
-                  <Link to="/process-tasks" className="text-primary">
-                    Inbox
-                  </Link>
+                  <span className="flex flex-wrap gap-2">
+                    {row.deal ? (
+                      <Link to={`/deals?deal=${row.deal}`} className="text-primary">
+                        Deal
+                      </Link>
+                    ) : null}
+                    {row.project ? (
+                      <Link
+                        to={`/projects/${row.project}`}
+                        className="text-primary"
+                      >
+                        Project
+                      </Link>
+                    ) : null}
+                    <Link
+                      to={`/process-tasks?task=${row.id}&sla=overdue`}
+                      className="font-medium text-primary"
+                    >
+                      Inbox →
+                    </Link>
+                  </span>
                 </li>
               ))}
               {ops.sla_breaches.length === 0 && (

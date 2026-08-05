@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.21.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
+| **Текущая версия** | **v0.22.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
 | **Следующий слой** | Ops SMTP verification; S3 Integrations **в перспективе** |
 | **В перспективе** | S3 Integrations (MS Project XML + 1С OData) — без sample в ближайшее время |
@@ -104,7 +104,7 @@
 7. ~~**Release 0.19–0.20**~~ — Process-as-WBS + S6 Kanban/time/attachments
 8. ~~**S6 хвост + CRM depth**~~ — **✓** (v0.21.0)
 9. ~~**SMTP verification (local)**~~ — **✓** `.env` + test-send; staging/prod: тот же чеклист в STAGING/DEPLOY
-10. Ops: staging migrate backlog; раз в квартал `scripts/restore-drill.sh`
+10. ~~**Ops: staging migrate backlog + restore-drill**~~ — **✓** STAGING § Migrate backlog / Quarterly restore drill; `restore-drill.sh` + `migrate --check`
 
 ### Крупные спринты вперёд (сформированы)
 
@@ -182,7 +182,7 @@
 | **P3** | PERT Monte Carlo _(S1)_ | **M** | Schedule risk |
 | **P3** | MS Project XML _(S3)_ | **M–L** | **в перспективе** |
 | **P2** | **OBS / org breakdown** — привязка WBS к оргструктуре (отдел/роль), не только user | **M** | PMBOK org / RACI scale |
-| **P2** | **Issue / action log** отдельно от Risk (проблемы + due + owner) | **M** | PRINCE2 Issue Register |
+| ~~**P2**~~ | ~~**Issue / action log** отдельно от Risk (проблемы + due + owner)~~ | **M** | **✓** PRINCE2 Issue Register (`ProjectIssue`) |
 | **P2** | **Lessons learned** на закрытии проекта (шаблон + export) | **S–M** | PMBOK closing |
 | **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | Современный EVM |
 | **P3** | **Stage / phase gates** на проекте (чеклист go/no-go) | **M** | PRINCE2 stages |
@@ -199,7 +199,7 @@
 | ~~**P3**~~ | ~~SubProcess list drill-down~~ | **S** | **✓** |
 | **P1** | **Process-as-WBS** фазы A–B _(S5)_ | **L** | см. эпик |
 | **P1** | **Process-as-WBS** фазы C–D _(S6)_ | **L** | «все функции WBS» |
-| **P2** | **SLA timers UI** на UserTask (due из timer/duration) + breach board | **M** | ITIL / ops |
+| ~~**P2**~~ | ~~**SLA timers UI** на UserTask (due из timer/duration) + breach board~~ | **M** | **✓** inbox badges + Ops breach board |
 | **P2** | **Process RACI** на definition (роль → lane/candidate) | **M** | Accountability |
 | **P3** | **Value-stream metrics** (cycle/lead time per element) поверх mining | **M** | Lean |
 | **P3** | **Compensation / error boundary** lite в catalog + docs | **L** | BPMN advanced |
@@ -278,6 +278,8 @@
 | 0.16 | 2026-07-29 | Custom fields, CRM SDK/OpenAPI, PBX Beeline/MTS, restore-drill |
 | **0.17** | **2026-07-31** | **SKU/склад MVP**, staging smoke/health polish |
 | **0.18** | **2026-07-31** | **P10**: handoff, ops, binding, guest portal, capacity, merge, CR, PERT P10/90, adapters, ARR, spawn, cross-deps, 1C SKU |
+| **0.19–0.21** | **2026-08** | Process-as-WBS, S6, CRM health/Quote→WBS |
+| **0.22** | **2026-08-05** | SLA UI, Issue Register, ops hygiene |
 
 ### Закрытые эпики (ссылки на код/доки)
 

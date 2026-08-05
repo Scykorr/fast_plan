@@ -17,6 +17,7 @@ from projects.models import (
     ProjectBaseline,
     ProjectChangeRequest,
     ProjectCharter,
+    ProjectIssue,
     RACIEntry,
     Risk,
     Stakeholder,
@@ -27,6 +28,8 @@ from projects.serializers_pmbok import (
     ProjectBaselineSerializer,
     ProjectChangeRequestSerializer,
     ProjectCharterSerializer,
+    ProjectIssueSerializer,
+    ProjectIssueWriteSerializer,
     RACIEntrySerializer,
     RACIWriteSerializer,
     RiskSerializer,
@@ -134,6 +137,112 @@ class RiskDetailView(WorkspaceMixin, APIView):
             },
         )
         risk.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProjectIssueListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        issues = project.issues.select_related("owner", "related_risk").all()
+        return Response(ProjectIssueSerializer(issues, many=True).data)
+
+    def post(self, request, project_id):
+        project = get_object_or_404(self.get_project_queryset(), pk=project_id)
+        serializer = ProjectIssueWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        issue = serializer.save(project=project)
+        log_audit(
+            project.workspace,
+            request.user,
+            "issue.create",
+            "ProjectIssue",
+            issue.id,
+            summary=f"Created issue: {issue.title}",
+            changes={
+                "title": issue.title,
+                "priority": issue.priority,
+                "status": issue.status,
+            },
+        )
+        emit_webhook(
+            project.workspace,
+            "issue.created",
+            {
+                "issue_id": issue.id,
+                "project_id": project.id,
+                "title": issue.title,
+                "priority": issue.priority,
+                "status": issue.status,
+            },
+        )
+        return Response(
+            ProjectIssueSerializer(issue).data, status=status.HTTP_201_CREATED
+        )
+
+
+class ProjectIssueDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get_issue(self, issue_id):
+        return get_object_or_404(
+            ProjectIssue.objects.filter(
+                project__workspace=self.get_workspace()
+            ).select_related("owner", "related_risk"),
+            pk=issue_id,
+        )
+
+    def patch(self, request, issue_id):
+        issue = self.get_issue(issue_id)
+        serializer = ProjectIssueWriteSerializer(
+            issue, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        log_audit(
+            issue.project.workspace,
+            request.user,
+            "issue.update",
+            "ProjectIssue",
+            issue.id,
+            summary=f"Updated issue: {issue.title}",
+            changes={key: request.data[key] for key in request.data},
+        )
+        emit_webhook(
+            issue.project.workspace,
+            "issue.updated",
+            {
+                "issue_id": issue.id,
+                "project_id": issue.project_id,
+                "title": issue.title,
+                "priority": issue.priority,
+                "status": issue.status,
+            },
+        )
+        return Response(ProjectIssueSerializer(issue).data)
+
+    def delete(self, request, issue_id):
+        issue = self.get_issue(issue_id)
+        log_audit(
+            issue.project.workspace,
+            request.user,
+            "issue.delete",
+            "ProjectIssue",
+            issue.id,
+            summary=f"Deleted issue: {issue.title}",
+            changes={"title": issue.title},
+        )
+        emit_webhook(
+            issue.project.workspace,
+            "issue.deleted",
+            {
+                "issue_id": issue.id,
+                "project_id": issue.project_id,
+                "title": issue.title,
+            },
+        )
+        issue.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

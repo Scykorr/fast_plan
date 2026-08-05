@@ -11,6 +11,7 @@ import type {
   ProjectBaseline,
   ProjectChangeRequest,
   ProjectDashboard,
+  ProjectIssue,
   ProjectSchedule,
   ProjectStatusReport,
   RACIEntry,
@@ -43,6 +44,7 @@ import { ChatPanel } from "../components/chats/ChatPanel";
 import { useCrmApi } from "../hooks/useCrmApi";
 import type { CrmOrganization } from "../api/crm";
 import { ProjectCalendar } from "../components/projects/ProjectCalendar";
+import { IssueRegister } from "../components/projects/IssueRegister";
 import { RiskRegister } from "../components/projects/RiskRegister";
 import { StakeholderPanel } from "../components/projects/StakeholderPanel";
 import { StatusReportDigest } from "../components/projects/StatusReportDigest";
@@ -78,6 +80,7 @@ type Tab =
   | "calendar"
   | "chat"
   | "risks"
+  | "issues"
   | "stakeholders"
   | "baseline"
   | "analytics";
@@ -91,6 +94,7 @@ const TABS: Tab[] = [
   "calendar",
   "chat",
   "risks",
+  "issues",
   "stakeholders",
   "baseline",
   "analytics",
@@ -132,6 +136,7 @@ export function ProjectDetailPage() {
   const [schedule, setSchedule] = useState<ProjectSchedule | null>(null);
   const [board, setBoard] = useState<KanbanBoard | null>(null);
   const [risks, setRisks] = useState<Risk[]>([]);
+  const [issues, setIssues] = useState<ProjectIssue[]>([]);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [raci, setRaci] = useState<RACIEntry[]>([]);
   const [baselines, setBaselines] = useState<ProjectBaseline[]>([]);
@@ -198,6 +203,7 @@ export function ProjectDetailPage() {
         wbsData,
         scheduleData,
         risksData,
+        issuesData,
         stakeholdersData,
         raciData,
         baselinesData,
@@ -211,6 +217,7 @@ export function ProjectDetailPage() {
         projectsApi.getWBS(id),
         projectsApi.getSchedule(id),
         projectsApi.getRisks(id),
+        projectsApi.getIssues(id),
         projectsApi.getStakeholders(id),
         projectsApi.getRACI(id),
         projectsApi.getBaselines(id),
@@ -224,6 +231,7 @@ export function ProjectDetailPage() {
       setWbs(wbsData);
       setSchedule(scheduleData);
       setRisks(risksData);
+      setIssues(issuesData);
       setStakeholders(stakeholdersData);
       setRaci(raciData);
       setBaselines(baselinesData);
@@ -566,6 +574,54 @@ export function ProjectDetailPage() {
     }
   };
 
+  const handleAddIssue = async (values: {
+    title: string;
+    issue_type: string;
+    priority: string;
+    owner_id: number | null;
+    due_date: string;
+  }) => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      await projectsApi.createIssue(id, {
+        ...values,
+        due_date: values.due_date || null,
+      });
+      setIssues(await projectsApi.getIssues(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать issue"));
+      throw err;
+    }
+  };
+
+  const handleUpdateIssue = async (
+    issueId: number,
+    values: {
+      title: string;
+      description: string;
+      issue_type: string;
+      priority: string;
+      status: string;
+      owner_id: number | null;
+      due_date: string | null;
+      action: string;
+      related_risk_id: number | null;
+    },
+  ) => {
+    if (!projectsApi) {
+      return;
+    }
+    try {
+      await projectsApi.updateIssue(issueId, values);
+      setIssues(await projectsApi.getIssues(id));
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось обновить issue"));
+      throw err;
+    }
+  };
+
   const handleAddStakeholder = async (values: { name: string; role: string }) => {
     if (!projectsApi) {
       return;
@@ -767,6 +823,16 @@ export function ProjectDetailPage() {
     return <p className="text-primary">Проект не найден</p>;
   }
 
+  const openHighPriorityIssues = useMemo(
+    () =>
+      issues.filter(
+        (i) =>
+          i.priority === "high" &&
+          (i.status === "open" || i.status === "in_progress"),
+      ).length,
+    [issues],
+  );
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Обзор" },
     { id: "wbs", label: "WBS" },
@@ -776,6 +842,13 @@ export function ProjectDetailPage() {
     { id: "calendar", label: "Календарь" },
     { id: "chat", label: "Чат" },
     { id: "risks", label: "Риски" },
+    {
+      id: "issues",
+      label:
+        openHighPriorityIssues > 0
+          ? `Issues (${openHighPriorityIssues})`
+          : "Issues",
+    },
     { id: "stakeholders", label: "Стейкхолдеры" },
     { id: "baseline", label: "Baseline" },
     { id: "analytics", label: "CPM / EVM" },
@@ -1031,6 +1104,51 @@ export function ProjectDetailPage() {
                   </ul>
                 </div>
               )}
+
+              {(() => {
+                const openHigh = issues.filter(
+                  (i) =>
+                    i.priority === "high" &&
+                    (i.status === "open" || i.status === "in_progress"),
+                );
+                const openAll = issues.filter(
+                  (i) => i.status === "open" || i.status === "in_progress",
+                );
+                if (openAll.length === 0) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => patchSearch({ tab: "issues" })}
+                    className={[
+                      "w-full rounded-xl border p-5 text-left transition-colors",
+                      openHigh.length > 0
+                        ? "border-red-200 bg-red-50/70 hover:bg-red-50"
+                        : "border-border bg-surface hover:bg-cream/50",
+                    ].join(" ")}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-lg font-semibold text-text">Issues</h2>
+                      {openHigh.length > 0 ? (
+                        <span className="rounded-md border border-red-200 bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                          {openHigh.length} high priority
+                        </span>
+                      ) : (
+                        <span className="rounded-md border border-border bg-cream px-2 py-0.5 text-xs font-medium text-text-muted">
+                          {openAll.length} open
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-text-muted">
+                      {openHigh.length > 0
+                        ? `Открытые high-priority: ${openHigh
+                            .slice(0, 3)
+                            .map((i) => i.title)
+                            .join(" · ")}${openHigh.length > 3 ? "…" : ""}`
+                        : "Нет high-priority — открыть журнал Issues →"}
+                    </p>
+                  </button>
+                );
+              })()}
 
               {dashboard.upcoming_milestones.length > 0 && (
                 <div className="rounded-xl border border-border bg-surface p-5">
@@ -1321,6 +1439,23 @@ export function ProjectDetailPage() {
           }}
         />
         </div>
+      )}
+
+      {tab === "issues" && (
+        <IssueRegister
+          issues={issues}
+          risks={risks}
+          members={members}
+          onAdd={(values) => handleAddIssue(values)}
+          onUpdate={(issueId, values) => handleUpdateIssue(issueId, values)}
+          onDelete={async (issueId) => {
+            if (!projectsApi || !(await confirm("Удалить issue?"))) {
+              return;
+            }
+            await projectsApi.deleteIssue(issueId);
+            setIssues(await projectsApi.getIssues(id));
+          }}
+        />
       )}
 
       {tab === "stakeholders" && (

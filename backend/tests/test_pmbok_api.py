@@ -2,7 +2,7 @@ import pytest
 from datetime import date
 from rest_framework import status
 
-from projects.models import ProjectBaseline, RACIEntry, Risk, Stakeholder
+from projects.models import ProjectBaseline, ProjectIssue, RACIEntry, Risk, Stakeholder
 
 
 @pytest.fixture
@@ -58,6 +58,48 @@ def test_update_and_delete_risk(authenticated_client, project):
     delete = authenticated_client.delete(f"/api/risks/{risk.id}/")
     assert delete.status_code == status.HTTP_204_NO_CONTENT
     assert not Risk.objects.filter(pk=risk.id).exists()
+
+
+@pytest.mark.django_db
+def test_create_update_delete_issue(authenticated_client, project, user):
+    risk = Risk.objects.create(
+        project=project, title="Linked risk", probability=3, impact=3
+    )
+    create = authenticated_client.post(
+        f"/api/projects/{project.id}/issues/",
+        {
+            "title": "Scope change request",
+            "issue_type": "request",
+            "priority": "high",
+            "owner_id": user.id,
+            "due_date": "2026-09-01",
+            "related_risk_id": risk.id,
+            "action": "Review with sponsor",
+        },
+        format="json",
+    )
+    assert create.status_code == status.HTTP_201_CREATED
+    assert create.data["title"] == "Scope change request"
+    assert create.data["owner_id"] == user.id
+    assert create.data["related_risk_id"] == risk.id
+    issue_id = create.data["id"]
+
+    listed = authenticated_client.get(f"/api/projects/{project.id}/issues/")
+    assert listed.status_code == status.HTTP_200_OK
+    assert len(listed.data) == 1
+
+    patch = authenticated_client.patch(
+        f"/api/issues/{issue_id}/",
+        {"status": "in_progress", "priority": "medium"},
+        format="json",
+    )
+    assert patch.status_code == status.HTTP_200_OK
+    assert patch.data["status"] == "in_progress"
+    assert patch.data["priority"] == "medium"
+
+    delete = authenticated_client.delete(f"/api/issues/{issue_id}/")
+    assert delete.status_code == status.HTTP_204_NO_CONTENT
+    assert not ProjectIssue.objects.filter(pk=issue_id).exists()
 
 
 @pytest.mark.django_db

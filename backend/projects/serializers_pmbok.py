@@ -5,6 +5,7 @@ from projects.models import (
     ProjectBaseline,
     ProjectChangeRequest,
     ProjectCharter,
+    ProjectIssue,
     RACIEntry,
     Risk,
     Stakeholder,
@@ -42,6 +43,107 @@ class RiskWriteSerializer(serializers.ModelSerializer):
             "status",
             "mitigation",
         )
+
+
+class ProjectIssueSerializer(serializers.ModelSerializer):
+    owner_id = serializers.IntegerField(read_only=True, allow_null=True)
+    owner_name = serializers.SerializerMethodField()
+    related_risk_id = serializers.IntegerField(read_only=True, allow_null=True)
+
+    class Meta:
+        model = ProjectIssue
+        fields = (
+            "id",
+            "title",
+            "description",
+            "issue_type",
+            "priority",
+            "status",
+            "owner_id",
+            "owner_name",
+            "due_date",
+            "action",
+            "related_risk_id",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "owner_id",
+            "owner_name",
+            "related_risk_id",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_owner_name(self, obj):
+        if not obj.owner_id:
+            return None
+        return obj.owner.get_full_name() or obj.owner.email
+
+
+class ProjectIssueWriteSerializer(serializers.ModelSerializer):
+    owner_id = serializers.IntegerField(required=False, allow_null=True)
+    related_risk_id = serializers.IntegerField(required=False, allow_null=True)
+
+    class Meta:
+        model = ProjectIssue
+        fields = (
+            "title",
+            "description",
+            "issue_type",
+            "priority",
+            "status",
+            "owner_id",
+            "due_date",
+            "action",
+            "related_risk_id",
+        )
+
+    def create(self, validated_data):
+        owner_id = validated_data.pop("owner_id", serializers.empty)
+        related_risk_id = validated_data.pop("related_risk_id", serializers.empty)
+        issue = ProjectIssue(**validated_data)
+        self._apply_fks(issue, owner_id, related_risk_id)
+        issue.save()
+        return issue
+
+    def update(self, instance, validated_data):
+        owner_id = validated_data.pop("owner_id", serializers.empty)
+        related_risk_id = validated_data.pop("related_risk_id", serializers.empty)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        self._apply_fks(instance, owner_id, related_risk_id)
+        instance.save()
+        return instance
+
+    def _apply_fks(self, issue, owner_id, related_risk_id):
+        project = issue.project
+        if owner_id is not serializers.empty:
+            if owner_id is None:
+                issue.owner = None
+            else:
+                from django.contrib.auth import get_user_model
+
+                User = get_user_model()
+                try:
+                    issue.owner = User.objects.get(pk=owner_id)
+                except User.DoesNotExist as exc:
+                    raise serializers.ValidationError(
+                        {"owner_id": "User not found."}
+                    ) from exc
+        if related_risk_id is not serializers.empty:
+            if related_risk_id is None:
+                issue.related_risk = None
+            else:
+                try:
+                    issue.related_risk = Risk.objects.get(
+                        pk=related_risk_id, project=project
+                    )
+                except Risk.DoesNotExist as exc:
+                    raise serializers.ValidationError(
+                        {"related_risk_id": "Risk not found on this project."}
+                    ) from exc
 
 
 class StakeholderSerializer(serializers.ModelSerializer):

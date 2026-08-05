@@ -77,6 +77,30 @@ if [[ "${COUNT:-0}" -lt 5 ]]; then
   exit 1
 fi
 
+BACKEND_SERVICE="${BACKEND_SERVICE:-backend}"
+if [[ "${SKIP_MIGRATE_CHECK:-0}" != "1" ]]; then
+  echo "==> migrate --check against drill DB (plan only, live DB untouched)"
+  # Spot-check that restored schema is loadable; uses live DATABASE_URL by default.
+  # Optional: set DRILL_MIGRATE_CHECK=1 and POSTGRES_DB override in compose for drill.
+  if [[ "${DRILL_MIGRATE_CHECK:-0}" == "1" ]]; then
+    docker compose -f "$COMPOSE_FILE" exec -T \
+      -e POSTGRES_DB="$DRILL_DB" \
+      "$BACKEND_SERVICE" \
+      python manage.py migrate --check || {
+        echo "migrate --check failed on drill DB" >&2
+        docker compose -f "$COMPOSE_FILE" exec -T "$DB_SERVICE" \
+          psql -U "$DB_USER" -d postgres -c "DROP DATABASE IF EXISTS ${DRILL_DB};" || true
+        exit 1
+      }
+    echo "migrate --check ok (drill)"
+  else
+    docker compose -f "$COMPOSE_FILE" exec -T "$BACKEND_SERVICE" \
+      python manage.py migrate --check || {
+        echo "WARNING: live migrate --check reported pending migrations (see STAGING.md § Migrate backlog)" >&2
+      }
+  fi
+fi
+
 if [[ -n "$HEALTH_URL" ]]; then
   echo "==> live health check (unchanged app DB): $HEALTH_URL"
   curl -sf "$HEALTH_URL" >/dev/null

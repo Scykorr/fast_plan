@@ -286,6 +286,73 @@ class Risk(models.Model):
         return self.title
 
 
+class ProjectIssue(models.Model):
+    """PRINCE2-lite Issue / action log (separate from Risk register)."""
+
+    class IssueType(models.TextChoices):
+        REQUEST = "request", "Request for change"
+        PROBLEM = "problem", "Problem / off-spec"
+        OTHER = "other", "Other"
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_PROGRESS = "in_progress", "In progress"
+        RESOLVED = "resolved", "Resolved"
+        CLOSED = "closed", "Closed"
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="issues",
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    issue_type = models.CharField(
+        max_length=20,
+        choices=IssueType.choices,
+        default=IssueType.PROBLEM,
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.OPEN,
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_project_issues",
+    )
+    due_date = models.DateField(null=True, blank=True)
+    action = models.TextField(blank=True, help_text="Next action / resolution notes")
+    related_risk = models.ForeignKey(
+        Risk,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_issues",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_date", "-id"]
+
+    def __str__(self):
+        return self.title
+
+
 class Stakeholder(models.Model):
     project = models.ForeignKey(
         Project,

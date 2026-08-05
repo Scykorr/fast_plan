@@ -151,6 +151,48 @@ CI: job `e2e` в `.github/workflows/ci.yml` (login, manifest/SW, SSE toast smoke
 
 - [ ] `npm test` в `e2e/` проходит против staging или локального compose
 
+## Migrate backlog
+
+После каждого деплоя / перед релизом убедитесь, что схема актуальна:
+
+```bash
+# Pending migrations? (exit 1 = есть неприменённые)
+docker compose exec backend python manage.py migrate --check
+
+# Применить
+docker compose exec backend python manage.py migrate --noinput
+
+# Список приложений / последние миграции
+docker compose exec backend python manage.py showmigrations --plan | tail -n 40
+```
+
+Чеклист:
+
+- [ ] `migrate --check` зелёный на staging после деплоя
+- [ ] Нет «зависших» unapplied migrations в CI/локальном compose
+- [ ] При появлении новой миграции — запись в Ops log ниже (дата + имя, напр. `projects.0013_project_issue`)
+
+## Quarterly restore drill
+
+Раз в квартал (или после крупного релиза) — non-destructive drill:
+
+```bash
+# Свежий dump + restore в throwaway DB + health live
+HEALTH_URL=http://127.0.0.1:8000/api/health/ ./scripts/restore-drill.sh
+
+# Уже есть dump:
+SKIP_BACKUP=1 DUMP_PATH=backups/fast_plan_YYYYMMDD.dump \
+  HEALTH_URL=…/api/health/ ./scripts/restore-drill.sh
+
+# Дополнительно: migrate --check против drill DB (нужен POSTGRES_DB override)
+DRILL_MIGRATE_CHECK=1 HEALTH_URL=…/api/health/ ./scripts/restore-drill.sh
+```
+
+Скрипт **не** трогает live `POSTGRES_DB`. Детали: [`DEPLOY.md`](DEPLOY.md) §5.3, [`SECURITY.md`](SECURITY.md).
+
+- [ ] Drill выполнен в текущем квартале; результат в Ops log
+- [ ] После drill — `GET /api/health/?extended=1` на live
+
 ## Smoke после деплоя
 
 - [ ] Login / logout, переключение workspace
@@ -164,6 +206,7 @@ CI: job `e2e` в `.github/workflows/ci.yml` (login, manifest/SW, SSE toast smoke
 
 | Date | Env | Actions | Result |
 |------|-----|---------|--------|
+| 2026-08-05 | local docker-compose (staging stand-in) | Rebuild backend; `migrate` → `projects.0012_process_work_node_comments` + `projects.0013_project_issue`; `migrate --check`; health | Health **0.22.0**; migrations applied (0013 ProjectIssue); `migrate --check` ok |
 | 2026-07-31 | local docker-compose (staging stand-in, frontend **8088**) | Release **v0.17.0** deploy (`compose up --build`); `migrate` confirms `crm.0014_sku_inventory_016`; smoke-check | Health **0.17.0**; smoke **34/34** (incl. `/api/crm/skus/`); redis/database ok |
 | 2026-07-29 | local docker-compose (staging stand-in; frontend host port **8088** — host `:8080` occupied by EDB PEM) | `migrate` (incl. `crm.0013_custom_fields_016`); `ensure_smoke_fixtures`; `node scripts/staging-smoke-check.mjs` (custom fields + Agent Ops); `HEALTH_URL=…/api/health/ ./scripts/restore-drill.sh` | Smoke **33/33** (warnings: console email, Microsoft SSO unset). Extended health: database/redis **ok**, celery not eager. Restore-drill **ok** — dump → `fast_plan_restore_drill`, **123** public tables, live health ok, drill DB dropped. Live `POSTGRES_DB` untouched. |
 

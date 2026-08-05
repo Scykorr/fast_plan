@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
 import type { ProcessUserTask } from "../api/process";
@@ -8,6 +8,7 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { useProcessApi } from "../hooks/useProcessApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { getSlaInfo, slaBadgeClass } from "../utils/sla";
 
 function flattenWbs(nodes: WBSNode[], depth = 0): Array<WBSNode & { depth: number }> {
   const out: Array<WBSNode & { depth: number }> = [];
@@ -20,16 +21,27 @@ function flattenWbs(nodes: WBSNode[], depth = 0): Array<WBSNode & { depth: numbe
   return out;
 }
 
+type SlaFilter = "all" | "overdue" | "soon" | "ok";
+
 export function ProcessTasksPage() {
   const api = useProcessApi();
   const projectsApi = useProjectsApi();
   const { workspaceEpoch } = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<ProcessUserTask[]>([]);
   const [wbsByProject, setWbsByProject] = useState<Record<number, WBSNode[]>>({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  const highlightId = Number(searchParams.get("task") || "") || null;
+  const slaFilter = (searchParams.get("sla") as SlaFilter) || "all";
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     if (!api) return;
@@ -63,6 +75,36 @@ export function ProcessTasksPage() {
   useEffect(() => {
     void load();
   }, [load, workspaceEpoch]);
+
+  const sortedFiltered = useMemo(() => {
+    const withSla = tasks.map((task) => ({
+      task,
+      sla: getSlaInfo(task.due_at, now),
+    }));
+    const filtered =
+      slaFilter === "all"
+        ? withSla
+        : withSla.filter(({ sla }) => sla.state === slaFilter);
+    const rank = { overdue: 0, soon: 1, ok: 2, none: 3 } as const;
+    return filtered.sort((a, b) => {
+      const ra = rank[a.sla.state];
+      const rb = rank[b.sla.state];
+      if (ra !== rb) return ra - rb;
+      const ma = a.sla.msRemaining;
+      const mb = b.sla.msRemaining;
+      if (ma == null && mb == null) return b.task.id - a.task.id;
+      if (ma == null) return 1;
+      if (mb == null) return -1;
+      return ma - mb;
+    });
+  }, [tasks, now, slaFilter]);
+
+  const setSlaFilter = (next: SlaFilter) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "all") params.delete("sla");
+    else params.set("sla", next);
+    setSearchParams(params, { replace: true });
+  };
 
   const bind = async (task: ProcessUserTask, wbsNodeId: number | null) => {
     if (!api) return;
@@ -102,19 +144,43 @@ export function ProcessTasksPage() {
     }
   };
 
+  const filters: { id: SlaFilter; label: string }[] = [
+    { id: "all", label: "Все" },
+    { id: "overdue", label: "Просрочено" },
+    { id: "soon", label: "Скоро" },
+    { id: "ok", label: "В срок" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-text">Задачи процессов</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Inbox user tasks (BPMN). Привязка к WBS синхронизирует прогресс и Kanban при
-            завершении.
+            Inbox user tasks (BPMN). SLA по due_at; привязка к WBS синхронизирует
+            прогресс и Kanban при завершении.
           </p>
         </div>
-        <Link to="/processes" className="text-sm text-primary hover:underline">
-          К процессам →
+        <Link to="/processes?tab=ops" className="text-sm text-primary hover:underline">
+          Ops / SLA board →
         </Link>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {filters.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setSlaFilter(f.id)}
+            className={[
+              "rounded-lg border px-3 py-1.5 text-xs font-medium",
+              slaFilter === f.id
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-text-muted hover:text-text",
+            ].join(" ")}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
       <ErrorMessage message={error} />
       {message && (
@@ -124,20 +190,44 @@ export function ProcessTasksPage() {
       )}
       {loading && <p className="text-sm text-text-muted">Загрузка…</p>}
       <ul className="space-y-3">
-        {tasks.map((task) => {
+        {sortedFiltered.map(({ task, sla }) => {
           const flat =
             task.project != null
               ? flattenWbs(wbsByProject[task.project] || [])
               : [];
+          const highlighted = highlightId === task.id;
           return (
             <li
               key={task.id}
-              className="rounded-xl border border-border bg-surface p-4"
+              id={`task-${task.id}`}
+              className={[
+                "rounded-xl border bg-surface p-4",
+                highlighted
+                  ? "border-primary ring-2 ring-primary/30"
+                  : "border-border",
+              ].join(" ")}
             >
-              <p className="font-semibold text-text">{task.name}</p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="font-semibold text-text">{task.name}</p>
+                <span
+                  className={[
+                    "rounded-md border px-2 py-0.5 text-xs font-medium",
+                    slaBadgeClass(sla.state),
+                  ].join(" ")}
+                  title={
+                    task.due_at
+                      ? new Date(task.due_at).toLocaleString()
+                      : undefined
+                  }
+                >
+                  {sla.label}
+                </span>
+              </div>
               <p className="text-xs text-text-muted">
                 {task.definition_name} · instance #{task.instance_id}
-                {task.due_at ? ` · due ${new Date(task.due_at).toLocaleString()}` : ""}
+                {task.due_at
+                  ? ` · due ${new Date(task.due_at).toLocaleString()}`
+                  : ""}
               </p>
               <div className="mt-1 flex flex-wrap gap-3 text-xs">
                 {task.deal != null && (
@@ -218,7 +308,7 @@ export function ProcessTasksPage() {
             </li>
           );
         })}
-        {!loading && tasks.length === 0 && (
+        {!loading && sortedFiltered.length === 0 && (
           <li className="text-sm text-text-muted">Нет открытых задач</li>
         )}
       </ul>

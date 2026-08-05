@@ -19,6 +19,15 @@
 
 См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent polish.
 
+## [0.22.0] — 2026-08-05
+
+### Added
+
+- **SLA timers UI** — countdown/overdue badges в process inbox; фильтр `?sla=`; breach board на `/processes?tab=ops` с deep-link в задачу
+- **Issue / action log** — `ProjectIssue` CRUD (`/api/projects/<id>/issues/`), вкладка Issues на проекте (отдельно от Risk)
+- **Issue badge** — счётчик open high-priority на overview и в табе Issues
+- **Ops hygiene** — STAGING § Migrate backlog + Quarterly restore drill; `restore-drill.sh` вызывает `migrate --check`
+
 ## [0.21.0] — 2026-08-05
 
 ### Added

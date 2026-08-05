@@ -58,6 +58,22 @@ export type Risk = {
   updated_at: string;
 };
 
+export type ProjectIssue = {
+  id: number;
+  title: string;
+  description: string;
+  issue_type: string;
+  priority: string;
+  status: string;
+  owner_id: number | null;
+  owner_name: string | null;
+  due_date: string | null;
+  action: string;
+  related_risk_id: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Stakeholder = {
   id: number;
   name: string;
@@ -598,6 +614,50 @@ export function createProjectsApi() {
 
     deleteRisk: (riskId: number) =>
       request<void>(`/risks/${riskId}/`, { method: "DELETE" }),
+
+    getIssues: (projectId: number) =>
+      request<ProjectIssue[]>(`/projects/${projectId}/issues/`, {}),
+
+    createIssue: (
+      projectId: number,
+      body: Partial<{
+        title: string;
+        description: string;
+        issue_type: string;
+        priority: string;
+        status: string;
+        owner_id: number | null;
+        due_date: string | null;
+        action: string;
+        related_risk_id: number | null;
+      }>,
+    ) =>
+      request<ProjectIssue>(`/projects/${projectId}/issues/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    updateIssue: (
+      issueId: number,
+      body: Partial<{
+        title: string;
+        description: string;
+        issue_type: string;
+        priority: string;
+        status: string;
+        owner_id: number | null;
+        due_date: string | null;
+        action: string;
+        related_risk_id: number | null;
+      }>,
+    ) =>
+      request<ProjectIssue>(`/issues/${issueId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+
+    deleteIssue: (issueId: number) =>
+      request<void>(`/issues/${issueId}/`, { method: "DELETE" }),
 
     getStakeholders: (projectId: number) =>
       request<Stakeholder[]>(`/projects/${projectId}/stakeholders/`, {}),
