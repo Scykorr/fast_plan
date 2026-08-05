@@ -1,4 +1,4 @@
-import type { WorkspaceMember } from "../../api/workspace";
+import type { WorkspaceMember } from "../api/workspace";
 
 type AssigneeSelectProps = {
   members: WorkspaceMember[];
