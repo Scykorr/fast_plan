@@ -815,14 +815,6 @@ export function ProjectDetailPage() {
     }
   };
 
-  if (loading || !workspaceReady) {
-    return <p className="text-text-muted">Загрузка проекта...</p>;
-  }
-
-  if (!project) {
-    return <p className="text-primary">Проект не найден</p>;
-  }
-
   const openHighPriorityIssues = useMemo(
     () =>
       issues.filter(
@@ -832,6 +824,14 @@ export function ProjectDetailPage() {
       ).length,
     [issues],
   );
+
+  if (loading || !workspaceReady) {
+    return <p className="text-text-muted">Загрузка проекта...</p>;
+  }
+
+  if (!project) {
+    return <p className="text-primary">Проект не найден</p>;
+  }
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Обзор" },
