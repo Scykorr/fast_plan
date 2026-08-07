@@ -226,6 +226,10 @@ def build_wbs_tree(nodes: list[WBSNode]) -> list[dict]:
             "assignee_name": (
                 node.assignee.get_username() if node.assignee else None
             ),
+            "org_unit_id": node.org_unit_id,
+            "org_unit_name": node.org_unit.name if node.org_unit_id else None,
+            "obs_role_id": node.obs_role_id,
+            "obs_role_name": node.obs_role.name if node.obs_role_id else None,
             "phase_key": node.phase_key,
             "phase_order": node.phase_order,
             "gate_status": node.gate_status,

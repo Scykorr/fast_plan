@@ -221,7 +221,13 @@ class WBSTreeView(WorkspaceMixin, APIView):
 
         nodes = (
             project.wbs_nodes.select_related(
-                "schedule", "card", "tracker", "workflow_status", "assignee"
+                "schedule",
+                "card",
+                "tracker",
+                "workflow_status",
+                "assignee",
+                "org_unit",
+                "obs_role",
             )
             .order_by("position", "id")
         )
@@ -272,7 +278,13 @@ class WBSTreeView(WorkspaceMixin, APIView):
 
         nodes = (
             project.wbs_nodes.select_related(
-                "schedule", "card", "tracker", "workflow_status", "assignee"
+                "schedule",
+                "card",
+                "tracker",
+                "workflow_status",
+                "assignee",
+                "org_unit",
+                "obs_role",
             )
             .order_by("position", "id")
         )
@@ -332,7 +344,9 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
             {"wbs_id": node.id, "project_id": node.project_id},
         )
         nodes = (
-            node.project.wbs_nodes.select_related("schedule", "card")
+            node.project.wbs_nodes.select_related(
+                "schedule", "card", "assignee", "org_unit", "obs_role"
+            )
             .order_by("position", "id")
         )
         return Response(build_wbs_tree(list(nodes)))

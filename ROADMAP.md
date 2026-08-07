@@ -183,7 +183,7 @@
 | ~~**P2**~~ | ~~Leveling apply-all / Capacity propose _(S1)_~~ | **M** | **✓** Capacity apply/undo + Gantt |
 | **P3** | PERT Monte Carlo _(S1)_ | **M** | Schedule risk |
 | **P3** | MS Project XML _(S3)_ | **M–L** | **в перспективе** |
-| **P2** | **OBS / org breakdown** — привязка WBS к оргструктуре (отдел/роль), не только user | **M** | PMBOK org / RACI scale |
+| **P2** | **OBS / org breakdown** — привязка WBS к оргструктуре (отдел/роль), не только user | **M** | ✓ `OrgUnit`/`ObsRole` + WBS FKs + Settings/detail UI |
 | ~~**P2**~~ | ~~**Issue / action log** отдельно от Risk (проблемы + due + owner)~~ | **M** | **✓** PRINCE2 Issue Register (`ProjectIssue`) |
 | ~~**P2**~~ | ~~**Lessons learned** на закрытии проекта (шаблон + export)~~ | **S–M** | **✓** `ProjectLessonsLearned` |
 | **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | Современный EVM |

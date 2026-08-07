@@ -17,6 +17,24 @@ export type WorkspaceMember = {
   joined_at: string;
 };
 
+export type OrgUnit = {
+  id: number;
+  code: string;
+  name: string;
+  position: number;
+  parent_id: number | null;
+  created_at?: string;
+  children?: OrgUnit[];
+};
+
+export type ObsRole = {
+  id: number;
+  code: string;
+  name: string;
+  position: number;
+  created_at?: string;
+};
+
 export type WorkspaceInvitation = {
   id: number;
   email: string;
@@ -240,6 +258,60 @@ export function createWorkspaceApi() {
 
     getMembers: () =>
       request<WorkspaceMember[]>("/workspace/members/", {}),
+
+    getOrgUnits: (flat = false) =>
+      request<OrgUnit[]>(
+        flat ? "/workspace/org-units/?flat=1" : "/workspace/org-units/",
+        {},
+      ),
+
+    createOrgUnit: (body: {
+      name: string;
+      code?: string;
+      parent_id?: number | null;
+      position?: number;
+    }) =>
+      request<OrgUnit>("/workspace/org-units/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    updateOrgUnit: (
+      unitId: number,
+      body: {
+        name?: string;
+        code?: string;
+        parent_id?: number | null;
+        position?: number;
+      },
+    ) =>
+      request<OrgUnit>(`/org-units/${unitId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+
+    deleteOrgUnit: (unitId: number) =>
+      request<void>(`/org-units/${unitId}/`, { method: "DELETE" }),
+
+    getObsRoles: () => request<ObsRole[]>("/workspace/obs-roles/", {}),
+
+    createObsRole: (body: { name: string; code?: string; position?: number }) =>
+      request<ObsRole>("/workspace/obs-roles/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    updateObsRole: (
+      roleId: number,
+      body: { name?: string; code?: string; position?: number },
+    ) =>
+      request<ObsRole>(`/obs-roles/${roleId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+
+    deleteObsRole: (roleId: number) =>
+      request<void>(`/obs-roles/${roleId}/`, { method: "DELETE" }),
 
     updateMember: (
       memberId: number,

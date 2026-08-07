@@ -248,3 +248,54 @@ class ExchangeRate(models.Model):
 
     def __str__(self):
         return f"{self.currency}@{self.as_of}={self.rate_to_base}"
+
+
+class OrgUnit(models.Model):
+    """Workspace Organizational Breakdown Structure (department / unit tree)."""
+
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="org_units",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    code = models.CharField(max_length=50, blank=True, default="")
+    name = models.CharField(max_length=255)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        indexes = [
+            models.Index(fields=["workspace", "parent"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ObsRole(models.Model):
+    """Reusable OBS job role catalog (not workspace ACL roles)."""
+
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="obs_roles",
+    )
+    name = models.CharField(max_length=120)
+    code = models.CharField(max_length=50, blank=True, default="")
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["position", "name", "id"]
+        unique_together = [("workspace", "name")]
+
+    def __str__(self):
+        return self.name

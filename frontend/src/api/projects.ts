@@ -221,6 +221,10 @@ export type WBSNode = {
   workflow_status_name: string | null;
   assignee_id: number | null;
   assignee_name: string | null;
+  org_unit_id?: number | null;
+  org_unit_name?: string | null;
+  obs_role_id?: number | null;
+  obs_role_name?: string | null;
   phase_key?: string | null;
   phase_order?: number | null;
   gate_status?: string | null;
@@ -583,6 +587,8 @@ export function createProjectsApi() {
         tracker_id?: number | null;
         workflow_status_id?: number | null;
         assignee_id?: number | null;
+        org_unit_id?: number | null;
+        obs_role_id?: number | null;
         custom_values?: Record<string, string>;
       },
     ) =>

@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from workspaces.webhooks import WEBHOOK_EVENTS
 from workspaces.models import (
+    ObsRole,
+    OrgUnit,
     WebhookDelivery,
     WebhookEndpoint,
     Workspace,
@@ -117,3 +119,17 @@ class WebhookDeliverySerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = fields
+
+
+class OrgUnitSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrgUnit
+        fields = ("id", "code", "name", "position", "parent_id", "created_at")
+        read_only_fields = ("id", "created_at")
+
+
+class ObsRoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ObsRole
+        fields = ("id", "code", "name", "position", "created_at")
+        read_only_fields = ("id", "created_at")

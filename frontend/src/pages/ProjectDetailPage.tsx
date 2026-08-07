@@ -24,7 +24,7 @@ import type {
 import { ErrorMessage } from "../components/ErrorMessage";
 import { GlossaryText, TermHint } from "../components/TermHint";
 import { CommentThread } from "../components/comments/CommentThread";
-import type { WorkspaceMember } from "../api/workspace";
+import type { ObsRole, OrgUnit, WorkspaceMember } from "../api/workspace";
 import { ProjectBudgetSummary } from "../components/finance/ProjectBudgetSummary";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
 import {
@@ -162,6 +162,8 @@ export function ProjectDetailPage() {
   const [nodeComments, setNodeComments] = useState<WorkItemComment[]>([]);
   const [trackingMetadata, setTrackingMetadata] = useState<TrackingMetadata | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
+  const [obsRoles, setObsRoles] = useState<ObsRole[]>([]);
   const [clientOrgs, setClientOrgs] = useState<CrmOrganization[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -277,6 +279,11 @@ export function ProjectDetailPage() {
       return;
     }
     void workspaceApi.getMembers().then(setMembers).catch(() => undefined);
+    void workspaceApi
+      .getOrgUnits(true)
+      .then(setOrgUnits)
+      .catch(() => undefined);
+    void workspaceApi.getObsRoles().then(setObsRoles).catch(() => undefined);
   }, [workspaceApi]);
 
   useEffect(() => {
@@ -433,6 +440,8 @@ export function ProjectDetailPage() {
       tracker_id?: number | null;
       workflow_status_id?: number | null;
       assignee_id?: number | null;
+      org_unit_id?: number | null;
+      obs_role_id?: number | null;
       custom_values?: Record<string, string>;
     },
   ) => {
@@ -1377,6 +1386,8 @@ export function ProjectDetailPage() {
             node={detailMode === "project" ? null : selectedNode}
             metadata={trackingMetadata}
             members={members}
+            orgUnits={orgUnits}
+            obsRoles={obsRoles}
             onClose={handleCloseDetail}
             onSaveProject={(body) => void handleSaveProjectDetail(body)}
             onSaveNode={(nodeId, body) => void handleSaveNodeDetail(nodeId, body)}

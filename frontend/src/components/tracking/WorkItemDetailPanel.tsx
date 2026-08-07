@@ -5,7 +5,7 @@ import { parseApiError } from "../../api/errors";
 import type { CustomField, CustomValue, IssueStatus, Tracker } from "../../api/tracking";
 import type { Project, WBSNode } from "../../api/projects";
 import type { TimeEntry } from "../../api/timelog";
-import type { WorkspaceMember } from "../../api/workspace";
+import type { ObsRole, OrgUnit, WorkspaceMember } from "../../api/workspace";
 import { AssigneeSelect } from "../AssigneeSelect";
 import { useAttachmentsApi } from "../../hooks/useAttachmentsApi";
 import { useTimeLogApi } from "../../hooks/useTimeLogApi";
@@ -280,6 +280,8 @@ type WorkItemDetailPanelProps = {
     custom_fields: CustomField[];
   };
   members?: WorkspaceMember[];
+  orgUnits?: OrgUnit[];
+  obsRoles?: ObsRole[];
   onClose: () => void;
   onSaveProject: (body: {
     name?: string;
@@ -296,6 +298,8 @@ type WorkItemDetailPanelProps = {
       tracker_id?: number | null;
       workflow_status_id?: number | null;
       assignee_id?: number | null;
+      org_unit_id?: number | null;
+      obs_role_id?: number | null;
       custom_values?: Record<string, string>;
     },
   ) => void;
@@ -321,6 +325,8 @@ export function WorkItemDetailPanel({
   node,
   metadata,
   members = [],
+  orgUnits = [],
+  obsRoles = [],
   onClose,
   onSaveProject,
   onSaveNode,
@@ -347,6 +353,12 @@ export function WorkItemDetailPanel({
   const [assigneeId, setAssigneeId] = useState<number | "">(
     isProject ? "" : node?.assignee_id ?? "",
   );
+  const [orgUnitId, setOrgUnitId] = useState<number | "">(
+    isProject ? "" : node?.org_unit_id ?? "",
+  );
+  const [obsRoleId, setObsRoleId] = useState<number | "">(
+    isProject ? "" : node?.obs_role_id ?? "",
+  );
   const [customValues, setCustomValues] = useState<Record<string, string>>(
     valuesMap(isProject ? project.custom_values : node?.custom_values ?? []),
   );
@@ -359,6 +371,8 @@ export function WorkItemDetailPanel({
       isProject ? project.workflow_status_id ?? "" : node?.workflow_status_id ?? "",
     );
     setAssigneeId(isProject ? "" : node?.assignee_id ?? "");
+    setOrgUnitId(isProject ? "" : node?.org_unit_id ?? "");
+    setObsRoleId(isProject ? "" : node?.obs_role_id ?? "");
     setCustomValues(
       valuesMap(isProject ? project.custom_values : node?.custom_values ?? []),
     );
@@ -389,6 +403,8 @@ export function WorkItemDetailPanel({
       tracker_id: trackerId === "" ? null : Number(trackerId),
       workflow_status_id: statusId === "" ? null : Number(statusId),
       assignee_id: assigneeId === "" ? null : Number(assigneeId),
+      org_unit_id: orgUnitId === "" ? null : Number(orgUnitId),
+      obs_role_id: obsRoleId === "" ? null : Number(obsRoleId),
       custom_values: customValues,
     });
   };
@@ -487,6 +503,40 @@ export function WorkItemDetailPanel({
                 value={assigneeId === "" ? null : assigneeId}
                 onChange={(userId) => setAssigneeId(userId ?? "")}
               />
+              <label className="block text-sm">
+                <span className="text-text-muted">Подразделение (OBS)</span>
+                <select
+                  value={orgUnitId}
+                  onChange={(event) =>
+                    setOrgUnitId(event.target.value ? Number(event.target.value) : "")
+                  }
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2"
+                >
+                  <option value="">—</option>
+                  {orgUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-text-muted">OBS-роль</span>
+                <select
+                  value={obsRoleId}
+                  onChange={(event) =>
+                    setObsRoleId(event.target.value ? Number(event.target.value) : "")
+                  }
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2"
+                >
+                  <option value="">—</option>
+                  {obsRoles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               {node?.schedule && (
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>

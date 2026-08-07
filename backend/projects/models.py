@@ -181,6 +181,22 @@ class WBSNode(models.Model):
         blank=True,
         related_name="assigned_wbs_nodes",
     )
+    org_unit = models.ForeignKey(
+        "workspaces.OrgUnit",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="wbs_nodes",
+        help_text="OBS department / org unit for this WBS node.",
+    )
+    obs_role = models.ForeignKey(
+        "workspaces.ObsRole",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="wbs_nodes",
+        help_text="OBS job role (not ACL role).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

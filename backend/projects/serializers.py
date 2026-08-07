@@ -168,6 +168,8 @@ class WBSNodeUpdateSerializer(serializers.ModelSerializer):
     tracker_id = serializers.IntegerField(required=False, allow_null=True)
     workflow_status_id = serializers.IntegerField(required=False, allow_null=True)
     assignee_id = serializers.IntegerField(required=False, allow_null=True)
+    org_unit_id = serializers.IntegerField(required=False, allow_null=True)
+    obs_role_id = serializers.IntegerField(required=False, allow_null=True)
     custom_values = serializers.DictField(
         child=serializers.CharField(allow_blank=True),
         required=False,
@@ -184,6 +186,8 @@ class WBSNodeUpdateSerializer(serializers.ModelSerializer):
             "tracker_id",
             "workflow_status_id",
             "assignee_id",
+            "org_unit_id",
+            "obs_role_id",
             "custom_values",
         )
 
@@ -191,10 +195,43 @@ class WBSNodeUpdateSerializer(serializers.ModelSerializer):
         parent_id = validated_data.pop("parent_id", None)
         position = validated_data.pop("position", None)
         custom_values = validated_data.pop("custom_values", None)
+        org_unit_id = validated_data.pop("org_unit_id", serializers.empty)
+        obs_role_id = validated_data.pop("obs_role_id", serializers.empty)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        if validated_data:
+
+        if org_unit_id is not serializers.empty:
+            if org_unit_id is None:
+                instance.org_unit = None
+            else:
+                from workspaces.models import OrgUnit
+
+                unit = OrgUnit.objects.filter(
+                    workspace_id=instance.project.workspace_id, pk=org_unit_id
+                ).first()
+                if unit is None:
+                    raise serializers.ValidationError(
+                        {"org_unit_id": "Org unit not found in workspace."}
+                    )
+                instance.org_unit = unit
+
+        if obs_role_id is not serializers.empty:
+            if obs_role_id is None:
+                instance.obs_role = None
+            else:
+                from workspaces.models import ObsRole
+
+                role = ObsRole.objects.filter(
+                    workspace_id=instance.project.workspace_id, pk=obs_role_id
+                ).first()
+                if role is None:
+                    raise serializers.ValidationError(
+                        {"obs_role_id": "OBS role not found in workspace."}
+                    )
+                instance.obs_role = role
+
+        if validated_data or org_unit_id is not serializers.empty or obs_role_id is not serializers.empty:
             instance.save()
 
         if custom_values is not None:

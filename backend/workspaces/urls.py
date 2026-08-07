@@ -8,6 +8,12 @@ from workspaces.fx_views import (
     WorkspaceSettingsView,
 )
 from workspaces.email_views import WorkspaceEmailStatusView, WorkspaceEmailTestView
+from workspaces.obs_views import (
+    ObsRoleDetailView,
+    ObsRoleListCreateView,
+    OrgUnitDetailView,
+    OrgUnitListCreateView,
+)
 from workspaces.views import (
     WorkspaceActivateView,
     WorkspaceAPITokenDetailView,
@@ -127,6 +133,26 @@ urlpatterns = [
         name="workspace-fx-convert",
     ),
     path("workspace/members/", WorkspaceMemberListView.as_view(), name="workspace-members"),
+    path(
+        "workspace/org-units/",
+        OrgUnitListCreateView.as_view(),
+        name="workspace-org-units",
+    ),
+    path(
+        "org-units/<int:unit_id>/",
+        OrgUnitDetailView.as_view(),
+        name="org-unit-detail",
+    ),
+    path(
+        "workspace/obs-roles/",
+        ObsRoleListCreateView.as_view(),
+        name="workspace-obs-roles",
+    ),
+    path(
+        "obs-roles/<int:role_id>/",
+        ObsRoleDetailView.as_view(),
+        name="obs-role-detail",
+    ),
     path(
         "workspace/members/<int:member_id>/",
         WorkspaceMemberDetailView.as_view(),
