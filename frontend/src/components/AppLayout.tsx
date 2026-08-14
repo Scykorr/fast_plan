@@ -1,5 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { GlossaryText, TermHint } from "./TermHint";
 import { NotificationBell } from "./NotificationBell";
@@ -12,36 +12,185 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { useWorkspaceEvents } from "../hooks/useWorkspaceEvents";
 import { APP_VERSION } from "../version";
 
-const navItems = [
-  { to: "/", labelKey: "dashboard", end: true },
-  { to: "/portfolio", labelKey: "portfolio" },
-  { to: "/clients", labelKey: "clients" },
-  { to: "/deals", labelKey: "deals" },
-  { to: "/leads", labelKey: "leads" },
-  { to: "/automations", labelKey: "automations" },
-  { to: "/processes", labelKey: "processes" },
-  { to: "/process-tasks", labelKey: "processTasks" },
-  { to: "/agent-ops", labelKey: "agentOps" },
-  { to: "/crm-ai", labelKey: "crmAi" },
-  { to: "/crm-commerce", labelKey: "crmCommerce" },
-  { to: "/crm-analytics", labelKey: "crmAnalytics" },
-  { to: "/crm-tasks", labelKey: "crmTasks" },
-  { to: "/projects", labelKey: "projects" },
-  { to: "/tasks", labelKey: "myTasks" },
-  { to: "/capacity", label: "Capacity", term: "capacity" },
-  { to: "/kanban", label: "Kanban", term: "kanban" },
-  { to: "/calendar", labelKey: "calendar" },
-  { to: "/finance", labelKey: "finance" },
-  { to: "/audit", labelKey: "audit" },
-  { to: "/administration", labelKey: "administration" },
-  { to: "/settings", labelKey: "settings" },
-] as const;
+type NavItem = {
+  to: string;
+  labelKey?:
+    | "dashboard"
+    | "portfolio"
+    | "clients"
+    | "deals"
+    | "leads"
+    | "automations"
+    | "processes"
+    | "processTasks"
+    | "agentOps"
+    | "crmAi"
+    | "crmCommerce"
+    | "crmAnalytics"
+    | "crmTasks"
+    | "projects"
+    | "myTasks"
+    | "calendar"
+    | "finance"
+    | "audit"
+    | "administration"
+    | "settings";
+  label?: string;
+  term?: "capacity" | "kanban";
+  end?: boolean;
+};
+
+type NavGroupId = "overview" | "projects" | "crm" | "process" | "system";
+
+type NavGroup = {
+  id: NavGroupId;
+  labelKey: "navOverview" | "navProjects" | "navCrm" | "navProcess" | "navSystem";
+  items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
+  {
+    id: "overview",
+    labelKey: "navOverview",
+    items: [
+      { to: "/", labelKey: "dashboard", end: true },
+      { to: "/portfolio", labelKey: "portfolio" },
+      { to: "/calendar", labelKey: "calendar" },
+    ],
+  },
+  {
+    id: "projects",
+    labelKey: "navProjects",
+    items: [
+      { to: "/projects", labelKey: "projects" },
+      { to: "/tasks", labelKey: "myTasks" },
+      { to: "/capacity", label: "Capacity", term: "capacity" },
+      { to: "/kanban", label: "Kanban", term: "kanban" },
+    ],
+  },
+  {
+    id: "crm",
+    labelKey: "navCrm",
+    items: [
+      { to: "/clients", labelKey: "clients" },
+      { to: "/deals", labelKey: "deals" },
+      { to: "/leads", labelKey: "leads" },
+      { to: "/crm-tasks", labelKey: "crmTasks" },
+      { to: "/crm-commerce", labelKey: "crmCommerce" },
+      { to: "/crm-analytics", labelKey: "crmAnalytics" },
+      { to: "/crm-ai", labelKey: "crmAi" },
+    ],
+  },
+  {
+    id: "process",
+    labelKey: "navProcess",
+    items: [
+      { to: "/processes", labelKey: "processes" },
+      { to: "/process-tasks", labelKey: "processTasks" },
+      { to: "/automations", labelKey: "automations" },
+      { to: "/agent-ops", labelKey: "agentOps" },
+    ],
+  },
+  {
+    id: "system",
+    labelKey: "navSystem",
+    items: [
+      { to: "/finance", labelKey: "finance" },
+      { to: "/audit", labelKey: "audit" },
+      { to: "/administration", labelKey: "administration" },
+      { to: "/settings", labelKey: "settings" },
+    ],
+  },
+];
+
+function pathMatches(pathname: string, item: NavItem): boolean {
+  if (item.end) {
+    return pathname === item.to;
+  }
+  if (item.to === "/") {
+    return pathname === "/";
+  }
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
+
+function groupContainsPath(group: NavGroup, pathname: string): boolean {
+  return group.items.some((item) => pathMatches(pathname, item));
+}
+
+function NavItemLink({
+  item,
+  onNavigate,
+}: {
+  item: NavItem;
+  onNavigate?: () => void;
+}) {
+  const { t } = useLocale();
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        [
+          "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          isActive
+            ? "border-l-4 border-primary bg-cream pl-2 text-primary"
+            : "text-text-muted hover:bg-cream hover:text-text",
+        ].join(" ")
+      }
+    >
+      {item.label && item.term ? (
+        <TermHint term={item.term}>{item.label}</TermHint>
+      ) : item.labelKey ? (
+        <GlossaryText text={t(item.labelKey)} />
+      ) : (
+        item.label
+      )}
+    </NavLink>
+  );
+}
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   const { t } = useLocale();
   const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
+  const { pathname } = useLocation();
   const [switching, setSwitching] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Set<NavGroupId>>(() => {
+    const active = navGroups.find((group) => groupContainsPath(group, pathname));
+    return new Set(active ? [active.id] : ["overview"]);
+  });
+
+  const activeGroupId = useMemo(
+    () => navGroups.find((group) => groupContainsPath(group, pathname))?.id,
+    [pathname],
+  );
+
+  useEffect(() => {
+    if (!activeGroupId) {
+      return;
+    }
+    setOpenGroups((current) => {
+      if (current.has(activeGroupId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.add(activeGroupId);
+      return next;
+    });
+  }, [activeGroupId]);
+
+  const toggleGroup = (id: NavGroupId) => {
+    setOpenGroups((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const handleSwitch = async (workspaceId: number) => {
     if (workspaceId === activeWorkspace?.id) {
@@ -57,7 +206,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="mb-8 px-2">
+      <div className="mb-6 px-2">
         <h1 className="text-xl font-bold text-primary">Fast Plan</h1>
         <p className="mt-1 text-sm text-text-muted">{t("planner")}</p>
         <p className="mt-1 text-xs text-text-muted" title="Версия продукта">
@@ -83,29 +232,43 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         )}
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={"end" in item ? item.end : undefined}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              [
-                "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-l-4 border-primary bg-cream pl-2 text-primary"
-                  : "text-text-muted hover:bg-cream hover:text-text",
-              ].join(" ")
-            }
-          >
-            {"label" in item ? (
-              <TermHint term={item.term}>{item.label}</TermHint>
-            ) : (
-              <GlossaryText text={t(item.labelKey)} />
-            )}
-          </NavLink>
-        ))}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto pr-1">
+        {navGroups.map((group) => {
+          const open = openGroups.has(group.id);
+          const panelId = `nav-group-${group.id}`;
+          return (
+            <div key={group.id} className="mb-1">
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-controls={panelId}
+                onClick={() => toggleGroup(group.id)}
+                className={[
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide transition-colors",
+                  activeGroupId === group.id
+                    ? "text-primary"
+                    : "text-text-muted hover:bg-cream hover:text-text",
+                ].join(" ")}
+              >
+                <span>{t(group.labelKey)}</span>
+                <span className="text-[10px]" aria-hidden>
+                  {open ? "▾" : "▸"}
+                </span>
+              </button>
+              {open && (
+                <div id={panelId} className="mt-0.5 flex flex-col gap-0.5 pl-1">
+                  {group.items.map((item) => (
+                    <NavItemLink
+                      key={item.to}
+                      item={item}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="mt-auto border-t border-border pt-4">

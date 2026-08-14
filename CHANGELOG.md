@@ -15,6 +15,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Сайдбар** — пункты меню сгруппированы в раскрывающиеся разделы (Обзор / Проекты / CRM / Процессы / Система)
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent polish.
