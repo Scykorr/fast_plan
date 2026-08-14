@@ -22,6 +22,7 @@
 ### Added
 
 - **Quality checklist на WP** — pass/fail критерии с evidence URL (`/api/wbs/<id>/quality-checks/`); сводка QA на узле WBS и панель в карточке задачи
+- **Earned Schedule** — ES / SV(t) / SPI(t) рядом с EVM lite (дашборд проекта, Analytics, портфель, статус-отчёт PDF)
 
 ### Planned
 

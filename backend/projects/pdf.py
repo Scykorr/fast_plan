@@ -54,6 +54,11 @@ def render_status_report_pdf(report: dict) -> bytes:
         ["Бюджет", f"{project.get('budget', 0)}"],
         ["Даты", f"{_fmt(project.get('start_date'))} — {_fmt(project.get('end_date'))}"],
         ["SPI / CPI", f"{_fmt(evm.get('spi'))} / {_fmt(evm.get('cpi'))}"],
+        [
+            "ES / SV(t) / SPI(t)",
+            f"{_fmt(evm.get('earned_schedule_date'))} / "
+            f"{_fmt(evm.get('schedule_variance_time'))} / {_fmt(evm.get('spi_t'))}",
+        ],
         ["EV / PV / AC", f"{_fmt(evm.get('earned_value'))} / {_fmt(evm.get('planned_value'))} / {_fmt(evm.get('actual_cost'))}"],
         [
             "Критический путь",

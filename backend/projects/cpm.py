@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from projects.models import ActivityDependency, ScheduleActivity
 
@@ -102,7 +102,17 @@ def _topological_sort(activities, predecessors):
     return ordered
 
 
-def compute_evm_lite(project, activities, actual_cost: float = 0) -> dict:
+def compute_evm_lite(
+    project, activities, actual_cost: float = 0, as_of: date | None = None
+) -> dict:
+    as_of = as_of or date.today()
+    empty_es = {
+        "earned_schedule_date": None,
+        "schedule_variance_time": None,
+        "spi_t": None,
+        "planned_duration_days": None,
+        "earned_duration_days": None,
+    }
     budget = float(project.budget or 0)
     if not activities or budget <= 0:
         return {
@@ -113,22 +123,23 @@ def compute_evm_lite(project, activities, actual_cost: float = 0) -> dict:
             "cpi": None,
             "spi": None,
             "percent_complete": 0,
+            **empty_es,
         }
 
     percent_complete = round(sum(a.progress for a in activities) / len(activities))
     earned_value = round(budget * percent_complete / 100, 2)
 
-    today = date.today()
     planned_progress = 0
     schedulable = [a for a in activities if a.start_date and a.end_date]
     if schedulable:
         planned_progress = sum(
-            _planned_percent(a, today) for a in schedulable
+            _planned_percent(a, as_of) for a in schedulable
         ) / len(schedulable)
     planned_value = round(budget * planned_progress / 100, 2)
 
     cpi = round(earned_value / actual_cost, 2) if actual_cost > 0 else None
     spi = round(earned_value / planned_value, 2) if planned_value > 0 else None
+    es = _compute_earned_schedule(activities, percent_complete, as_of)
 
     return {
         "budget": budget,
@@ -138,6 +149,7 @@ def compute_evm_lite(project, activities, actual_cost: float = 0) -> dict:
         "cpi": cpi,
         "spi": spi,
         "percent_complete": percent_complete,
+        **es,
     }
 
 
@@ -151,3 +163,52 @@ def _planned_percent(activity: ScheduleActivity, today: date) -> int:
     total_days = max((end - start).days, 1)
     elapsed = (today - start).days
     return min(round(elapsed / total_days * 100), 100)
+
+
+def _compute_earned_schedule(
+    activities, percent_complete: int, as_of: date
+) -> dict:
+    """ES = first date when planned % complete reaches actual % complete.
+
+    SV(t) = ES − as_of (days). SPI(t) = earned duration / actual time.
+    """
+    empty = {
+        "earned_schedule_date": None,
+        "schedule_variance_time": None,
+        "spi_t": None,
+        "planned_duration_days": None,
+        "earned_duration_days": None,
+    }
+    dated = [a for a in activities if a.start_date and a.end_date]
+    if not dated:
+        return empty
+
+    start = min(a.start_date for a in dated)
+    finish = max(a.end_date for a in dated)
+    planned_duration = max((finish - start).days, 1)
+    actual_time = max((as_of - start).days, 0)
+
+    if percent_complete <= 0:
+        es_date = start
+    elif percent_complete >= 100:
+        es_date = finish
+    else:
+        es_date = finish
+        cursor = start
+        while cursor <= finish:
+            planned = sum(_planned_percent(a, cursor) for a in dated) / len(dated)
+            if planned >= percent_complete:
+                es_date = cursor
+                break
+            cursor += timedelta(days=1)
+
+    earned_duration = max((es_date - start).days, 0)
+    sv_t = (es_date - as_of).days
+    spi_t = round(earned_duration / actual_time, 2) if actual_time > 0 else None
+    return {
+        "earned_schedule_date": es_date.isoformat(),
+        "schedule_variance_time": sv_t,
+        "spi_t": spi_t,
+        "planned_duration_days": planned_duration,
+        "earned_duration_days": earned_duration,
+    }

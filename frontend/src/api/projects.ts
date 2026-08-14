@@ -167,6 +167,11 @@ export type EvmLite = {
   cpi: number | null;
   spi: number | null;
   percent_complete: number;
+  earned_schedule_date?: string | null;
+  schedule_variance_time?: number | null;
+  spi_t?: number | null;
+  planned_duration_days?: number | null;
+  earned_duration_days?: number | null;
 };
 
 export type ProjectDashboard = {

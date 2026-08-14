@@ -121,6 +121,8 @@ def build_workspace_dashboard(workspace, user, *, limit_overdue=10, limit_risks=
                 "budget": float(project.budget or 0),
                 "spi": evm["spi"],
                 "cpi": evm["cpi"],
+                "spi_t": evm["spi_t"],
+                "schedule_variance_time": evm["schedule_variance_time"],
                 "overdue_count": overdue_count,
             }
         )

@@ -41,7 +41,22 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   spi: {
     label: "SPI",
     full: "Schedule Performance Index",
-    hint: "индекс выполнения сроков (>1 — опережение)",
+    hint: "индекс выполнения сроков по стоимости (>1 — опережение)",
+  },
+  "spi(t)": {
+    label: "SPI(t)",
+    full: "Schedule Performance Index (time)",
+    hint: "индекс сроков по Earned Schedule: ED/AT (>1 — опережение)",
+  },
+  es: {
+    label: "ES",
+    full: "Earned Schedule",
+    hint: "дата, когда план должен был достичь текущего % complete",
+  },
+  "sv(t)": {
+    label: "SV(t)",
+    full: "Schedule Variance (time)",
+    hint: "отклонение сроков в днях: ES − сегодня (отрицательное — отставание)",
   },
   cpi: {
     label: "CPI",

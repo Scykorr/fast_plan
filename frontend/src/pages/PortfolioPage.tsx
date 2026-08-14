@@ -123,6 +123,9 @@ export function PortfolioPage() {
                     <TermHint term="spi">SPI</TermHint>
                   </th>
                   <th className="px-4 py-3">
+                    <TermHint term="spi(t)">SPI(t)</TermHint>
+                  </th>
+                  <th className="px-4 py-3">
                     <TermHint term="cpi">CPI</TermHint>
                   </th>
                   <th className="px-4 py-3">Просрочки</th>
@@ -131,7 +134,7 @@ export function PortfolioPage() {
               <tbody>
                 {dashboard.project_health.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-text-muted">
+                    <td colSpan={8} className="px-4 py-6 text-text-muted">
                       Нет активных проектов
                     </td>
                   </tr>
@@ -152,6 +155,7 @@ export function PortfolioPage() {
                         {formatMoney(row.budget)}
                       </td>
                       <td className="px-4 py-3">{row.spi ?? "—"}</td>
+                      <td className="px-4 py-3">{row.spi_t ?? "—"}</td>
                       <td className="px-4 py-3">{row.cpi ?? "—"}</td>
                       <td className="px-4 py-3 font-medium text-primary">
                         {row.overdue_count}

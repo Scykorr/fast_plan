@@ -29,6 +29,9 @@ const report: ProjectStatusReport = {
     cpi: 1.05,
     spi: 0.84,
     percent_complete: 42,
+    earned_schedule_date: "2026-06-01",
+    schedule_variance_time: -12,
+    spi_t: 0.78,
   },
   critical_path: {
     activities: [],
@@ -78,6 +81,7 @@ describe("StatusReportDigest", () => {
     expect(screen.getByText("Экспорт JSON")).toBeInTheDocument();
     expect(screen.getByText("Экспорт PDF")).toBeInTheDocument();
     expect(screen.getByText("Delay")).toBeInTheDocument();
+    expect(screen.getByText(/SPI\(t\)/)).toBeInTheDocument();
   });
 
   it("hides export actions in read-only mode", () => {

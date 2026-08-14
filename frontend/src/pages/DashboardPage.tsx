@@ -142,6 +142,7 @@ export function DashboardPage() {
                 <tr>
                   <th className="py-1 pr-3">Проект</th>
                   <th className="py-1 pr-3">SPI</th>
+                  <th className="py-1 pr-3">SPI(t)</th>
                   <th className="py-1 pr-3">CPI</th>
                   <th className="py-1">%</th>
                 </tr>
@@ -163,6 +164,7 @@ export function DashboardPage() {
                       )}
                     </td>
                     <td className="py-2 pr-3">{metric(project.spi)}</td>
+                    <td className="py-2 pr-3">{metric(project.spi_t)}</td>
                     <td className="py-2 pr-3">{metric(project.cpi)}</td>
                     <td className="py-2">{project.progress}%</td>
                   </tr>

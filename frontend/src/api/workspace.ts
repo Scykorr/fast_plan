@@ -131,6 +131,8 @@ export type WorkspaceDashboard = {
     budget: number;
     spi: number | null;
     cpi: number | null;
+    spi_t?: number | null;
+    schedule_variance_time?: number | null;
     overdue_count: number;
   }>;
   unread_notifications: Array<{

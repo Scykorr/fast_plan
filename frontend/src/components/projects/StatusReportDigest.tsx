@@ -61,6 +61,13 @@ export function StatusReportDigest({
           <p className="mt-1 text-2xl font-bold text-text">
             {formatMetric(report.evm.spi)} / {formatMetric(report.evm.cpi)}
           </p>
+          <p className="mt-2 text-xs text-text-muted">
+            ES {report.evm.earned_schedule_date ?? "—"} · SV(t){" "}
+            {report.evm.schedule_variance_time == null
+              ? "—"
+              : `${report.evm.schedule_variance_time}д`}{" "}
+            · SPI(t) {formatMetric(report.evm.spi_t)}
+          </p>
         </div>
         <div className="rounded-xl border border-border bg-surface p-5">
           <p className="text-sm text-text-muted">Сгенерировано</p>

@@ -31,7 +31,7 @@
 | Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter, **OBS** (отдел/роль на узле + фильтры) | `/projects/:id` |
 | Методологии | **Waterfall/predictive** (фазы+гейты+freeze), Scrum tab, hybrid | вкладки Waterfall / Scrum |
 | Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints + **leveling propose**, **quality checklist** на WP | `/kanban`, `/tasks`, `/capacity`, Gantt |
-| Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM, baselines, **change requests**, burndown | вкладки проекта |
+| Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM + **Earned Schedule**, baselines, **change requests**, burndown | вкладки проекта |
 | Портфель | сводка SPI/CPI/FX + **cross-project deps** (activity picker) | `/portfolio` |
 | Обмен | CSV/XLSX/ICS, Jira CSV import, guest status share | проект / `/share/:token` |
 | AI | черновики WBS/risks/charter, refine, Ollama/OpenAI | проект |
@@ -186,7 +186,7 @@
 | ~~**P2**~~ | ~~**OBS / org breakdown**~~ | **M** | **✓** Settings + WBS FKs + tree badges + `org_unit`/`obs_role` filters |
 | ~~**P2**~~ | ~~**Issue / action log** отдельно от Risk (проблемы + due + owner)~~ | **M** | **✓** PRINCE2 Issue Register (`ProjectIssue`) |
 | ~~**P2**~~ | ~~**Lessons learned** на закрытии проекта (шаблон + export)~~ | **S–M** | **✓** `ProjectLessonsLearned` |
-| **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | Современный EVM |
+| **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | ✓ `compute_evm_lite` + dashboard/analytics/PDF |
 | ~~**P3**~~ | ~~**Stage / phase gates** на проекте (чеклист go/no-go)~~ | **M** | **✓** Waterfall `PhaseGate` + predictive methodology ([`docs/adr-waterfall-methodology.md`](docs/adr-waterfall-methodology.md)) |
 | **P3** | **Quality checklist** на WP (pass/fail + evidence link) | **M** | ✓ `WBSQualityCheckItem` + detail panel + tree QA badge |
 | **P3** | **Benefit / outcome** поля на deliverable + tracking | **M** | Benefits realization |

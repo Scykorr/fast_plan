@@ -1026,6 +1026,16 @@ export function ProjectDetailPage() {
                   <p className="mt-1 text-lg font-semibold text-text">
                     {dashboard.evm.spi ?? "—"} / {dashboard.evm.cpi ?? "—"}
                   </p>
+                  <p className="mt-2 text-xs text-text-muted">
+                    <GlossaryText text="ES" /> {dashboard.evm.earned_schedule_date ?? "—"}
+                    {" · "}
+                    <GlossaryText text="SV(t)" />{" "}
+                    {dashboard.evm.schedule_variance_time == null
+                      ? "—"
+                      : `${dashboard.evm.schedule_variance_time > 0 ? "+" : ""}${dashboard.evm.schedule_variance_time}д`}
+                    {" · "}
+                    <GlossaryText text="SPI(t)" /> {dashboard.evm.spi_t ?? "—"}
+                  </p>
                 </div>
               </div>
 
@@ -1776,6 +1786,32 @@ export function ProjectDetailPage() {
                 <p className="text-sm text-text-muted">Actual Cost</p>
                 <p className="text-xl font-bold">
                   {formatMoney(dashboard.evm.actual_cost)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-sm text-text-muted">
+                  <GlossaryText text="ES" />
+                </p>
+                <p className="text-xl font-bold">
+                  {dashboard.evm.earned_schedule_date ?? "—"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-sm text-text-muted">
+                  <GlossaryText text="SV(t)" />
+                </p>
+                <p className="text-xl font-bold">
+                  {dashboard.evm.schedule_variance_time == null
+                    ? "—"
+                    : `${dashboard.evm.schedule_variance_time > 0 ? "+" : ""}${dashboard.evm.schedule_variance_time} д`}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-sm text-text-muted">
+                  <GlossaryText text="SPI(t)" />
+                </p>
+                <p className="text-xl font-bold">
+                  {dashboard.evm.spi_t ?? "—"}
                 </p>
               </div>
             </div>
