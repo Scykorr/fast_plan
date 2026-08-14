@@ -39,6 +39,20 @@ function WBSMindMapNodeComponent({ data }: NodeProps<Node<WBSFlowNodeData>>) {
             Перегруз · {Math.round((wbsNode.capacity_hint.utilization ?? 0) * 100)}%
           </p>
         )}
+        {(wbsNode.org_unit_name || wbsNode.obs_role_name) && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {wbsNode.org_unit_name && (
+              <span className="rounded-md bg-cream px-1.5 py-0.5 text-[10px] font-medium text-text">
+                {wbsNode.org_unit_name}
+              </span>
+            )}
+            {wbsNode.obs_role_name && (
+              <span className="rounded-md border border-border px-1.5 py-0.5 text-[10px] text-text-muted">
+                {wbsNode.obs_role_name}
+              </span>
+            )}
+          </div>
+        )}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
           <span className="capitalize">{wbsNode.node_type.replace("_", " ")}</span>
           {wbsNode.schedule && <span>{progress}%</span>}

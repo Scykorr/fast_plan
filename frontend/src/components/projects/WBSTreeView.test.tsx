@@ -37,6 +37,10 @@ const mockNodes: WBSNode[] = [
         workflow_status_name: "Новая",
         assignee_id: null,
         assignee_name: null,
+        org_unit_id: 3,
+        org_unit_name: "Backend",
+        obs_role_id: 7,
+        obs_role_name: "Developer",
         custom_values: [],
         schedule: {
           id: 1,
@@ -68,6 +72,8 @@ describe("WBSTreeView", () => {
     expect(screen.getByText("Проект")).toBeInTheDocument();
     expect(screen.getByText("1.1")).toBeInTheDocument();
     expect(screen.getByText("Дизайн")).toBeInTheDocument();
+    expect(screen.getByText("Backend")).toBeInTheDocument();
+    expect(screen.getByText("Developer")).toBeInTheDocument();
   });
 
   it("calls onSelect when node double-clicked", () => {

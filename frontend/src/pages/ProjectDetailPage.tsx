@@ -56,6 +56,8 @@ import { WorkItemDetailPanel } from "../components/tracking/WorkItemDetailPanel"
 import { WBSTreeView } from "../components/projects/WBSTreeView";
 import {
   collectWbsAssignees,
+  collectWbsObsRoles,
+  collectWbsOrgUnits,
   collectWbsStatuses,
   filterWbsTree,
 } from "../components/projects/wbs/filterWbs";
@@ -380,12 +382,16 @@ export function ProjectDetailPage() {
       filterWbsTree(wbs, {
         assigneeId: deepLink.assignee,
         statusId: deepLink.status,
+        orgUnitId: deepLink.orgUnit,
+        obsRoleId: deepLink.obsRole,
       }),
-    [wbs, deepLink.assignee, deepLink.status],
+    [wbs, deepLink.assignee, deepLink.status, deepLink.orgUnit, deepLink.obsRole],
   );
 
   const wbsAssignees = useMemo(() => collectWbsAssignees(wbs), [wbs]);
   const wbsStatuses = useMemo(() => collectWbsStatuses(wbs), [wbs]);
+  const wbsOrgUnits = useMemo(() => collectWbsOrgUnits(wbs), [wbs]);
+  const wbsObsRoles = useMemo(() => collectWbsObsRoles(wbs), [wbs]);
   const kanbanAssignees = useMemo(
     () => (board ? collectKanbanAssignees(board) : []),
     [board],
@@ -1356,6 +1362,48 @@ export function ProjectDetailPage() {
               >
                 <option value="">Все</option>
                 {wbsStatuses.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text-muted">
+              Подразделение
+              <select
+                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-text"
+                value={deepLink.orgUnit ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  patchSearch({
+                    orgUnit: value ? Number(value) : null,
+                    tab: "wbs",
+                  });
+                }}
+              >
+                <option value="">Все</option>
+                {wbsOrgUnits.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text-muted">
+              OBS-роль
+              <select
+                className="rounded-lg border border-border bg-surface px-2 py-1.5 text-text"
+                value={deepLink.obsRole ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  patchSearch({
+                    obsRole: value ? Number(value) : null,
+                    tab: "wbs",
+                  });
+                }}
+              >
+                <option value="">Все</option>
+                {wbsObsRoles.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.name}
                   </option>

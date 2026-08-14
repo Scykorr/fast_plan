@@ -15,13 +15,17 @@
 
 ## [Unreleased]
 
-### Added
-
-- **OBS / org breakdown** — дерево подразделений (`OrgUnit`) и каталог OBS-ролей (`ObsRole`) на workspace; привязка `org_unit` / `obs_role` на WBS; Settings + поля в детали задачи
-
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent polish.
+
+## [0.24.0] — 2026-08-14
+
+### Added
+
+- **OBS / org breakdown** — дерево подразделений (`OrgUnit`) и каталог OBS-ролей (`ObsRole`) на workspace; привязка `org_unit` / `obs_role` на WBS; Settings + поля в детали задачи
+- **OBS на дереве WBS** — бейджи подразделения и роли на узле mind map без открытия карточки
+- **Фильтры WBS** по подразделению и OBS-роли (`?org_unit=` / `?obs_role=`), вместе с исполнителем и статусом
 
 ## [0.23.0] — 2026-08-05
 

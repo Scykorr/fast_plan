@@ -6,6 +6,8 @@ export type DeepLinkParams = {
   risk?: number | null;
   assignee?: number | null;
   status?: number | null;
+  orgUnit?: number | null;
+  obsRole?: number | null;
   project?: number | null;
   board?: number | null;
 };
@@ -17,9 +19,24 @@ const INT_KEYS = [
   "risk",
   "assignee",
   "status",
+  "orgUnit",
+  "obsRole",
   "project",
   "board",
 ] as const;
+
+const QUERY_KEY: Record<(typeof INT_KEYS)[number], string> = {
+  workspace: "workspace",
+  node: "node",
+  card: "card",
+  risk: "risk",
+  assignee: "assignee",
+  status: "status",
+  orgUnit: "org_unit",
+  obsRole: "obs_role",
+  project: "project",
+  board: "board",
+};
 
 function parseOptionalInt(value: string | null): number | null {
   if (value == null || value === "") {
@@ -40,6 +57,8 @@ export function parseDeepLinkParams(
     risk: parseOptionalInt(searchParams.get("risk")),
     assignee: parseOptionalInt(searchParams.get("assignee")),
     status: parseOptionalInt(searchParams.get("status")),
+    orgUnit: parseOptionalInt(searchParams.get("org_unit")),
+    obsRole: parseOptionalInt(searchParams.get("obs_role")),
     project: parseOptionalInt(searchParams.get("project")),
     board: parseOptionalInt(searchParams.get("board")),
   };
@@ -61,7 +80,7 @@ export function buildDeepLinkSearch(
     }
     const value = params[key];
     if (value != null) {
-      next.set(key, String(value));
+      next.set(QUERY_KEY[key], String(value));
     }
   }
   return next;
@@ -93,9 +112,9 @@ export function mergeDeepLinkSearch(
     }
     const value = updates[key];
     if (value == null) {
-      next.delete(key);
+      next.delete(QUERY_KEY[key]);
     } else {
-      next.set(key, String(value));
+      next.set(QUERY_KEY[key], String(value));
     }
   }
   return next;

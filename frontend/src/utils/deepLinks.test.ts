@@ -9,7 +9,7 @@ import {
 describe("deepLinks", () => {
   it("parses known query params", () => {
     const params = new URLSearchParams(
-      "workspace=2&tab=wbs&node=10&card=5&risk=3&assignee=7&status=4&project=9&board=11",
+      "workspace=2&tab=wbs&node=10&card=5&risk=3&assignee=7&status=4&org_unit=12&obs_role=8&project=9&board=11",
     );
     expect(parseDeepLinkParams(params)).toEqual({
       workspace: 2,
@@ -19,6 +19,8 @@ describe("deepLinks", () => {
       risk: 3,
       assignee: 7,
       status: 4,
+      orgUnit: 12,
+      obsRole: 8,
       project: 9,
       board: 11,
     });
@@ -34,6 +36,8 @@ describe("deepLinks", () => {
       risk: null,
       assignee: null,
       status: null,
+      orgUnit: null,
+      obsRole: null,
       project: null,
       board: null,
     });
@@ -57,12 +61,15 @@ describe("deepLinks", () => {
       node: null,
       risk: 8,
       assignee: 3,
+      orgUnit: 4,
+      obsRole: null,
     });
     expect(Object.fromEntries(merged.entries())).toEqual({
       workspace: "1",
       tab: "risks",
       risk: "8",
       assignee: "3",
+      org_unit: "4",
     });
   });
 });

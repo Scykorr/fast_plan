@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| **Текущая версия** | **v0.23.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
+| **Текущая версия** | **v0.24.0** ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)) |
 | **Ядро продукта** | PM + CRM + Process + Agent Ops + Security/PWA — **закрыто** |
 | **Следующий слой** | Ops SMTP verification; S3 Integrations **в перспективе** |
 | **В перспективе** | S3 Integrations (MS Project XML + 1С OData) — без sample в ближайшее время |
@@ -28,7 +28,7 @@
 
 | Область | Что есть | Где |
 |---------|----------|-----|
-| Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter | `/projects/:id` |
+| Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter, **OBS** (отдел/роль на узле + фильтры) | `/projects/:id` |
 | Методологии | **Waterfall/predictive** (фазы+гейты+freeze), Scrum tab, hybrid | вкладки Waterfall / Scrum |
 | Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints + **leveling propose** | `/kanban`, `/tasks`, `/capacity`, Gantt |
 | Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM, baselines, **change requests**, burndown | вкладки проекта |
@@ -183,7 +183,7 @@
 | ~~**P2**~~ | ~~Leveling apply-all / Capacity propose _(S1)_~~ | **M** | **✓** Capacity apply/undo + Gantt |
 | **P3** | PERT Monte Carlo _(S1)_ | **M** | Schedule risk |
 | **P3** | MS Project XML _(S3)_ | **M–L** | **в перспективе** |
-| **P2** | **OBS / org breakdown** — привязка WBS к оргструктуре (отдел/роль), не только user | **M** | ✓ `OrgUnit`/`ObsRole` + WBS FKs + Settings/detail UI |
+| ~~**P2**~~ | ~~**OBS / org breakdown**~~ | **M** | **✓** Settings + WBS FKs + tree badges + `org_unit`/`obs_role` filters |
 | ~~**P2**~~ | ~~**Issue / action log** отдельно от Risk (проблемы + due + owner)~~ | **M** | **✓** PRINCE2 Issue Register (`ProjectIssue`) |
 | ~~**P2**~~ | ~~**Lessons learned** на закрытии проекта (шаблон + export)~~ | **S–M** | **✓** `ProjectLessonsLearned` |
 | **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | Современный EVM |

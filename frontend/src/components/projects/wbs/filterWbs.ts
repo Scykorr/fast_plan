@@ -3,6 +3,8 @@ import type { WBSNode } from "../../../api/projects";
 export type WbsFilter = {
   assigneeId?: number | null;
   statusId?: number | null;
+  orgUnitId?: number | null;
+  obsRoleId?: number | null;
 };
 
 export type FilterOption = {
@@ -23,7 +25,22 @@ function nodeMatches(node: WBSNode, filter: WbsFilter): boolean {
   ) {
     return false;
   }
+  if (filter.orgUnitId != null && node.org_unit_id !== filter.orgUnitId) {
+    return false;
+  }
+  if (filter.obsRoleId != null && node.obs_role_id !== filter.obsRoleId) {
+    return false;
+  }
   return true;
+}
+
+function isFilterEmpty(filter: WbsFilter): boolean {
+  return (
+    filter.assigneeId == null &&
+    filter.statusId == null &&
+    filter.orgUnitId == null &&
+    filter.obsRoleId == null
+  );
 }
 
 /** Keep ancestors of matching nodes so the tree structure stays readable. */
@@ -31,7 +48,7 @@ export function filterWbsTree(
   nodes: WBSNode[],
   filter: WbsFilter,
 ): WBSNode[] {
-  if (filter.assigneeId == null && filter.statusId == null) {
+  if (isFilterEmpty(filter)) {
     return nodes;
   }
 
@@ -72,6 +89,30 @@ export function collectWbsStatuses(nodes: WBSNode[]): FilterOption[] {
         node.workflow_status_id,
         node.workflow_status_name ?? `Status #${node.workflow_status_id}`,
       );
+    }
+  });
+  return [...map.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
+export function collectWbsOrgUnits(nodes: WBSNode[]): FilterOption[] {
+  const map = new Map<number, string>();
+  walk(nodes, (node) => {
+    if (node.org_unit_id != null) {
+      map.set(node.org_unit_id, node.org_unit_name ?? `Unit #${node.org_unit_id}`);
+    }
+  });
+  return [...map.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
+export function collectWbsObsRoles(nodes: WBSNode[]): FilterOption[] {
+  const map = new Map<number, string>();
+  walk(nodes, (node) => {
+    if (node.obs_role_id != null) {
+      map.set(node.obs_role_id, node.obs_role_name ?? `Role #${node.obs_role_id}`);
     }
   });
   return [...map.entries()]
