@@ -47,6 +47,14 @@ export type ProjectCharter = {
   updated_at: string;
 };
 
+export type ProjectLessonsLearned = {
+  what_went_well: string;
+  what_went_wrong: string;
+  recommendations: string;
+  knowledge_to_reuse: string;
+  updated_at: string;
+};
+
 export type WBSQualityCheckItem = {
   id: number;
   wbs_node: number;

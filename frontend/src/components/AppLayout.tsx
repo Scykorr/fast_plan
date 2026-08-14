@@ -259,7 +259,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <div id={panelId} className="mt-0.5 flex flex-col gap-0.5 pl-1">
                   {group.items.map((item) => (
                     <NavItemLink
-                      key={item.to}
+                      key={String(item.to)}
                       item={item}
                       onNavigate={onNavigate}
                     />
