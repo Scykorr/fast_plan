@@ -210,6 +210,45 @@ class WBSNode(models.Model):
         return f"{self.code} {self.title}"
 
 
+class WBSQualityCheckItem(models.Model):
+    """Pass/fail quality checklist item on a work package (evidence URL)."""
+
+    class Result(models.TextChoices):
+        OPEN = "open", "Open"
+        PASS = "pass", "Pass"
+        FAIL = "fail", "Fail"
+
+    wbs_node = models.ForeignKey(
+        WBSNode,
+        on_delete=models.CASCADE,
+        related_name="quality_checks",
+    )
+    title = models.CharField(max_length=255)
+    result = models.CharField(
+        max_length=10,
+        choices=Result.choices,
+        default=Result.OPEN,
+    )
+    evidence_url = models.URLField(blank=True, default="")
+    position = models.PositiveIntegerField(default=0)
+    checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quality_checks",
+    )
+    checked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return f"{self.wbs_node.code}: {self.title}"
+
+
 class ScheduleActivity(models.Model):
     wbs_node = models.OneToOneField(
         WBSNode,

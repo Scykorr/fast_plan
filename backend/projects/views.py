@@ -229,6 +229,7 @@ class WBSTreeView(WorkspaceMixin, APIView):
                 "org_unit",
                 "obs_role",
             )
+            .prefetch_related("quality_checks")
             .order_by("position", "id")
         )
         tree = build_wbs_tree(list(nodes))
@@ -286,6 +287,7 @@ class WBSTreeView(WorkspaceMixin, APIView):
                 "org_unit",
                 "obs_role",
             )
+            .prefetch_related("quality_checks")
             .order_by("position", "id")
         )
         return Response(
@@ -347,6 +349,7 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
             node.project.wbs_nodes.select_related(
                 "schedule", "card", "assignee", "org_unit", "obs_role"
             )
+            .prefetch_related("quality_checks")
             .order_by("position", "id")
         )
         return Response(build_wbs_tree(list(nodes)))

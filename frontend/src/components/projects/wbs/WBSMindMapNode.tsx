@@ -39,6 +39,21 @@ function WBSMindMapNodeComponent({ data }: NodeProps<Node<WBSFlowNodeData>>) {
             Перегруз · {Math.round((wbsNode.capacity_hint.utilization ?? 0) * 100)}%
           </p>
         )}
+        {wbsNode.quality && wbsNode.quality.total > 0 && (
+          <p
+            className={[
+              "mt-1 text-[10px] font-medium",
+              wbsNode.quality.failed > 0
+                ? "text-[#c45c26]"
+                : wbsNode.quality.open > 0
+                  ? "text-text-muted"
+                  : "text-primary",
+            ].join(" ")}
+          >
+            QA {wbsNode.quality.passed}/{wbsNode.quality.total}
+            {wbsNode.quality.failed > 0 ? ` · fail ${wbsNode.quality.failed}` : ""}
+          </p>
+        )}
         {(wbsNode.org_unit_name || wbsNode.obs_role_name) && (
           <div className="mt-1.5 flex flex-wrap gap-1">
             {wbsNode.org_unit_name && (

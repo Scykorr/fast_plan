@@ -47,13 +47,20 @@ export type ProjectCharter = {
   updated_at: string;
 };
 
-export type ProjectLessonsLearned = {
-  what_went_well: string;
-  what_went_wrong: string;
-  recommendations: string;
-  knowledge_to_reuse: string;
+export type WBSQualityCheckItem = {
+  id: number;
+  wbs_node: number;
+  title: string;
+  result: "open" | "pass" | "fail" | string;
+  evidence_url: string;
+  position: number;
+  checked_by: number | null;
+  checked_by_name: string | null;
+  checked_at: string | null;
+  created_at: string;
   updated_at: string;
 };
+
 
 export type Risk = {
   id: number;
@@ -232,6 +239,12 @@ export type WBSNode = {
   schedule: ScheduleActivity | null;
   capacity_hint?: CapacityHint | null;
   card_id: number | null;
+  quality?: {
+    total: number;
+    passed: number;
+    failed: number;
+    open: number;
+  };
   children: WBSNode[];
 };
 
@@ -599,6 +612,30 @@ export function createProjectsApi() {
 
     deleteWBSNode: (wbsId: number) =>
       request<void>(`/wbs/${wbsId}/`, { method: "DELETE" }),
+
+    getQualityChecks: (wbsId: number) =>
+      request<WBSQualityCheckItem[]>(`/wbs/${wbsId}/quality-checks/`, {}),
+
+    createQualityCheck: (
+      wbsId: number,
+      body: { title: string; evidence_url?: string; result?: string },
+    ) =>
+      request<WBSQualityCheckItem>(`/wbs/${wbsId}/quality-checks/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    updateQualityCheck: (
+      itemId: number,
+      body: { title?: string; evidence_url?: string; result?: string; position?: number },
+    ) =>
+      request<WBSQualityCheckItem>(`/quality-checks/${itemId}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+
+    deleteQualityCheck: (itemId: number) =>
+      request<void>(`/quality-checks/${itemId}/`, { method: "DELETE" }),
 
     getSchedule: (projectId: number) =>
       request<ProjectSchedule>(`/projects/${projectId}/schedule/`, {}),

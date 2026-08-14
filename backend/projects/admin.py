@@ -6,6 +6,7 @@ from projects.models import (
     Project,
     ScheduleActivity,
     WBSNode,
+    WBSQualityCheckItem,
 )
 
 
@@ -57,3 +58,9 @@ class PhaseGateAdmin(admin.ModelAdmin):
         "decided_at",
     )
     list_filter = ("decision",)
+
+
+@admin.register(WBSQualityCheckItem)
+class WBSQualityCheckItemAdmin(admin.ModelAdmin):
+    list_display = ("title", "wbs_node", "result", "checked_at")
+    list_filter = ("result",)

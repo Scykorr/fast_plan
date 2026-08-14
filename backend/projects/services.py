@@ -4,11 +4,33 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from kanban.models import Board, Card, Column
-from projects.models import Project, ScheduleActivity, WBSNode
+from projects.models import Project, ScheduleActivity, WBSNode, WBSQualityCheckItem
 from tracking.models import IssueStatus, Tracker
 from tracking.services import serialize_custom_values
 
 DEFAULT_PROJECT_COLUMNS = ("К выполнению", "В работе", "Готово")
+
+
+def quality_summary(node: WBSNode) -> dict:
+    items = getattr(node, "quality_checks", None)
+    if items is None:
+        qs = WBSQualityCheckItem.objects.filter(wbs_node=node)
+        total = qs.count()
+        passed = qs.filter(result=WBSQualityCheckItem.Result.PASS).count()
+        failed = qs.filter(result=WBSQualityCheckItem.Result.FAIL).count()
+        open_count = qs.filter(result=WBSQualityCheckItem.Result.OPEN).count()
+    else:
+        rows = list(items.all()) if hasattr(items, "all") else list(items)
+        total = len(rows)
+        passed = sum(1 for row in rows if row.result == WBSQualityCheckItem.Result.PASS)
+        failed = sum(1 for row in rows if row.result == WBSQualityCheckItem.Result.FAIL)
+        open_count = sum(1 for row in rows if row.result == WBSQualityCheckItem.Result.OPEN)
+    return {
+        "total": total,
+        "passed": passed,
+        "failed": failed,
+        "open": open_count,
+    }
 
 
 def _default_project_tracker(workspace):
@@ -247,6 +269,7 @@ def build_wbs_tree(nodes: list[WBSNode]) -> list[dict]:
                 else None
             ),
             "card_id": card.id if card else None,
+            "quality": quality_summary(node),
             "children": [
                 serialize_node(child)
                 for child in by_parent.get(node.id, [])

@@ -40,6 +40,8 @@ from projects.pmbok_views import (
     RiskListCreateView,
     StakeholderDetailView,
     StakeholderListCreateView,
+    WBSQualityCheckDetailView,
+    WBSQualityCheckListCreateView,
 )
 from projects.views import (
     ActivityDependencyCreateView,
@@ -286,6 +288,16 @@ urlpatterns = [
         name="workspace-calendar-ics",
     ),
     path("wbs/<int:wbs_id>/", WBSNodeDetailView.as_view(), name="wbs-detail"),
+    path(
+        "wbs/<int:wbs_id>/quality-checks/",
+        WBSQualityCheckListCreateView.as_view(),
+        name="wbs-quality-checks",
+    ),
+    path(
+        "quality-checks/<int:item_id>/",
+        WBSQualityCheckDetailView.as_view(),
+        name="wbs-quality-check-detail",
+    ),
     path(
         "wbs/<int:wbs_id>/comments/",
         WBSCommentListCreateView.as_view(),

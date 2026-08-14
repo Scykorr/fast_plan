@@ -25,6 +25,7 @@ from projects.models import (
     Risk,
     Stakeholder,
     WBSNode,
+    WBSQualityCheckItem,
 )
 from projects.pdf import render_lessons_learned_pdf, render_status_report_pdf
 from projects.reports import build_status_report
@@ -42,6 +43,7 @@ from projects.serializers_pmbok import (
     RiskWriteSerializer,
     StakeholderSerializer,
     StakeholderWriteSerializer,
+    WBSQualityCheckItemSerializer,
 )
 from projects.views import WorkspaceMixin
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly
@@ -806,3 +808,98 @@ class ProjectWaterfallPhaseDetailView(WorkspaceMixin, APIView):
             summary=f"Deleted Waterfall phase {title}",
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WBSQualityCheckListCreateView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get_node(self, wbs_id):
+        return get_object_or_404(
+            WBSNode.objects.filter(project__workspace=self.get_workspace()),
+            pk=wbs_id,
+        )
+
+    def get(self, request, wbs_id):
+        node = self.get_node(wbs_id)
+        items = node.quality_checks.select_related("checked_by")
+        return Response(WBSQualityCheckItemSerializer(items, many=True).data)
+
+    def post(self, request, wbs_id):
+        node = self.get_node(wbs_id)
+        title = str(request.data.get("title") or "").strip()
+        if not title:
+            raise ValidationError({"title": "Required."})
+        evidence = str(request.data.get("evidence_url") or "").strip()
+        result = str(request.data.get("result") or WBSQualityCheckItem.Result.OPEN)
+        if result not in WBSQualityCheckItem.Result.values:
+            raise ValidationError({"result": "Invalid result."})
+        position = request.data.get("position")
+        if position is None:
+            position = node.quality_checks.count()
+        item = WBSQualityCheckItem.objects.create(
+            wbs_node=node,
+            title=title,
+            evidence_url=evidence,
+            result=result,
+            position=int(position),
+        )
+        log_audit(
+            node.project.workspace,
+            request.user,
+            "wbs.quality.create",
+            "WBSQualityCheckItem",
+            item.id,
+            summary=f"Quality check on {node.code}: {title}",
+        )
+        return Response(
+            WBSQualityCheckItemSerializer(item).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class WBSQualityCheckDetailView(WorkspaceMixin, APIView):
+    permission_classes = [IsWorkspaceEditorOrReadOnly]
+
+    def get_item(self, item_id):
+        return get_object_or_404(
+            WBSQualityCheckItem.objects.filter(
+                wbs_node__project__workspace=self.get_workspace()
+            ).select_related("wbs_node", "checked_by"),
+            pk=item_id,
+        )
+
+    def patch(self, request, item_id):
+        from django.utils import timezone
+
+        item = self.get_item(item_id)
+        if "title" in request.data:
+            title = str(request.data.get("title") or "").strip()
+            if not title:
+                raise ValidationError({"title": "Required."})
+            item.title = title
+        if "evidence_url" in request.data:
+            item.evidence_url = str(request.data.get("evidence_url") or "").strip()
+        if "position" in request.data and request.data.get("position") is not None:
+            item.position = int(request.data["position"])
+        if "result" in request.data:
+            result = str(request.data.get("result") or "")
+            if result not in WBSQualityCheckItem.Result.values:
+                raise ValidationError({"result": "Invalid result."})
+            item.result = result
+            if result in (
+                WBSQualityCheckItem.Result.PASS,
+                WBSQualityCheckItem.Result.FAIL,
+            ):
+                item.checked_by = request.user
+                item.checked_at = timezone.now()
+            elif result == WBSQualityCheckItem.Result.OPEN:
+                item.checked_by = None
+                item.checked_at = None
+        item.save()
+        return Response(WBSQualityCheckItemSerializer(item).data)
+
+    def delete(self, request, item_id):
+        item = self.get_item(item_id)
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+

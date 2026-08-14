@@ -19,6 +19,10 @@
 
 - **Сайдбар** — пункты меню сгруппированы в раскрывающиеся разделы (Обзор / Проекты / CRM / Процессы / Система)
 
+### Added
+
+- **Quality checklist на WP** — pass/fail критерии с evidence URL (`/api/wbs/<id>/quality-checks/`); сводка QA на узле WBS и панель в карточке задачи
+
 ### Planned
 
 См. [ROADMAP.md](ROADMAP.md) — S3 Integrations **в перспективе**; Process-as-WBS reparent polish.

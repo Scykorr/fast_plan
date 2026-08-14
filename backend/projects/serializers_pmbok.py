@@ -11,6 +11,7 @@ from projects.models import (
     RACIEntry,
     Risk,
     Stakeholder,
+    WBSQualityCheckItem,
 )
 
 
@@ -358,3 +359,35 @@ class PhaseGateSerializer(serializers.ModelSerializer):
             "process_instance",
         )
         read_only_fields = fields
+
+
+class WBSQualityCheckItemSerializer(serializers.ModelSerializer):
+    checked_by_name = serializers.CharField(
+        source="checked_by.get_username", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = WBSQualityCheckItem
+        fields = (
+            "id",
+            "wbs_node",
+            "title",
+            "result",
+            "evidence_url",
+            "position",
+            "checked_by",
+            "checked_by_name",
+            "checked_at",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "wbs_node",
+            "checked_by",
+            "checked_by_name",
+            "checked_at",
+            "created_at",
+            "updated_at",
+        )
+

@@ -54,6 +54,7 @@ const mockNodes: WBSNode[] = [
           is_milestone: false,
         },
         card_id: 5,
+        quality: { total: 2, passed: 1, failed: 0, open: 1 },
         children: [],
       },
     ],
@@ -74,6 +75,7 @@ describe("WBSTreeView", () => {
     expect(screen.getByText("Дизайн")).toBeInTheDocument();
     expect(screen.getByText("Backend")).toBeInTheDocument();
     expect(screen.getByText("Developer")).toBeInTheDocument();
+    expect(screen.getByText("QA 1/2")).toBeInTheDocument();
   });
 
   it("calls onSelect when node double-clicked", () => {
