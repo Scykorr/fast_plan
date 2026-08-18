@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import type { RACIEntry, Stakeholder, WBSNode } from "../../api/projects";
+import type { ObsRole } from "../../api/workspace";
 import { TermHint } from "../TermHint";
 
 export type StakeholderUpdateValues = {
@@ -16,6 +17,7 @@ type StakeholderPanelProps = {
   stakeholders: Stakeholder[];
   raci: RACIEntry[];
   wbs: WBSNode[];
+  obsRoles?: ObsRole[];
   onAddStakeholder: (values: { name: string; role: string }) => Promise<void> | void;
   onUpdateStakeholder: (
     id: number,
@@ -24,7 +26,8 @@ type StakeholderPanelProps = {
   onDeleteStakeholder: (id: number) => void;
   onAddRACI: (values: {
     wbs_node_id: number;
-    stakeholder_id: number;
+    stakeholder_id?: number | null;
+    obs_role_id?: number | null;
     raci_type: "R" | "A" | "C" | "I";
   }) => Promise<void> | void;
   onDeleteRACI: (id: number) => void;
@@ -215,6 +218,7 @@ export function StakeholderPanel({
   stakeholders,
   raci,
   wbs,
+  obsRoles = [],
   onAddStakeholder,
   onUpdateStakeholder,
   onDeleteStakeholder,
@@ -228,6 +232,7 @@ export function StakeholderPanel({
   const [role, setRole] = useState("");
   const [wbsNodeId, setWbsNodeId] = useState<number | "">("");
   const [stakeholderId, setStakeholderId] = useState<number | "">("");
+  const [obsRoleId, setObsRoleId] = useState<number | "">("");
   const [raciType, setRaciType] = useState<"R" | "A" | "C" | "I">("R");
   const [stakeholderError, setStakeholderError] = useState("");
   const [raciError, setRaciError] = useState("");
@@ -257,8 +262,8 @@ export function StakeholderPanel({
 
   const handleRaciSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (wbsNodeId === "" || stakeholderId === "") {
-      setRaciError("Выберите WBS-узел и стейкхолдера");
+    if (wbsNodeId === "" || (stakeholderId === "" && obsRoleId === "")) {
+      setRaciError("Выберите WBS-узел и стейкхолдера или OBS-роль");
       return;
     }
     setLoadingRaci(true);
@@ -266,7 +271,8 @@ export function StakeholderPanel({
     try {
       await onAddRACI({
         wbs_node_id: Number(wbsNodeId),
-        stakeholder_id: Number(stakeholderId),
+        stakeholder_id: stakeholderId === "" ? null : Number(stakeholderId),
+        obs_role_id: obsRoleId === "" ? null : Number(obsRoleId),
         raci_type: raciType,
       });
       setShowRaciForm(false);
@@ -412,7 +418,10 @@ export function StakeholderPanel({
                 setStakeholderId(stakeholders[0].id);
               }
             }}
-            disabled={stakeholders.length === 0 || wbsNodes.length === 0}
+            disabled={
+              wbsNodes.length === 0 ||
+              (stakeholders.length === 0 && obsRoles.length === 0)
+            }
             className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
           >
             {showRaciForm ? "Скрыть" : "+ Назначение"}
@@ -449,12 +458,37 @@ export function StakeholderPanel({
               <select
                 id="raci-stakeholder"
                 value={stakeholderId}
-                onChange={(e) => setStakeholderId(Number(e.target.value))}
+                onChange={(e) =>
+                  setStakeholderId(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
                 className={inputClass}
               >
+                <option value="">— нет —</option>
                 {stakeholders.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="raci-obs-role" className="mb-1 block text-sm font-medium">
+                OBS-роль
+              </label>
+              <select
+                id="raci-obs-role"
+                value={obsRoleId}
+                onChange={(e) =>
+                  setObsRoleId(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                className={inputClass}
+              >
+                <option value="">— нет —</option>
+                {obsRoles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
                   </option>
                 ))}
               </select>
@@ -480,13 +514,52 @@ export function StakeholderPanel({
                 {raciError}
               </p>
             )}
-            <button
-              type="submit"
-              disabled={loadingRaci}
-              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
-            >
-              {loadingRaci ? "Сохранение..." : "Сохранить"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={loadingRaci}
+                className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+              >
+                {loadingRaci ? "Сохранение..." : "Сохранить"}
+              </button>
+              <button
+                type="button"
+                disabled={
+                  loadingRaci ||
+                  wbsNodeId === "" ||
+                  !wbsNodes.find((node) => node.id === Number(wbsNodeId))
+                    ?.obs_role_id
+                }
+                onClick={async () => {
+                  const node = wbsNodes.find(
+                    (item) => item.id === Number(wbsNodeId),
+                  );
+                  if (!node?.obs_role_id) {
+                    setRaciError("У выбранного WBS нет OBS-роли");
+                    return;
+                  }
+                  setLoadingRaci(true);
+                  setRaciError("");
+                  try {
+                    await onAddRACI({
+                      wbs_node_id: node.id,
+                      obs_role_id: node.obs_role_id,
+                      raci_type: "R",
+                    });
+                    setObsRoleId(node.obs_role_id);
+                    setRaciType("R");
+                    setShowRaciForm(false);
+                  } catch {
+                    setRaciError("Не удалось создать назначение RACI");
+                  } finally {
+                    setLoadingRaci(false);
+                  }
+                }}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-muted hover:bg-cream disabled:opacity-50"
+              >
+                R из OBS
+              </button>
+            </div>
           </form>
         )}
 
@@ -498,7 +571,7 @@ export function StakeholderPanel({
               <thead>
                 <tr className="border-b border-border text-left text-text-muted">
                   <th className="py-2 pr-3">WBS</th>
-                  <th className="py-2 pr-3">Стейкхолдер</th>
+                  <th className="py-2 pr-3">Стейкхолдер / OBS</th>
                   <th className="py-2">RACI</th>
                   <th className="py-2" />
                 </tr>
@@ -509,7 +582,11 @@ export function StakeholderPanel({
                     <td className="py-2 pr-3 font-mono text-xs">
                       {entry.wbs_code}
                     </td>
-                    <td className="py-2 pr-3">{entry.stakeholder_name}</td>
+                    <td className="py-2 pr-3">
+                      {[entry.stakeholder_name, entry.obs_role_name]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </td>
                     <td className="py-2 font-semibold text-secondary">
                       {entry.raci_type}
                     </td>

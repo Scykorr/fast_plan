@@ -118,7 +118,49 @@ describe("StakeholderPanel", () => {
       expect(onAddRACI).toHaveBeenCalledWith({
         wbs_node_id: 2,
         stakeholder_id: 10,
+        obs_role_id: null,
         raci_type: "A",
+      });
+    });
+  });
+
+  it("creates Responsible from WBS OBS role", async () => {
+    const onAddRACI = vi.fn().mockResolvedValue(undefined);
+    const wbsWithObs: WBSNode[] = [
+      {
+        ...wbs[0],
+        children: [
+          {
+            ...wbs[0].children[0],
+            obs_role_id: 7,
+            obs_role_name: "Tester",
+          },
+        ],
+      },
+    ];
+    render(
+      <StakeholderPanel
+        stakeholders={stakeholders}
+        raci={[]}
+        wbs={wbsWithObs}
+        obsRoles={[{ id: 7, name: "Tester", code: "QA", position: 0 }]}
+        onAddStakeholder={vi.fn()}
+        onUpdateStakeholder={vi.fn()}
+        onDeleteStakeholder={vi.fn()}
+        onAddRACI={onAddRACI}
+        onDeleteRACI={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Назначение" }));
+    fireEvent.change(screen.getByLabelText("WBS"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "R из OBS" }));
+
+    await waitFor(() => {
+      expect(onAddRACI).toHaveBeenCalledWith({
+        wbs_node_id: 2,
+        obs_role_id: 7,
+        raci_type: "R",
       });
     });
   });

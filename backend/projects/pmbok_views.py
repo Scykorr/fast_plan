@@ -386,22 +386,42 @@ class RACIListCreateView(WorkspaceMixin, APIView):
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         entries = RACIEntry.objects.filter(wbs_node__project=project).select_related(
-            "wbs_node", "stakeholder"
+            "wbs_node", "stakeholder", "obs_role"
         )
         return Response(RACIEntrySerializer(entries, many=True).data)
 
     def post(self, request, project_id):
+        from workspaces.models import ObsRole
+
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
         serializer = RACIWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         wbs_node = get_object_or_404(project.wbs_nodes, pk=data["wbs_node_id"])
-        stakeholder = get_object_or_404(project.stakeholders, pk=data["stakeholder_id"])
-        entry, created = RACIEntry.objects.update_or_create(
-            wbs_node=wbs_node,
-            stakeholder=stakeholder,
-            defaults={"raci_type": data["raci_type"]},
-        )
+        stakeholder = None
+        if data.get("stakeholder_id"):
+            stakeholder = get_object_or_404(
+                project.stakeholders, pk=data["stakeholder_id"]
+            )
+        obs_role = None
+        if data.get("obs_role_id"):
+            obs_role = get_object_or_404(
+                ObsRole.objects.filter(workspace=project.workspace),
+                pk=data["obs_role_id"],
+            )
+        if stakeholder is not None:
+            entry, created = RACIEntry.objects.update_or_create(
+                wbs_node=wbs_node,
+                stakeholder=stakeholder,
+                defaults={"raci_type": data["raci_type"], "obs_role": obs_role},
+            )
+        else:
+            entry, created = RACIEntry.objects.update_or_create(
+                wbs_node=wbs_node,
+                obs_role=obs_role,
+                stakeholder=None,
+                defaults={"raci_type": data["raci_type"]},
+            )
         status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(RACIEntrySerializer(entry).data, status=status_code)
 

@@ -21,6 +21,8 @@
 
 ### Added
 
+- **Удаление проекта** — кнопка «Удалить» в списке `/projects` и в карточке проекта, с подтверждением
+- **OBS ↔ RACI** — назначение RACI по OBS-роли (без стейкхолдера); кнопка «R из OBS» на вкладке стейкхолдеров
 - **Quality checklist на WP** — pass/fail критерии с evidence URL (`/api/wbs/<id>/quality-checks/`); сводка QA на узле WBS и панель в карточке задачи
 - **Earned Schedule** — ES / SV(t) / SPI(t) рядом с EVM lite (дашборд проекта, Analytics, портфель, статус-отчёт PDF)
 

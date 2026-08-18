@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { parseApiError } from "../api/errors";
 import type { ProjectFinance } from "../api/finance";
@@ -38,6 +38,7 @@ import {
 import { CharterEditor } from "../components/projects/CharterEditor";
 import { GanttChart } from "../components/projects/GanttChart";
 import { PertDiagram } from "../components/projects/PertDiagram";
+import { DeleteProjectButton } from "../components/projects/DeleteProjectButton";
 import { ProjectAIDraftButton } from "../components/projects/ProjectAIDraftButton";
 import { ProjectMembersPanel } from "../components/projects/ProjectMembersPanel";
 import { ProjectShareLinksPanel } from "../components/projects/ProjectShareLinksPanel";
@@ -120,11 +121,14 @@ function isTab(value: string | null | undefined): value is Tab {
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLink = parseDeepLinkParams(searchParams);
   const { isAuthenticated, user } = useAuth();
   const { activeWorkspace, switchWorkspace, isLoading: workspaceLoading } =
     useWorkspace();
+  const canEdit =
+    activeWorkspace?.role === "owner" || activeWorkspace?.role === "editor";
   const id = Number(projectId);
   const projectsApi = useProjectsApi();
   const financeApi = useFinanceApi();
@@ -169,6 +173,7 @@ export function ProjectDetailPage() {
   const [clientOrgs, setClientOrgs] = useState<CrmOrganization[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [workspaceReady, setWorkspaceReady] = useState(false);
 
   const patchSearch = useCallback(
@@ -400,6 +405,21 @@ export function ProjectDetailPage() {
     () => (board ? collectKanbanStatuses(board) : []),
     [board],
   );
+
+  const handleDeleteProject = async () => {
+    if (!projectsApi || !project) {
+      return;
+    }
+    setDeleting(true);
+    setError("");
+    try {
+      await projectsApi.deleteProject(id);
+      navigate("/projects");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось удалить проект"));
+      setDeleting(false);
+    }
+  };
 
   const handleSaveProjectDetail = async (body: {
     name?: string;
@@ -715,7 +735,8 @@ export function ProjectDetailPage() {
 
   const handleAddRACI = async (values: {
     wbs_node_id: number;
-    stakeholder_id: number;
+    stakeholder_id?: number | null;
+    obs_role_id?: number | null;
     raci_type: "R" | "A" | "C" | "I";
   }) => {
     if (!projectsApi) {
@@ -900,6 +921,14 @@ export function ProjectDetailPage() {
           <h1 className="mt-2 text-3xl font-bold text-text">{project.name}</h1>
           <p className="mt-1 text-sm text-text-muted">{project.description}</p>
         </div>
+        {canEdit && (
+          <DeleteProjectButton
+            projectName={project.name}
+            variant="button"
+            busy={deleting}
+            onConfirmDelete={handleDeleteProject}
+          />
+        )}
       </div>
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
@@ -1695,6 +1724,7 @@ export function ProjectDetailPage() {
           stakeholders={stakeholders}
           raci={raci}
           wbs={wbs}
+          obsRoles={obsRoles}
           onAddStakeholder={(values) => handleAddStakeholder(values)}
           onUpdateStakeholder={(stakeholderId, values) =>
             handleUpdateStakeholder(stakeholderId, values)

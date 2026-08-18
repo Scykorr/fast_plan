@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { parseApiError } from "../api/errors";
 import type { Project, ProjectTemplate } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { DeleteProjectButton } from "../components/projects/DeleteProjectButton";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useProjectsApi } from "../hooks/useProjectsApi";
 
 const statusLabels: Record<string, string> = {
@@ -19,6 +21,9 @@ const inputClass =
 
 export function ProjectsPage() {
   const projectsApi = useProjectsApi();
+  const { activeWorkspace } = useWorkspace();
+  const canEdit =
+    activeWorkspace?.role === "owner" || activeWorkspace?.role === "editor";
   const [projects, setProjects] = useState<Project[]>([]);
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +33,7 @@ export function ProjectsPage() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("planning");
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [formError, setFormError] = useState("");
   const [templateId, setTemplateId] = useState<number | "">("");
   const [templateName, setTemplateName] = useState("");
@@ -90,6 +96,25 @@ export function ProjectsPage() {
       setFormError(parseApiError(err, "Не удалось создать проект"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (project: Project) => {
+    if (!projectsApi) {
+      return;
+    }
+    setDeletingId(project.id);
+    setError("");
+    try {
+      await projectsApi.deleteProject(project.id);
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+      if (templateSourceId === project.id) {
+        setTemplateSourceId("");
+      }
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось удалить проект"));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -279,33 +304,50 @@ export function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {projects.map((project) => (
-            <Link
+            <article
               key={project.id}
-              to={`/projects/${project.id}`}
               className="rounded-xl border border-border bg-surface p-6 transition-shadow hover:shadow-md"
             >
               <div className="flex items-start justify-between gap-2">
-                <h2 className="text-lg font-semibold text-text">{project.name}</h2>
-                <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
-                  {statusLabels[project.status] ?? project.status}
-                </span>
+                <Link
+                  to={`/projects/${project.id}`}
+                  className="min-w-0 flex-1"
+                >
+                  <h2 className="text-lg font-semibold text-text hover:text-primary">
+                    {project.name}
+                  </h2>
+                </Link>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                    {statusLabels[project.status] ?? project.status}
+                  </span>
+                  {canEdit && (
+                    <DeleteProjectButton
+                      projectName={project.name}
+                      busy={deletingId === project.id}
+                      onConfirmDelete={() => handleDelete(project)}
+                    />
+                  )}
+                </div>
               </div>
-              {project.description && (
-                <p className="mt-2 line-clamp-2 text-sm text-text-muted">
-                  {project.description}
-                </p>
-              )}
-              <div className="mt-4 flex items-center gap-4 text-xs text-text-muted">
-                <span>WBS: {project.wbs_count}</span>
-                <span>Прогресс: {project.progress}%</span>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-cream">
-                <div
-                  className="h-2 rounded-full bg-secondary transition-all"
-                  style={{ width: `${project.progress}%` }}
-                />
-              </div>
-            </Link>
+              <Link to={`/projects/${project.id}`} className="mt-2 block">
+                {project.description && (
+                  <p className="line-clamp-2 text-sm text-text-muted">
+                    {project.description}
+                  </p>
+                )}
+                <div className="mt-4 flex items-center gap-4 text-xs text-text-muted">
+                  <span>WBS: {project.wbs_count}</span>
+                  <span>Прогресс: {project.progress}%</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-cream">
+                  <div
+                    className="h-2 rounded-full bg-secondary transition-all"
+                    style={{ width: `${project.progress}%` }}
+                  />
+                </div>
+              </Link>
+            </article>
           ))}
         </div>
       )}

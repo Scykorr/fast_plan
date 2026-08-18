@@ -241,6 +241,47 @@ def test_raci_viewer_cannot_mutate(api_client, project, workspace, user, other_u
 
 
 @pytest.mark.django_db
+def test_raci_obs_role_without_stakeholder(authenticated_client, project, workspace):
+    from workspaces.models import ObsRole
+
+    root = project.wbs_nodes.get(code="1")
+    role = ObsRole.objects.create(workspace=workspace, name="Tester", code="QA")
+    missing = authenticated_client.post(
+        f"/api/projects/{project.id}/raci/",
+        {"wbs_node_id": root.id, "raci_type": "R"},
+        format="json",
+    )
+    assert missing.status_code == status.HTTP_400_BAD_REQUEST
+
+    created = authenticated_client.post(
+        f"/api/projects/{project.id}/raci/",
+        {
+            "wbs_node_id": root.id,
+            "obs_role_id": role.id,
+            "raci_type": "R",
+        },
+        format="json",
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+    assert created.data["obs_role_id"] == role.id
+    assert created.data["obs_role_name"] == "Tester"
+    assert created.data["stakeholder_id"] is None
+
+    again = authenticated_client.post(
+        f"/api/projects/{project.id}/raci/",
+        {
+            "wbs_node_id": root.id,
+            "obs_role_id": role.id,
+            "raci_type": "A",
+        },
+        format="json",
+    )
+    assert again.status_code == status.HTTP_200_OK
+    assert again.data["raci_type"] == "A"
+    assert RACIEntry.objects.filter(wbs_node=root, obs_role=role, stakeholder=None).count() == 1
+
+
+@pytest.mark.django_db
 def test_charter_get_and_patch(authenticated_client, project):
     response = authenticated_client.get(f"/api/projects/{project.id}/charter/")
     assert response.status_code == status.HTTP_200_OK

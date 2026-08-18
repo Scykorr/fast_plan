@@ -28,7 +28,7 @@
 
 | Область | Что есть | Где |
 |---------|----------|-----|
-| Структура | WBS, Gantt, шаблоны, RACI, риски, stakeholders, charter, **OBS** (отдел/роль на узле + фильтры) | `/projects/:id` |
+| Структура | WBS, Gantt, шаблоны, RACI (+ OBS-роль), риски, stakeholders, charter, **OBS** (отдел/роль на узле + фильтры) | `/projects/:id` |
 | Методологии | **Waterfall/predictive** (фазы+гейты+freeze), Scrum tab, hybrid | вкладки Waterfall / Scrum |
 | Исполнение | Kanban ↔ WBS, «Мои задачи», time entries, capacity + overload hints + **leveling propose**, **quality checklist** на WP | `/kanban`, `/tasks`, `/capacity`, Gantt |
 | Сроки / аналитика | PERT/сеть + **P10/P50/P90 finish**, CPM/EVM + **Earned Schedule**, baselines, **change requests**, burndown | вкладки проекта |
@@ -183,7 +183,7 @@
 | ~~**P2**~~ | ~~Leveling apply-all / Capacity propose _(S1)_~~ | **M** | **✓** Capacity apply/undo + Gantt |
 | **P3** | PERT Monte Carlo _(S1)_ | **M** | Schedule risk |
 | **P3** | MS Project XML _(S3)_ | **M–L** | **в перспективе** |
-| ~~**P2**~~ | ~~**OBS / org breakdown**~~ | **M** | **✓** Settings + WBS FKs + tree badges + `org_unit`/`obs_role` filters |
+| ~~**P2**~~ | ~~**OBS / org breakdown**~~ | **M** | **✓** Settings + WBS FKs + tree badges + `org_unit`/`obs_role` filters + RACI |
 | ~~**P2**~~ | ~~**Issue / action log** отдельно от Risk (проблемы + due + owner)~~ | **M** | **✓** PRINCE2 Issue Register (`ProjectIssue`) |
 | ~~**P2**~~ | ~~**Lessons learned** на закрытии проекта (шаблон + export)~~ | **S–M** | **✓** `ProjectLessonsLearned` |
 | **P3** | **Earned Schedule** (ES/SV(t)) рядом с EVM lite | **M** | ✓ `compute_evm_lite` + dashboard/analytics/PDF |

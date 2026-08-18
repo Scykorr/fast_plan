@@ -243,7 +243,16 @@ class ProjectLessonsLearnedSerializer(serializers.ModelSerializer):
 class RACIEntrySerializer(serializers.ModelSerializer):
     wbs_code = serializers.CharField(source="wbs_node.code", read_only=True)
     wbs_title = serializers.CharField(source="wbs_node.title", read_only=True)
-    stakeholder_name = serializers.CharField(source="stakeholder.name", read_only=True)
+    stakeholder_id = serializers.IntegerField(read_only=True, allow_null=True)
+    stakeholder_name = serializers.SerializerMethodField()
+    obs_role_id = serializers.IntegerField(read_only=True, allow_null=True)
+    obs_role_name = serializers.SerializerMethodField()
+
+    def get_stakeholder_name(self, obj):
+        return obj.stakeholder.name if obj.stakeholder_id else None
+
+    def get_obs_role_name(self, obj):
+        return obj.obs_role.name if obj.obs_role_id else None
 
     class Meta:
         model = RACIEntry
@@ -254,6 +263,8 @@ class RACIEntrySerializer(serializers.ModelSerializer):
             "wbs_title",
             "stakeholder_id",
             "stakeholder_name",
+            "obs_role_id",
+            "obs_role_name",
             "raci_type",
         )
         read_only_fields = fields
@@ -261,8 +272,16 @@ class RACIEntrySerializer(serializers.ModelSerializer):
 
 class RACIWriteSerializer(serializers.Serializer):
     wbs_node_id = serializers.IntegerField()
-    stakeholder_id = serializers.IntegerField()
+    stakeholder_id = serializers.IntegerField(required=False, allow_null=True)
+    obs_role_id = serializers.IntegerField(required=False, allow_null=True)
     raci_type = serializers.ChoiceField(choices=RACIEntry.RACIType.choices)
+
+    def validate(self, attrs):
+        if not attrs.get("stakeholder_id") and not attrs.get("obs_role_id"):
+            raise serializers.ValidationError(
+                "Provide stakeholder_id and/or obs_role_id."
+            )
+        return attrs
 
 
 class BaselineActivitySerializer(serializers.ModelSerializer):

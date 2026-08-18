@@ -30,6 +30,13 @@ def test_create_project_creates_board_and_root_wbs(authenticated_client, workspa
 
 
 @pytest.mark.django_db
+def test_delete_project(authenticated_client, project):
+    response = authenticated_client.delete(f"/api/projects/{project.id}/")
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert not Project.objects.filter(pk=project.id).exists()
+
+
+@pytest.mark.django_db
 def test_list_projects(authenticated_client, project):
     response = authenticated_client.get("/api/projects/")
     assert response.status_code == status.HTTP_200_OK

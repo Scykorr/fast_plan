@@ -537,15 +537,46 @@ class RACIEntry(models.Model):
         Stakeholder,
         on_delete=models.CASCADE,
         related_name="raci_entries",
+        null=True,
+        blank=True,
+    )
+    obs_role = models.ForeignKey(
+        "workspaces.ObsRole",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="raci_entries",
+        help_text="Optional OBS job role (instead of or with a named stakeholder).",
     )
     raci_type = models.CharField(max_length=1, choices=RACIType.choices)
 
     class Meta:
-        unique_together = [("wbs_node", "stakeholder")]
         verbose_name_plural = "RACI entries"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(stakeholder__isnull=False)
+                    | models.Q(obs_role__isnull=False)
+                ),
+                name="raci_stakeholder_or_obs_role",
+            ),
+            models.UniqueConstraint(
+                fields=["wbs_node", "stakeholder"],
+                condition=models.Q(stakeholder__isnull=False),
+                name="raci_unique_wbs_stakeholder",
+            ),
+            models.UniqueConstraint(
+                fields=["wbs_node", "obs_role"],
+                condition=models.Q(stakeholder__isnull=True, obs_role__isnull=False),
+                name="raci_unique_wbs_obs_role",
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.wbs_node.code} — {self.stakeholder.name} ({self.raci_type})"
+        who = self.stakeholder.name if self.stakeholder_id else (
+            self.obs_role.name if self.obs_role_id else "?"
+        )
+        return f"{self.wbs_node.code} — {who} ({self.raci_type})"
 
 
 class ProjectBaseline(models.Model):

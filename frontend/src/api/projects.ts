@@ -115,8 +115,10 @@ export type RACIEntry = {
   wbs_node_id: number;
   wbs_code: string;
   wbs_title: string;
-  stakeholder_id: number;
-  stakeholder_name: string;
+  stakeholder_id: number | null;
+  stakeholder_name: string | null;
+  obs_role_id: number | null;
+  obs_role_name: string | null;
   raci_type: string;
 };
 
@@ -583,6 +585,9 @@ export function createProjectsApi() {
         body: JSON.stringify(body),
       }),
 
+    deleteProject: (id: number) =>
+      request<void>(`/projects/${id}/`, { method: "DELETE" }),
+
     getDashboard: (id: number) =>
       request<ProjectDashboard>(`/projects/${id}/dashboard/`, {}),
 
@@ -833,7 +838,12 @@ export function createProjectsApi() {
 
     createRACI: (
       projectId: number,
-      body: { wbs_node_id: number; stakeholder_id: number; raci_type: string },
+      body: {
+        wbs_node_id: number;
+        stakeholder_id?: number | null;
+        obs_role_id?: number | null;
+        raci_type: string;
+      },
     ) =>
       request<RACIEntry>(`/projects/${projectId}/raci/`, {
         method: "POST",
