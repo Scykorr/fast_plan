@@ -99,6 +99,14 @@ class ColumnListCreateView(BoardWorkspaceMixin, APIView):
             title=data.get("title", "Новая колонка"),
             position=data.get("position", board.columns.count()),
         )
+        publish_event(
+            self.get_workspace().id,
+            "column.created",
+            {
+                "column_id": column.id,
+                "board_id": board.id,
+            },
+        )
         return Response(ColumnSerializer(column).data, status=status.HTTP_201_CREATED)
 
 
@@ -145,6 +153,15 @@ class CardListCreateView(BoardWorkspaceMixin, APIView):
             title=serializer.validated_data.get("title", "Новая карточка"),
             description=serializer.validated_data.get("description", ""),
             due_date=serializer.validated_data.get("due_date"),
+        )
+        publish_event(
+            self.get_workspace().id,
+            "card.created",
+            {
+                "card_id": card.id,
+                "column_id": column.id,
+                "board_id": column.board_id,
+            },
         )
         return Response(CardSerializer(card).data, status=status.HTTP_201_CREATED)
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { parseApiError } from "../api/errors";
 import type { CustomField, IssueStatus, Tracker, TrackingMetadata } from "../api/tracking";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useConfirm } from "../hooks/useConfirm";
 import { useTrackingApi } from "../hooks/useTrackingApi";
 
@@ -19,6 +20,7 @@ const checkboxLabelClass = "flex items-center gap-2 text-sm text-text";
 
 export function AdministrationPage() {
   const trackingApi = useTrackingApi();
+  const { workspaceEpoch } = useWorkspace();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [tab, setTab] = useState<Tab>("trackers");
   const [metadata, setMetadata] = useState<TrackingMetadata | null>(null);
@@ -39,7 +41,7 @@ export function AdministrationPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, workspaceEpoch]);
 
   const issueTrackers = useMemo(
     () => metadata?.trackers.filter((item) => item.target === "issue") ?? [],

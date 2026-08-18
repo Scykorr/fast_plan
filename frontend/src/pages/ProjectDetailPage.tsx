@@ -125,8 +125,12 @@ export function ProjectDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLink = parseDeepLinkParams(searchParams);
   const { isAuthenticated, user } = useAuth();
-  const { activeWorkspace, switchWorkspace, isLoading: workspaceLoading } =
-    useWorkspace();
+  const {
+    activeWorkspace,
+    switchWorkspace,
+    isLoading: workspaceLoading,
+    workspaceEpoch,
+  } = useWorkspace();
   const canEdit =
     activeWorkspace?.role === "owner" || activeWorkspace?.role === "editor";
   const id = Number(projectId);
@@ -272,14 +276,14 @@ export function ProjectDetailPage() {
       return;
     }
     void loadAll();
-  }, [loadAll, workspaceReady]);
+  }, [loadAll, workspaceReady, workspaceEpoch]);
 
   useEffect(() => {
     if (!trackingApi) {
       return;
     }
     void trackingApi.getMetadata().then(setTrackingMetadata).catch(() => undefined);
-  }, [trackingApi]);
+  }, [trackingApi, workspaceEpoch]);
 
   useEffect(() => {
     if (!workspaceApi) {
@@ -291,7 +295,7 @@ export function ProjectDetailPage() {
       .then(setOrgUnits)
       .catch(() => undefined);
     void workspaceApi.getObsRoles().then(setObsRoles).catch(() => undefined);
-  }, [workspaceApi]);
+  }, [workspaceApi, workspaceEpoch]);
 
   useEffect(() => {
     if (!projectsApi || !id || tab !== "pert") {
@@ -501,7 +505,7 @@ export function ProjectDetailPage() {
     if (tab === "kanban") {
       void loadBoard();
     }
-  }, [tab, loadBoard]);
+  }, [tab, loadBoard, workspaceEpoch]);
 
   const handleBoardChange = async (updated: KanbanBoard) => {
     setBoard(updated);

@@ -3,6 +3,7 @@ services:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -19,6 +20,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -71,6 +73,7 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    restart: unless-stopped
 
   ollama:
     profiles: ["ai"]
@@ -146,12 +149,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        python manage.py migrate --noinput
-        exec celery -A config worker --loglevel=info
+    entrypoint: ["/bin/sh", "/app/celery-worker-entrypoint.sh"]
     restart: unless-stopped
 
   celery-beat:
@@ -191,12 +189,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        python manage.py migrate --noinput
-        exec celery -A config beat --loglevel=info
+    entrypoint: ["/bin/sh", "/app/celery-beat-entrypoint.sh"]
     restart: unless-stopped
 
   ari-bridge:
@@ -241,6 +234,7 @@ services:
       - "${FRONTEND_HOST_PORT:-8080}:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:

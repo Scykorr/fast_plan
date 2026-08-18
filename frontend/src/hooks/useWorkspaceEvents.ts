@@ -7,6 +7,8 @@ import { useEffect, useRef } from "react";
 export type WorkspaceEventType =
   | "wbs.updated"
   | "card.moved"
+  | "card.created"
+  | "column.created"
   | "comment.created"
   | "chat.message";
 
@@ -18,6 +20,8 @@ export type WorkspaceEventHandler = (
 const EVENT_TYPES: WorkspaceEventType[] = [
   "wbs.updated",
   "card.moved",
+  "card.created",
+  "column.created",
   "comment.created",
   "chat.message",
 ];
@@ -34,19 +38,23 @@ const EVENT_TYPES: WorkspaceEventType[] = [
  */
 export function useWorkspaceEvents(
   enabled: boolean,
+  workspaceId: number | null | undefined,
   onEvent: WorkspaceEventHandler,
 ): void {
   const handlerRef = useRef(onEvent);
   handlerRef.current = onEvent;
 
   useEffect(() => {
-    if (!enabled || typeof EventSource === "undefined") {
+    if (!enabled || !workspaceId || typeof EventSource === "undefined") {
       return;
     }
 
-    const source = new EventSource("/api/workspace/events/", {
+    const source = new EventSource(
+      `/api/workspace/events/?workspace_id=${workspaceId}`,
+      {
       withCredentials: true,
-    });
+      },
+    );
 
     const listeners = EVENT_TYPES.map((type) => {
       const listener = (event: MessageEvent) => {
@@ -67,5 +75,5 @@ export function useWorkspaceEvents(
       );
       source.close();
     };
-  }, [enabled]);
+  }, [enabled, workspaceId]);
 }

@@ -1,5 +1,6 @@
 const API_BASE = "/api";
 const WORKSPACE_STORAGE_KEY = "fast_plan_workspace";
+export const DATA_INVALIDATED_EVENT = "fast-plan:data-invalidated";
 
 export type User = {
   id: number;
@@ -76,6 +77,17 @@ export function getCsrfToken(): string | null {
 }
 
 let refreshPromise: Promise<boolean> | null = null;
+
+export function notifyDataInvalidated(path: string, method: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(
+    new CustomEvent(DATA_INVALIDATED_EVENT, {
+      detail: { path, method },
+    }),
+  );
+}
 
 async function ensureCsrfCookie(): Promise<string | null> {
   const existing = getCsrfToken();
@@ -167,6 +179,10 @@ async function request<T>(
     throw new ApiError(response.status, data);
   }
 
+  if (!["GET", "HEAD", "OPTIONS", "TRACE"].includes(method)) {
+    notifyDataInvalidated(path, method);
+  }
+
   return data as T;
 }
 
@@ -210,6 +226,10 @@ async function requestBlob(
     throw new ApiError(response.status, data);
   }
 
+  if (!["GET", "HEAD", "OPTIONS", "TRACE"].includes(method)) {
+    notifyDataInvalidated(path, method);
+  }
+
   return response.blob();
 }
 
@@ -248,6 +268,10 @@ async function requestForm<T>(
 
   if (!response.ok) {
     throw new ApiError(response.status, data);
+  }
+
+  if (!["GET", "HEAD", "OPTIONS", "TRACE"].includes(method.toUpperCase())) {
+    notifyDataInvalidated(path, method.toUpperCase());
   }
 
   return data as T;

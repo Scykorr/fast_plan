@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import {
+  DATA_INVALIDATED_EVENT,
   getActiveWorkspaceId,
   setActiveWorkspaceId,
 } from "../api/client";
@@ -87,6 +88,47 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
     void refreshWorkspaces();
   }, [isAuthenticated, user?.active_workspace_id, refreshWorkspaces]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleDataInvalidated = () => {
+      setWorkspaceEpoch((value) => value + 1);
+      void refreshWorkspaces();
+    };
+
+    window.addEventListener(DATA_INVALIDATED_EVENT, handleDataInvalidated);
+    return () => {
+      window.removeEventListener(DATA_INVALIDATED_EVENT, handleDataInvalidated);
+    };
+  }, [refreshWorkspaces]);
+
+  useEffect(() => {
+    if (!isAuthenticated || typeof window === "undefined") {
+      return;
+    }
+
+    let disposed = false;
+
+    const syncFromServer = () => {
+      if (disposed || document.visibilityState === "hidden") {
+        return;
+      }
+      setWorkspaceEpoch((value) => value + 1);
+      void refreshWorkspaces();
+    };
+
+    window.addEventListener("focus", syncFromServer);
+    document.addEventListener("visibilitychange", syncFromServer);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("focus", syncFromServer);
+      document.removeEventListener("visibilitychange", syncFromServer);
+    };
+  }, [isAuthenticated, refreshWorkspaces]);
 
   const activeWorkspace = useMemo(() => {
     const activeId = getActiveWorkspaceId();

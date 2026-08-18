@@ -204,14 +204,18 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
     };
   }, [messages, roomKey]);
 
-  useWorkspaceEvents(isAuthenticated && Boolean(activeWorkspace), (type, payload) => {
-    if (type !== "chat.message" || !room) {
-      return;
-    }
-    if (Number(payload.room_id) === room.id) {
-      void refresh();
-    }
-  });
+  useWorkspaceEvents(
+    isAuthenticated && Boolean(activeWorkspace),
+    activeWorkspace?.id,
+    (type, payload) => {
+      if (type !== "chat.message" || !room) {
+        return;
+      }
+      if (Number(payload.room_id) === room.id) {
+        void refresh();
+      }
+    },
+  );
 
   useEffect(() => {
     if (scope === "project" && projectId && projectsApi) {
