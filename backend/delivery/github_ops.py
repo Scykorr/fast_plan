@@ -30,6 +30,11 @@ def sync_primary_github_fields(task: DeliveryTask, link: TaskGitHubLink | None =
     task.github_repo = link.repo or task.github_repo
     task.github_branch = link.branch or task.github_branch
     task.github_commit = link.commit or task.github_commit
+    commits = list(task.github_commits or [])
+    sha = (link.commit or "").strip()
+    if sha and sha not in commits:
+        commits.append(sha)
+        task.github_commits = commits
     task.github_pr_url = link.pr_url or task.github_pr_url
     task.github_pr_number = link.pr_number if link.pr_number is not None else task.github_pr_number
     task.github_pr_state = link.pr_state or task.github_pr_state
@@ -40,6 +45,7 @@ def sync_primary_github_fields(task: DeliveryTask, link: TaskGitHubLink | None =
             "github_repo",
             "github_branch",
             "github_commit",
+            "github_commits",
             "github_pr_url",
             "github_pr_number",
             "github_pr_state",

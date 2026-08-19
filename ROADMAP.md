@@ -70,7 +70,7 @@
 | Коллаб | чаты (project/workspace/DM, E2E DM), comments/@mentions, SSE |
 | Security | 2FA, sessions, IP allowlist, Microsoft SSO, audit, backup scripts |
 | Mobile | PWA, Web Push, offline CRM queue |
-| Agent Ops | Epic/Sprint/DeliveryTask, claim/handoff, GitHub — `/agent-ops` |
+| Agent Ops | Epic/Sprint/DeliveryTask, claim/handoff **к исполнителю**, журнал видов записей, Git-коммиты, **мои задачи** — `/agent-ops`, `/tasks` |
 | Ops/CI | staging smoke, E2E Playwright, restore-drill, version sync |
 
 ### Карта UI (основные маршруты)

@@ -328,15 +328,17 @@ class Sprint(models.Model):
 
 class DeliveryTask(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        READY = "ready", "Ready"
-        ASSIGNED = "assigned", "Assigned"
-        IN_PROGRESS = "in_progress", "In progress"
-        BLOCKED = "blocked", "Blocked"
-        REVIEW = "review", "Review"
-        QA = "qa", "QA"
-        DONE = "done", "Done"
-        ARCHIVED = "archived", "Archived"
+        DRAFT = "draft", "Черновик"
+        READY = "ready", "Готово к назначению"
+        ASSIGNED = "assigned", "Назначено"
+        IN_PROGRESS = "in_progress", "В работе"
+        BLOCKED = "blocked", "Заблокировано"
+        REVIEW = "review", "На проверке"
+        QA = "qa", "На проверке"
+        NEEDS_REWORK = "needs_rework", "Нужна доработка"
+        READY_FOR_OWNER = "ready_for_owner", "Готово к решению владельца"
+        DONE = "done", "Завершено"
+        ARCHIVED = "archived", "Архив"
 
     class Priority(models.TextChoices):
         LOW = "low", "Low"
@@ -401,6 +403,13 @@ class DeliveryTask(models.Model):
         blank=True,
         related_name="assigned_delivery_tasks",
     )
+    previous_assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="previously_assigned_delivery_tasks",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -414,6 +423,8 @@ class DeliveryTask(models.Model):
     scope_out = models.TextField(blank=True, default="")
     expected_checks = models.TextField(blank=True, default="")
     result_artifact = models.TextField(blank=True, default="")
+    implementation_summary = models.TextField(blank=True, default="")
+    expected_next_step = models.TextField(blank=True, default="")
     next_role = models.CharField(
         max_length=32, choices=AgentRole.choices, blank=True, default=""
     )
@@ -425,6 +436,7 @@ class DeliveryTask(models.Model):
     github_repo = models.CharField(max_length=255, blank=True, default="")
     github_branch = models.CharField(max_length=255, blank=True, default="")
     github_commit = models.CharField(max_length=64, blank=True, default="")
+    github_commits = models.JSONField(default=list, blank=True)
     github_pr_url = models.URLField(blank=True, default="")
     github_pr_number = models.PositiveIntegerField(null=True, blank=True)
     github_pr_state = models.CharField(max_length=32, blank=True, default="")
@@ -589,6 +601,22 @@ class TaskHandoff(models.Model):
     )
     from_role = models.CharField(max_length=32, choices=AgentRole.choices)
     to_role = models.CharField(max_length=32, choices=AgentRole.choices)
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delivery_handoffs_sent",
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delivery_handoffs_received",
+    )
+    reason = models.TextField(blank=True, default="")
+    expected_next_step = models.TextField(blank=True, default="")
     done_summary = models.TextField()
     left_summary = models.TextField(blank=True, default="")
     branch_or_pr_url = models.URLField(blank=True, default="")
@@ -609,10 +637,13 @@ class TaskHandoff(models.Model):
 
 class TaskComment(models.Model):
     class Kind(models.TextChoices):
-        COMMENT = "comment", "Comment"
-        OWNER_REQUEST = "owner_request", "Owner decision request"
-        HANDOFF_NOTE = "handoff_note", "Handoff note"
-        BLOCKER_NOTE = "blocker_note", "Blocker note"
+        COMMENT = "comment", "Рабочий комментарий"
+        RESULT = "result", "Результат выполнения"
+        HANDOFF_NOTE = "handoff_note", "Передача следующему исполнителю"
+        REVIEW_FINDING = "review_finding", "Замечание проверки"
+        BLOCKER_NOTE = "blocker_note", "Блокер"
+        OWNER_REQUEST = "owner_request", "Запрос решения владельца"
+        OWNER_DECISION = "owner_decision", "Решение владельца"
 
     task = models.ForeignKey(
         DeliveryTask, on_delete=models.CASCADE, related_name="comments"

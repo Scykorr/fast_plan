@@ -36,10 +36,11 @@ Idempotency-Key: <optional-uuid>   # for claim / status mutations
 
 ## Typical cycle
 
-1. **Queue** — `GET /api/delivery/queue/?role=backend&status=ready`
-2. **Claim** — `POST /api/delivery/tasks/{id}/claim/`
-3. **Work** — PATCH task fields allowed by role field ACL; push PR (webhook / attach-PR)
-4. **Handoff** — `POST /api/delivery/tasks/{id}/handoffs/` with `from_role`, `to_role`, summaries, PR/checks URLs
+1. **Мои задачи** — `GET /api/delivery/my-tasks/` (новые / в работе / ждут ответа / возврат)
+2. **Queue** — `GET /api/delivery/queue/?role=backend&status=ready`
+3. **Claim** — `POST /api/delivery/tasks/{id}/claim/`
+4. **Work** — PATCH task fields; journal `POST .../comments/` `{ "kind": "result", "body": "..." }`
+5. **Handoff** — `POST /api/delivery/tasks/{id}/handoffs/` with `to_role`, optional `to_user`, `reason`, `expected_next_step`, `done_summary`
 5. **Meaning changes** — agents cannot silently rewrite title/outcome; Owner/Planner approve via  
    `POST /api/delivery/tasks/{id}/meaning-changes/{req_id}/review/` `{ "decision": "approve" }`
 6. **Ready-gate** — required doc URLs must be set before Ready / claim rules apply

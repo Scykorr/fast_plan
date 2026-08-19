@@ -10,6 +10,10 @@ vi.mock("../hooks/useWorkspaceApi", () => ({
   useWorkspaceApi: () => ({ getMyTasks }),
 }));
 
+vi.mock("../hooks/useDeliveryApi", () => ({
+  useDeliveryApi: () => null,
+}));
+
 vi.mock("../context/WorkspaceContext", () => ({
   useWorkspace: () => ({
     workspaceEpoch: 1,

@@ -57,6 +57,7 @@ from delivery.services import (
     agent_may_close_epic,
     assert_fields_editable,
     assign_task,
+    bucket_my_delivery_tasks,
     build_task_timeline,
     cancel_blocker,
     change_status,
@@ -998,6 +999,13 @@ class TaskHandoffCreateView(DeliveryOpsMixin, APIView):
         if not _can_mutate_task(ws, request.user, task):
             raise PermissionDenied("Not allowed to hand off this task.")
         _require_action(ws, request.user, "handoff")
+        raw_user = request.data.get("to_user") or request.data.get("to_user_id")
+        to_user_id = None
+        if raw_user not in (None, ""):
+            try:
+                to_user_id = int(raw_user)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"to_user": "Must be a user id."}) from exc
         try:
             handoff = create_handoff(
                 task,
@@ -1010,6 +1018,9 @@ class TaskHandoffCreateView(DeliveryOpsMixin, APIView):
                 checks_url=(request.data.get("checks_url") or ""),
                 open_questions=(request.data.get("open_questions") or ""),
                 needs_owner_decision=bool(request.data.get("needs_owner_decision")),
+                to_user_id=to_user_id,
+                reason=(request.data.get("reason") or ""),
+                expected_next_step=(request.data.get("expected_next_step") or ""),
             )
         except ValueError as exc:
             raise ValidationError({"detail": str(exc)}) from exc
@@ -1044,6 +1055,9 @@ class TaskCommentListCreateView(DeliveryOpsMixin, APIView):
         if not body:
             raise ValidationError({"body": "Required"})
         kind = request.data.get("kind") or TaskComment.Kind.COMMENT
+        valid = {choice[0] for choice in TaskComment.Kind.choices}
+        if kind not in valid:
+            raise ValidationError({"kind": "Unknown journal kind."})
         row = TaskComment.objects.create(
             task=task, body=body, kind=kind, author=request.user
         )
@@ -1267,6 +1281,21 @@ class AgentQueueView(DeliveryOpsMixin, APIView):
         status_q = request.query_params.get("status") or DeliveryTask.Status.READY
         qs = qs.filter(status=status_q)
         return Response(DeliveryTaskSerializer(qs[:100], many=True).data)
+
+
+class MyDeliveryTasksView(DeliveryOpsMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        buckets = bucket_my_delivery_tasks(ws, request.user)
+        payload = {
+            key: DeliveryTaskSerializer(rows, many=True).data
+            for key, rows in buckets.items()
+        }
+        payload["total"] = sum(len(rows) for rows in buckets.values())
+        return Response(payload)
 
 
 def _verify_github_signature(request, secrets_needed: set[str]) -> bool:

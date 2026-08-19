@@ -47,7 +47,7 @@ export type AgentProfile = {
   is_service_account: boolean;
   allowed_actions: string[];
   allowed_project_ids: number[];
-  effective_actions: string[];
+  assigned_open_count?: number;
   api_token: number | null;
   created_at: string;
   api_token_raw?: string;
@@ -96,16 +96,22 @@ export type DeliveryTask = {
   task_type: string;
   priority: string;
   status: string;
+  status_label?: string;
   assignee_role: string;
   assignee: number | null;
   assignee_email: string | null;
+  previous_assignee?: number | null;
+  previous_assignee_email?: string | null;
   created_by: number | null;
+  epic_title?: string | null;
   ready_criterion: string;
   done_criterion: string;
   scope_in: string;
   scope_out: string;
   expected_checks: string;
   result_artifact: string;
+  implementation_summary?: string;
+  expected_next_step?: string;
   next_role: string;
   canon_url: string;
   architecture_url: string;
@@ -115,6 +121,7 @@ export type DeliveryTask = {
   github_repo: string;
   github_branch: string;
   github_commit: string;
+  github_commits?: string[];
   github_pr_url: string;
   github_pr_number: number | null;
   github_pr_state: string;
@@ -147,6 +154,12 @@ export type DeliveryTask = {
     id: number;
     from_role: string;
     to_role: string;
+    from_user?: number | null;
+    from_user_email?: string | null;
+    to_user?: number | null;
+    to_user_email?: string | null;
+    reason?: string;
+    expected_next_step?: string;
     done_summary: string;
   }>;
   created_at: string;
@@ -197,6 +210,8 @@ export type DeliveryTaskWrite = Partial<{
   scope_out: string;
   expected_checks: string;
   result_artifact: string;
+  implementation_summary?: string;
+  expected_next_step?: string;
   next_role: string;
   canon_url: string;
   architecture_url: string;
@@ -206,6 +221,7 @@ export type DeliveryTaskWrite = Partial<{
   github_repo: string;
   github_branch: string;
   github_commit: string;
+  github_commits?: string[];
   github_pr_url: string;
   github_pr_number: number | null;
   github_pr_state: string;
@@ -279,6 +295,15 @@ export function createDeliveryApi() {
       ready?: boolean;
       mine?: boolean;
     }) => request<DeliveryTask[]>(`/delivery/tasks/${qs(params)}`),
+    getMyTasks: () =>
+      request<{
+        new_assignments: DeliveryTask[];
+        in_progress: DeliveryTask[];
+        waiting_response: DeliveryTask[];
+        returned_for_rework: DeliveryTask[];
+        blocked: DeliveryTask[];
+        total: number;
+      }>("/delivery/my-tasks/"),
     createTask: (data: DeliveryTaskWrite & { title: string }) =>
       request<DeliveryTask>("/delivery/tasks/", {
         method: "POST",
@@ -411,8 +436,11 @@ export function createDeliveryApi() {
       data: {
         from_role?: string;
         to_role: string;
+        to_user?: number | null;
         done_summary: string;
         left_summary?: string;
+        reason?: string;
+        expected_next_step?: string;
         branch_or_pr_url?: string;
         checks_url?: string;
         open_questions?: string;

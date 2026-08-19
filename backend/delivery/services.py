@@ -39,20 +39,43 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
         DeliveryTask.Status.QA,
         DeliveryTask.Status.READY,
         DeliveryTask.Status.ASSIGNED,
+        DeliveryTask.Status.NEEDS_REWORK,
+        DeliveryTask.Status.READY_FOR_OWNER,
     },
     DeliveryTask.Status.BLOCKED: {
         DeliveryTask.Status.IN_PROGRESS,
         DeliveryTask.Status.READY,
         DeliveryTask.Status.ASSIGNED,
+        DeliveryTask.Status.NEEDS_REWORK,
     },
     DeliveryTask.Status.REVIEW: {
         DeliveryTask.Status.QA,
         DeliveryTask.Status.IN_PROGRESS,
         DeliveryTask.Status.DONE,
+        DeliveryTask.Status.NEEDS_REWORK,
+        DeliveryTask.Status.READY_FOR_OWNER,
     },
     DeliveryTask.Status.QA: {
         DeliveryTask.Status.DONE,
         DeliveryTask.Status.IN_PROGRESS,
+        DeliveryTask.Status.REVIEW,
+        DeliveryTask.Status.NEEDS_REWORK,
+        DeliveryTask.Status.READY_FOR_OWNER,
+    },
+    DeliveryTask.Status.NEEDS_REWORK: {
+        DeliveryTask.Status.ASSIGNED,
+        DeliveryTask.Status.IN_PROGRESS,
+        DeliveryTask.Status.BLOCKED,
+        DeliveryTask.Status.READY,
+        DeliveryTask.Status.QA,
+        DeliveryTask.Status.READY_FOR_OWNER,
+        DeliveryTask.Status.REVIEW,
+    },
+    DeliveryTask.Status.READY_FOR_OWNER: {
+        DeliveryTask.Status.DONE,
+        DeliveryTask.Status.NEEDS_REWORK,
+        DeliveryTask.Status.IN_PROGRESS,
+        DeliveryTask.Status.ASSIGNED,
         DeliveryTask.Status.REVIEW,
     },
     DeliveryTask.Status.DONE: {DeliveryTask.Status.ARCHIVED},
@@ -63,11 +86,31 @@ ALLOWED_HANDOFFS: set[tuple[str, str]] = {
     ("documentation", "smart_contract"),
     ("documentation", "backend"),
     ("documentation", "frontend"),
-    ("smart_contract", "qa"),
-    ("backend", "qa"),
-    ("frontend", "qa"),
-    ("qa", "documentation"),
+    ("documentation", "qa"),
     ("documentation", "owner"),
+    ("smart_contract", "qa"),
+    ("smart_contract", "backend"),
+    ("backend", "qa"),
+    ("backend", "frontend"),
+    ("backend", "owner"),
+    ("frontend", "qa"),
+    ("frontend", "backend"),
+    ("frontend", "owner"),
+    ("qa", "documentation"),
+    ("qa", "backend"),
+    ("qa", "frontend"),
+    ("qa", "smart_contract"),
+    ("qa", "owner"),
+    ("owner", "backend"),
+    ("owner", "frontend"),
+    ("owner", "documentation"),
+    ("owner", "qa"),
+    ("owner", "planner"),
+    ("planner", "backend"),
+    ("planner", "frontend"),
+    ("planner", "documentation"),
+    ("planner", "qa"),
+    ("planner", "owner"),
 }
 
 # TZ §8 — all card sections required for Ready
@@ -118,6 +161,9 @@ OWN_REPORT_FIELDS = frozenset(
         "github_checks_status",
         "github_review_notes",
         "next_role",
+        "implementation_summary",
+        "expected_next_step",
+        "github_commits",
     }
 )
 
@@ -184,12 +230,15 @@ TRACKED_FIELDS = (
     "priority",
     "assignee_role",
     "assignee_id",
+    "previous_assignee_id",
     "ready_criterion",
     "done_criterion",
     "scope_in",
     "scope_out",
     "expected_checks",
     "result_artifact",
+    "implementation_summary",
+    "expected_next_step",
     "next_role",
     "canon_url",
     "architecture_url",
@@ -199,6 +248,7 @@ TRACKED_FIELDS = (
     "github_repo",
     "github_branch",
     "github_commit",
+    "github_commits",
     "github_pr_url",
     "github_pr_number",
     "github_pr_state",
@@ -376,8 +426,11 @@ def claim_task(
     if locked.status not in (
         DeliveryTask.Status.READY,
         DeliveryTask.Status.ASSIGNED,
+        DeliveryTask.Status.NEEDS_REWORK,
+        DeliveryTask.Status.QA,
+        DeliveryTask.Status.READY_FOR_OWNER,
     ):
-        raise ValueError("Only Ready/Assigned tasks can be claimed")
+        raise ValueError("Only Ready/Assigned/Needs rework/QA tasks can be claimed")
     if expected_version is not None and locked.version != expected_version:
         raise ValueError("Version conflict — task was updated")
     if locked.assignee_id and locked.assignee_id != user.id:
@@ -412,8 +465,12 @@ def assign_task(
     """TZ §9.2.8 — explicit assign / unassign with field journal."""
     locked = DeliveryTask.objects.select_for_update().get(pk=task.pk)
     before = snapshot_task(locked)
+    if locked.assignee_id != assignee_id:
+        locked.previous_assignee_id = locked.assignee_id
+        update = ["assignee", "previous_assignee", "updated_at"]
+    else:
+        update = ["assignee", "updated_at"]
     locked.assignee_id = assignee_id
-    update = ["assignee", "updated_at"]
     if assignee_role is not None:
         locked.assignee_role = assignee_role
         update.append("assignee_role")
@@ -455,7 +512,13 @@ def create_handoff(
     checks_url: str = "",
     open_questions: str = "",
     needs_owner_decision: bool = False,
+    to_user_id: int | None = None,
+    reason: str = "",
+    expected_next_step: str = "",
 ) -> TaskHandoff:
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
     pair = (from_role, to_role)
     if not from_role or not to_role:
         raise ValueError("from_role and to_role are required")
@@ -463,10 +526,30 @@ def create_handoff(
         raise ValueError(f"Handoff {from_role} → {to_role} is not allowed")
     if not (done_summary or "").strip():
         raise ValueError("done_summary is required")
+    to_user = None
+    if to_user_id:
+        to_user = User.objects.filter(pk=to_user_id).first()
+        if to_user is None:
+            raise ValueError("to_user not found")
+    else:
+        profile = (
+            AgentProfile.objects.filter(
+                workspace=task.workspace, role=to_role, is_active=True
+            )
+            .order_by("id")
+            .first()
+        )
+        if profile is not None:
+            to_user = profile.user
+    next_step = (expected_next_step or left_summary or "").strip()
     handoff = TaskHandoff.objects.create(
         task=task,
         from_role=from_role,
         to_role=to_role,
+        from_user=user,
+        to_user=to_user,
+        reason=reason or "",
+        expected_next_step=next_step,
         done_summary=done_summary,
         left_summary=left_summary or "",
         branch_or_pr_url=branch_or_pr_url or "",
@@ -475,13 +558,15 @@ def create_handoff(
         needs_owner_decision=needs_owner_decision,
         created_by=user,
     )
+    body_parts = [f"Передача {from_role} → {to_role}: {done_summary}"]
+    if reason:
+        body_parts.append(f"Причина: {reason}")
+    if next_step:
+        body_parts.append(f"Ожидание: {next_step}")
     TaskComment.objects.create(
         task=task,
         kind=TaskComment.Kind.HANDOFF_NOTE,
-        body=(
-            f"Handoff {from_role} → {to_role}: {done_summary}"
-            + (f" | left: {left_summary}" if left_summary else "")
-        ),
+        body=" | ".join(body_parts),
         author=user,
     )
     if needs_owner_decision:
@@ -492,27 +577,81 @@ def create_handoff(
             author=user,
         )
     before = snapshot_task(task)
+    task.previous_assignee = task.assignee
     task.assignee_role = to_role
     task.next_role = to_role
-    task.assignee = None
-    task.save(update_fields=["assignee_role", "next_role", "assignee", "updated_at"])
+    task.assignee = to_user
+    task.expected_next_step = next_step
+    impl_roles = {"backend", "frontend", "smart_contract", "documentation"}
+    if from_role in impl_roles and (done_summary or "").strip():
+        task.implementation_summary = done_summary.strip()
+    update_fields = [
+        "previous_assignee",
+        "assignee_role",
+        "next_role",
+        "assignee",
+        "expected_next_step",
+        "implementation_summary",
+        "updated_at",
+    ]
+    task.save(update_fields=update_fields)
     record_field_changes(task, user=user, before=before, after=snapshot_task(task))
+    rework_roles = {"backend", "frontend", "smart_contract", "documentation"}
     if to_role == "qa":
-        change_status(
-            task, to_status=DeliveryTask.Status.QA, user=user, reason="handoff"
-        )
+        target = DeliveryTask.Status.QA
+        reason_status = "handoff to QA"
     elif to_role == "owner":
-        change_status(
-            task,
-            to_status=DeliveryTask.Status.REVIEW,
-            user=user,
-            reason="handoff to owner",
-        )
+        target = DeliveryTask.Status.READY_FOR_OWNER
+        reason_status = "handoff to owner"
+    elif from_role == "qa" and to_role in rework_roles:
+        target = DeliveryTask.Status.NEEDS_REWORK
+        reason_status = "returned for rework"
+    elif to_user is not None:
+        target = DeliveryTask.Status.ASSIGNED
+        reason_status = "handoff assigned"
     else:
-        change_status(
-            task, to_status=DeliveryTask.Status.READY, user=user, reason="handoff"
-        )
+        target = DeliveryTask.Status.READY
+        reason_status = "handoff"
+    change_status(task, to_status=target, user=user, reason=reason_status)
     return handoff
+
+
+def bucket_my_delivery_tasks(workspace, user) -> dict:
+    """Inbox buckets for the current assignee (agent or human)."""
+    profile = AgentProfile.objects.filter(
+        workspace=workspace, user=user, is_active=True
+    ).first()
+    qs = DeliveryTask.objects.filter(workspace=workspace).exclude(
+        status__in=[DeliveryTask.Status.DONE, DeliveryTask.Status.ARCHIVED]
+    )
+    mine = qs.filter(assignee=user)
+    role_unassigned = qs.none()
+    if profile is not None:
+        role_unassigned = qs.filter(
+            assignee__isnull=True, assignee_role=profile.role
+        )
+    combined = (mine | role_unassigned).select_related(
+        "assignee", "previous_assignee", "epic", "project"
+    ).distinct()
+
+    def ids(status_set):
+        return list(combined.filter(status__in=status_set).order_by("-updated_at")[:100])
+
+    return {
+        "new_assignments": ids(
+            [DeliveryTask.Status.ASSIGNED, DeliveryTask.Status.READY]
+        ),
+        "in_progress": ids([DeliveryTask.Status.IN_PROGRESS]),
+        "waiting_response": ids(
+            [
+                DeliveryTask.Status.QA,
+                DeliveryTask.Status.REVIEW,
+                DeliveryTask.Status.READY_FOR_OWNER,
+            ]
+        ),
+        "returned_for_rework": ids([DeliveryTask.Status.NEEDS_REWORK]),
+        "blocked": ids([DeliveryTask.Status.BLOCKED]),
+    }
 
 
 def resolve_blocker(blocker: TaskBlocker, *, user, note: str = "") -> TaskBlocker:
