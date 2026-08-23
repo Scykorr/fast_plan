@@ -1,0 +1,20 @@
+[
+  {
+    "name": "backend",
+    "base_url": "http://127.0.0.1:8088",
+    "token": "fp_REPLACE_BACKEND",
+    "workspace_id": 2
+  },
+  {
+    "name": "qa",
+    "base_url": "http://127.0.0.1:8088",
+    "token": "fp_REPLACE_QA",
+    "workspace_id": 2
+  },
+  {
+    "name": "frontend",
+    "base_url": "http://127.0.0.1:8088",
+    "token": "fp_REPLACE_FRONTEND",
+    "workspace_id": 2
+  }
+]

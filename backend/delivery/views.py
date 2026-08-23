@@ -14,6 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from delivery.defaults import get_or_create_delivery_settings
 from delivery.models import (
     AgentActionLog,
     AgentProfile,
@@ -56,7 +57,9 @@ from delivery.services import (
     MEANING_FIELDS,
     agent_may_close_epic,
     assert_fields_editable,
-    assign_task,
+    bucket_my_delivery_tasks,
+    finalize_task_assignment,
+    resolve_service_account_for_role,
     build_task_timeline,
     cancel_blocker,
     change_status,
@@ -71,6 +74,7 @@ from delivery.services import (
 )
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 from workspaces.models import WorkspaceAPIToken, WorkspaceMember
+from workspaces.search import list_my_tasks
 
 User = get_user_model()
 
@@ -93,7 +97,7 @@ class DeliveryOpsMixin(WorkspaceMixin):
 
 
 def _ensure_ops_enabled(workspace):
-    settings_row, _ = DeliverySettings.objects.get_or_create(workspace=workspace)
+    settings_row, _ = get_or_create_delivery_settings(workspace)
     if not settings_row.agent_ops_enabled:
         raise PermissionDenied("Agent Ops is disabled for this workspace.")
     return settings_row
@@ -219,9 +223,7 @@ class DeliverySettingsView(DeliveryOpsMixin, APIView):
 
     def patch(self, request):
         self.require_editor()
-        row, _ = DeliverySettings.objects.get_or_create(
-            workspace=self.get_workspace()
-        )
+        row, _ = get_or_create_delivery_settings(self.get_workspace())
         if "agent_ops_enabled" in request.data:
             row.agent_ops_enabled = bool(request.data.get("agent_ops_enabled"))
         if "github_webhook_secret" in request.data:
@@ -239,9 +241,7 @@ class DeliverySettingsView(DeliveryOpsMixin, APIView):
         return Response(data)
 
     def get(self, request):
-        row, _ = DeliverySettings.objects.get_or_create(
-            workspace=self.get_workspace()
-        )
+        row, _ = get_or_create_delivery_settings(self.get_workspace())
         data = DeliverySettingsSerializer(row).data
         data["github_webhook_secret_set"] = bool(row.github_webhook_secret)
         data["github_api_token_set"] = bool(row.github_api_token)
@@ -401,6 +401,7 @@ class AgentServiceAccountCreateView(DeliveryOpsMixin, APIView):
                 actor_type=AgentProfile.ActorType.AGENT,
                 display_name=display_name,
                 is_service_account=True,
+                auto_claim_on_assign=request.data.get("auto_claim_on_assign", True),
                 api_token=token,
                 allowed_actions=request.data.get("allowed_actions") or [],
             )
@@ -591,8 +592,17 @@ class TaskListCreateView(DeliveryOpsMixin, APIView):
             return cached
         ser = DeliveryTaskWriteSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        data = dict(ser.validated_data)
+        assignee = data.pop("assignee", None)
+        assignee_role = data.get("assignee_role") or ""
         task = DeliveryTask.objects.create(
-            workspace=ws, created_by=request.user, **ser.validated_data
+            workspace=ws, created_by=request.user, **data
+        )
+        task = finalize_task_assignment(
+            task,
+            user=request.user,
+            assignee_id=assignee.id if assignee else None,
+            assignee_role=assignee_role or None,
         )
         TaskStatusHistory.objects.create(
             task=task,
@@ -851,8 +861,12 @@ class TaskAssignView(DeliveryOpsMixin, APIView):
         task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
         assignee = request.data.get("assignee", None)
         role = request.data.get("assignee_role")
+        if assignee is None and role:
+            profile = resolve_service_account_for_role(ws, role)
+            if profile is not None:
+                assignee = profile.user_id
         try:
-            assigned = assign_task(
+            assigned = finalize_task_assignment(
                 task,
                 user=request.user,
                 assignee_id=assignee,
@@ -998,6 +1012,13 @@ class TaskHandoffCreateView(DeliveryOpsMixin, APIView):
         if not _can_mutate_task(ws, request.user, task):
             raise PermissionDenied("Not allowed to hand off this task.")
         _require_action(ws, request.user, "handoff")
+        raw_user = request.data.get("to_user") or request.data.get("to_user_id")
+        to_user_id = None
+        if raw_user not in (None, ""):
+            try:
+                to_user_id = int(raw_user)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"to_user": "Must be a user id."}) from exc
         try:
             handoff = create_handoff(
                 task,
@@ -1010,6 +1031,9 @@ class TaskHandoffCreateView(DeliveryOpsMixin, APIView):
                 checks_url=(request.data.get("checks_url") or ""),
                 open_questions=(request.data.get("open_questions") or ""),
                 needs_owner_decision=bool(request.data.get("needs_owner_decision")),
+                to_user_id=to_user_id,
+                reason=(request.data.get("reason") or ""),
+                expected_next_step=(request.data.get("expected_next_step") or ""),
             )
         except ValueError as exc:
             raise ValidationError({"detail": str(exc)}) from exc
@@ -1044,6 +1068,9 @@ class TaskCommentListCreateView(DeliveryOpsMixin, APIView):
         if not body:
             raise ValidationError({"body": "Required"})
         kind = request.data.get("kind") or TaskComment.Kind.COMMENT
+        valid = {choice[0] for choice in TaskComment.Kind.choices}
+        if kind not in valid:
+            raise ValidationError({"kind": "Unknown journal kind."})
         row = TaskComment.objects.create(
             task=task, body=body, kind=kind, author=request.user
         )
@@ -1267,6 +1294,27 @@ class AgentQueueView(DeliveryOpsMixin, APIView):
         status_q = request.query_params.get("status") or DeliveryTask.Status.READY
         qs = qs.filter(status=status_q)
         return Response(DeliveryTaskSerializer(qs[:100], many=True).data)
+
+
+class MyDeliveryTasksView(DeliveryOpsMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        buckets = bucket_my_delivery_tasks(ws, request.user)
+        payload = {
+            key: DeliveryTaskSerializer(rows, many=True).data
+            for key, rows in buckets.items()
+        }
+        wbs_inbox = list_my_tasks(ws, request.user, limit=100)
+        payload["wbs_tasks"] = wbs_inbox["tasks"]
+        payload["wbs_summary"] = wbs_inbox["summary"]
+        payload["total"] = sum(
+            len(rows) for key, rows in buckets.items() if key != "total"
+        )
+        payload["total"] += len(wbs_inbox["tasks"])
+        return Response(payload)
 
 
 def _verify_github_signature(request, secrets_needed: set[str]) -> bool:
@@ -1500,7 +1548,7 @@ class OverviewView(DeliveryOpsMixin, APIView):
         from delivery.models import TaskHandoff
 
         ws = self.get_workspace()
-        settings_row, _ = DeliverySettings.objects.get_or_create(workspace=ws)
+        settings_row, _ = get_or_create_delivery_settings(ws)
         if not settings_row.agent_ops_enabled:
             return Response(
                 {

@@ -130,6 +130,7 @@ urlpatterns = [
         name="delivery-task-meaning-review",
     ),
     path("delivery/queue/", views.AgentQueueView.as_view(), name="delivery-queue"),
+    path("delivery/my-tasks/", views.MyDeliveryTasksView.as_view(), name="delivery-my-tasks"),
     path(
         "delivery/webhooks/github/",
         views.GitHubWebhookView.as_view(),

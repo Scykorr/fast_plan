@@ -1,0 +1,14 @@
+[
+  {
+    "name": "backend",
+    "base_url": "http://backend:8000",
+    "token": "fp_REPLACE_BACKEND",
+    "workspace_id": 2
+  },
+  {
+    "name": "qa",
+    "base_url": "http://backend:8000",
+    "token": "fp_REPLACE_QA",
+    "workspace_id": 2
+  }
+]

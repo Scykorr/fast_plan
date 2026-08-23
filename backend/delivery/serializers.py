@@ -76,6 +76,7 @@ class DeliveryProjectMetaSerializer(serializers.ModelSerializer):
 class AgentProfileSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source="user.email", read_only=True)
     effective_actions = serializers.SerializerMethodField()
+    assigned_open_count = serializers.SerializerMethodField()
     allowed_project_ids = serializers.PrimaryKeyRelatedField(
         source="allowed_projects",
         many=True,
@@ -93,16 +94,34 @@ class AgentProfileSerializer(serializers.ModelSerializer):
             "display_name",
             "is_active",
             "is_service_account",
+            "auto_claim_on_assign",
             "allowed_actions",
             "allowed_project_ids",
             "effective_actions",
+            "assigned_open_count",
             "api_token",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "api_token", "is_service_account"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "api_token",
+            "is_service_account",
+            "assigned_open_count",
+        ]
 
     def get_effective_actions(self, obj):
         return obj.effective_actions()
+
+    def get_assigned_open_count(self, obj):
+        from delivery.models import DeliveryTask
+
+        return DeliveryTask.objects.filter(
+            workspace=obj.workspace,
+            assignee=obj.user,
+        ).exclude(
+            status__in=[DeliveryTask.Status.DONE, DeliveryTask.Status.ARCHIVED]
+        ).count()
 
 
 class AgentActionLogSerializer(serializers.ModelSerializer):
@@ -230,12 +249,21 @@ class BlockerSerializer(serializers.ModelSerializer):
 
 
 class HandoffSerializer(serializers.ModelSerializer):
+    from_user_email = serializers.SerializerMethodField()
+    to_user_email = serializers.SerializerMethodField()
+
     class Meta:
         model = TaskHandoff
         fields = [
             "id",
             "from_role",
             "to_role",
+            "from_user",
+            "from_user_email",
+            "to_user",
+            "to_user_email",
+            "reason",
+            "expected_next_step",
             "done_summary",
             "left_summary",
             "branch_or_pr_url",
@@ -247,12 +275,44 @@ class HandoffSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_by", "created_at"]
 
+    def get_from_user_email(self, obj):
+        return obj.from_user.email if obj.from_user_id else None
+
+    def get_to_user_email(self, obj):
+        return obj.to_user.email if obj.to_user_id else None
+
 
 class CommentSerializer(serializers.ModelSerializer):
+    author_email = serializers.SerializerMethodField()
+    author_name = serializers.SerializerMethodField()
+
     class Meta:
         model = TaskComment
-        fields = ["id", "kind", "body", "author", "created_at"]
-        read_only_fields = ["id", "author", "created_at"]
+        fields = [
+            "id",
+            "kind",
+            "body",
+            "author",
+            "author_email",
+            "author_name",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "author",
+            "author_email",
+            "author_name",
+            "created_at",
+        ]
+
+    def get_author_email(self, obj):
+        return obj.author.email if obj.author_id else None
+
+    def get_author_name(self, obj):
+        if not obj.author_id:
+            return None
+        name = (obj.author.get_full_name() or "").strip()
+        return name or obj.author.username or obj.author.email
 
 
 class StatusHistorySerializer(serializers.ModelSerializer):
@@ -349,6 +409,9 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
     github_reviews = GitHubReviewSerializer(many=True, read_only=True)
     open_blockers_count = serializers.SerializerMethodField()
     assignee_email = serializers.SerializerMethodField()
+    previous_assignee_email = serializers.SerializerMethodField()
+    epic_title = serializers.SerializerMethodField()
+    status_label = serializers.SerializerMethodField()
     ready_missing = serializers.SerializerMethodField()
 
     class Meta:
@@ -357,6 +420,7 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
             "id",
             "project",
             "epic",
+            "epic_title",
             "sprint",
             "title",
             "description",
@@ -365,9 +429,12 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
             "task_type",
             "priority",
             "status",
+            "status_label",
             "assignee_role",
             "assignee",
             "assignee_email",
+            "previous_assignee",
+            "previous_assignee_email",
             "created_by",
             "ready_criterion",
             "done_criterion",
@@ -375,6 +442,8 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
             "scope_out",
             "expected_checks",
             "result_artifact",
+            "implementation_summary",
+            "expected_next_step",
             "next_role",
             "canon_url",
             "architecture_url",
@@ -384,6 +453,7 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
             "github_repo",
             "github_branch",
             "github_commit",
+            "github_commits",
             "github_pr_url",
             "github_pr_number",
             "github_pr_state",
@@ -414,6 +484,9 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
             "github_reviews",
             "open_blockers_count",
             "ready_missing",
+            "epic_title",
+            "status_label",
+            "previous_assignee_email",
             "created_at",
             "updated_at",
         ]
@@ -425,6 +498,15 @@ class DeliveryTaskSerializer(serializers.ModelSerializer):
 
     def get_assignee_email(self, obj):
         return obj.assignee.email if obj.assignee_id else None
+
+    def get_previous_assignee_email(self, obj):
+        return obj.previous_assignee.email if obj.previous_assignee_id else None
+
+    def get_epic_title(self, obj):
+        return obj.epic.title if obj.epic_id else None
+
+    def get_status_label(self, obj):
+        return obj.get_status_display()
 
     def get_ready_missing(self, obj):
         from delivery.services import ready_gate_errors
@@ -453,6 +535,8 @@ class DeliveryTaskWriteSerializer(serializers.ModelSerializer):
             "scope_out",
             "expected_checks",
             "result_artifact",
+            "implementation_summary",
+            "expected_next_step",
             "next_role",
             "canon_url",
             "architecture_url",
@@ -462,6 +546,7 @@ class DeliveryTaskWriteSerializer(serializers.ModelSerializer):
             "github_repo",
             "github_branch",
             "github_commit",
+            "github_commits",
             "github_pr_url",
             "github_pr_number",
             "github_pr_state",

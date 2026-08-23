@@ -15,13 +15,24 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Agent Ops Backlog** — выбор роли подставляет service account исполнителя; при создании задачи с заполненным ready-gate автоматически Ready → Assigned (+ auto-claim)
+- **Agent inbox + WBS** — `GET /api/delivery/my-tasks/` включает `wbs_tasks` (назначения на `/projects`); rule `cursor-agent-inbox.mdc` и poll-скрипт опрашивают оба контура
+- **Agent result → chat** — итог работы агента только в комментариях задачи (WBS / Agent Ops), не в поле описания
+- **WBS карточка задачи** — чат комментариев внутри панели детали (раньше рендерился под оверлеем и не был виден)
+
 ### Changed
 
 - **Сайдбар** — пункты меню сгруппированы в раскрывающиеся разделы (Обзор / Проекты / CRM / Процессы / Система)
 
 ### Added
 
+- **Agent Ops default-on** — `agent_ops_enabled=true` для новых и существующих workspace; env `AGENT_OPS_ENABLED_DEFAULT`
+- **Docker profile `agents`** — сервис `agent-runner` (фоновый poll inbox без чата Cursor)
+- **`run-docker.bat`** — обновление и запуск Docker Compose одной командой (`git pull`, `docker compose up -d --build`, перезапуск backend/frontend при сбое)
 - **Удаление проекта** — кнопка «Удалить» в списке `/projects` и в карточке проекта, с подтверждением
+- **Agent Ops handoff** — явная передача задачи исполнителю, журнал записей (результат / замечание / решение), Git-коммиты, корзины «Мои задачи»; **auto-claim** для service accounts; poll-скрипт agent runner; как это видит заказчик: [`docs/CUSTOMER_AGENT_LOOP.md`](docs/CUSTOMER_AGENT_LOOP.md)
 - **OBS ↔ RACI** — назначение RACI по OBS-роли (без стейкхолдера); кнопка «R из OBS» на вкладке стейкхолдеров
 - **Quality checklist на WP** — pass/fail критерии с evidence URL (`/api/wbs/<id>/quality-checks/`); сводка QA на узле WBS и панель в карточке задачи
 - **Earned Schedule** — ES / SV(t) / SPI(t) рядом с EVM lite (дашборд проекта, Analytics, портфель, статус-отчёт PDF)

@@ -41,6 +41,14 @@ run.bat
 
 Откроются два окна: backend и frontend. Сайт: http://localhost:5173
 
+**Windows — Docker (обновление и запуск):**
+
+```bat
+run-docker.bat
+```
+
+Подтянет код (`git pull`), пересоберёт контейнеры и поднимет стек. Без `git pull`: `run-docker.bat start`. Сайт: см. порт frontend в выводе (обычно http://localhost:8080 или `:8088`).
+
 ### Backend
 
 ```bash
@@ -77,6 +85,7 @@ docker compose up --build
 - **Frontend:** http://localhost:8080
 - **Backend API:** http://localhost:8000 (также через nginx `/api/`)
 - **Scheduler:** контейнер `scheduler` периодически запускает `manage.py send_reminders`
+- **Agent runner (optional):** `docker compose --profile agents up -d` — фоновый poll inbox агентов (см. [`docs/AGENT_OPS.md`](docs/AGENT_OPS.md))
 - **PostgreSQL:** внутренняя сеть Docker
 
 Секреты **не** хардкодятся в `docker-compose.yml` — только через `.env`.

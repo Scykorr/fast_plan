@@ -21,9 +21,25 @@ const STATUSES = [
   "blocked",
   "review",
   "qa",
+  "needs_rework",
+  "ready_for_owner",
   "done",
   "archived",
 ] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Черновик",
+  ready: "Готово к назначению",
+  assigned: "Назначено",
+  in_progress: "В работе",
+  blocked: "Заблокировано",
+  review: "На проверке",
+  qa: "На проверке",
+  needs_rework: "Нужна доработка",
+  ready_for_owner: "Готово к решению владельца",
+  done: "Завершено",
+  archived: "Архив",
+};
 
 const ROLES = [
   "documentation",
@@ -49,6 +65,7 @@ const emptyTaskForm = {
   expected_checks: "",
   result_artifact: "",
   assignee_role: "backend",
+  assignee: "" as number | "",
   next_role: "qa",
   canon_url: "",
   architecture_url: "",
@@ -145,12 +162,16 @@ export function AgentOpsPage() {
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
   const [handoff, setHandoff] = useState({
     to_role: "qa",
+    to_user: "" as number | "",
     done_summary: "",
     left_summary: "",
+    reason: "",
+    expected_next_step: "",
     branch_or_pr_url: "",
     checks_url: "",
     open_questions: "",
   });
+  const [commentKind, setCommentKind] = useState("result");
   const [blockerTitle, setBlockerTitle] = useState("");
   const [serviceRole, setServiceRole] = useState("backend");
   const [issuedToken, setIssuedToken] = useState("");
@@ -255,6 +276,25 @@ export function AgentOpsPage() {
     setParams({ task: String(id) });
   };
 
+  const pickAgentForRole = useCallback(
+    (role: string) => {
+      const match =
+        agents.find((a) => a.role === role && a.is_service_account) ??
+        agents.find((a) => a.role === role);
+      return match?.user ?? "";
+    },
+    [agents],
+  );
+
+  useEffect(() => {
+    if (!enabled || agents.length === 0) return;
+    setTaskForm((prev) => {
+      const nextAssignee = pickAgentForRole(prev.assignee_role);
+      if (prev.assignee === nextAssignee) return prev;
+      return { ...prev, assignee: nextAssignee };
+    });
+  }, [enabled, agents, pickAgentForRole, taskForm.assignee_role]);
+
   const toggleEnabled = async () => {
     if (!api) return;
     try {
@@ -309,6 +349,7 @@ export function AgentOpsPage() {
         expected_checks: taskForm.expected_checks,
         result_artifact: taskForm.result_artifact,
         assignee_role: taskForm.assignee_role,
+        assignee: taskForm.assignee === "" ? null : taskForm.assignee,
         next_role: taskForm.next_role,
         canon_url: taskForm.canon_url,
         architecture_url: taskForm.architecture_url,
@@ -358,13 +399,24 @@ export function AgentOpsPage() {
     try {
       await api.createHandoff(selected.id, {
         from_role: selected.assignee_role,
-        ...handoff,
+        to_role: handoff.to_role,
+        to_user: handoff.to_user || null,
+        done_summary: handoff.done_summary,
+        left_summary: handoff.left_summary,
+        reason: handoff.reason,
+        expected_next_step: handoff.expected_next_step,
+        branch_or_pr_url: handoff.branch_or_pr_url,
+        checks_url: handoff.checks_url,
+        open_questions: handoff.open_questions,
       });
       setMessage("Handoff создан");
       setHandoff({
         to_role: "qa",
+        to_user: "",
         done_summary: "",
         left_summary: "",
+        reason: "",
+        expected_next_step: "",
         branch_or_pr_url: "",
         checks_url: "",
         open_questions: "",
@@ -931,7 +983,9 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                     </p>
                     <p className="text-xs text-text-muted">
                       {a.actor_type}
-                      {a.is_service_account ? " · service" : ""} · actions:{" "}
+                      {a.is_service_account ? " · service" : ""}
+                      {a.auto_claim_on_assign ? " · auto-claim" : ""} · задач:{" "}
+                      {a.assigned_open_count ?? 0} · actions:{" "}
                       {(a.effective_actions || []).join(", ")}
                     </p>
                   </li>
@@ -976,18 +1030,44 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                 <select
                   className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
                   value={taskForm.assignee_role}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const role = e.target.value;
                     setTaskForm((p) => ({
                       ...p,
-                      assignee_role: e.target.value,
-                    }))
-                  }
+                      assignee_role: role,
+                      assignee: pickAgentForRole(role),
+                    }));
+                  }}
                 >
                   {ROLES.map((role) => (
                     <option key={role} value={role}>
                       role: {role}
                     </option>
                   ))}
+                </select>
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm md:col-span-2"
+                  value={taskForm.assignee}
+                  onChange={(e) =>
+                    setTaskForm((p) => ({
+                      ...p,
+                      assignee: e.target.value ? Number(e.target.value) : "",
+                    }))
+                  }
+                >
+                  <option value="">Исполнитель не выбран</option>
+                  {agents
+                    .filter(
+                      (a) =>
+                        !taskForm.assignee_role ||
+                        a.role === taskForm.assignee_role,
+                    )
+                    .map((a) => (
+                      <option key={a.id} value={a.user}>
+                        {a.display_name || a.user_email}
+                        {a.is_service_account ? " (service)" : ""}
+                      </option>
+                    ))}
                 </select>
                 <select
                   className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
@@ -1054,7 +1134,7 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                   <option value="">Все статусы</option>
                   {STATUSES.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {STATUS_LABELS[s] || s}
                     </option>
                   ))}
                 </select>
@@ -1121,7 +1201,8 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                           </button>
                         )}
                         {(task.status === "ready" ||
-                          task.status === "assigned") && (
+                          task.status === "assigned" ||
+                          task.status === "needs_rework") && (
                           <button
                             type="button"
                             onClick={() => void claim(task)}
@@ -1152,10 +1233,32 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                       #{selected.id} {selected.title}
                     </h2>
                     <p className="mt-1 text-sm text-text-muted">
-                      {selected.status} · role {selected.assignee_role || "—"} ·
-                      next {selected.next_role || "—"} · v{selected.version}
+                      {STATUS_LABELS[selected.status] || selected.status} · role{" "}
+                      {selected.assignee_role || "—"} · next{" "}
+                      {selected.next_role || "—"} · v{selected.version}
                     </p>
                     <dl className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                      <div>
+                        <dt className="text-text-muted">Эпик</dt>
+                        <dd>{selected.epic_title || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">Исполнитель</dt>
+                        <dd>
+                          {selected.assignee_email || "не назначен"}
+                          {selected.previous_assignee_email
+                            ? ` · ранее: ${selected.previous_assignee_email}`
+                            : ""}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">Что сделано</dt>
+                        <dd>{selected.implementation_summary || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-text-muted">Ожидание следующего шага</dt>
+                        <dd>{selected.expected_next_step || "—"}</dd>
+                      </div>
                       <div>
                         <dt className="text-text-muted">Outcome</dt>
                         <dd>{selected.business_outcome || "—"}</dd>
@@ -1194,6 +1297,14 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                         <dt className="text-text-muted">GitHub</dt>
                         <dd className="text-xs">
                           {selected.github_repo || "—"}{" "}
+                          {selected.github_branch
+                            ? ` · ${selected.github_branch}`
+                            : ""}
+                          {(selected.github_commits || []).length
+                            ? ` · commits: ${(selected.github_commits || []).join(", ")}`
+                            : selected.github_commit
+                              ? ` · ${selected.github_commit}`
+                              : ""}{" "}
                           {selected.github_pr_number
                             ? `PR #${selected.github_pr_number} (${selected.github_pr_state})`
                             : ""}
@@ -1411,13 +1522,19 @@ POST /api/delivery/tasks/{id}/handoffs/`}
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2 rounded-xl border border-border bg-surface p-4">
-                      <h3 className="font-semibold">Handoff</h3>
+                      <h3 className="font-semibold">Передача</h3>
                       <select
                         className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
                         value={handoff.to_role}
-                        onChange={(e) =>
-                          setHandoff((p) => ({ ...p, to_role: e.target.value }))
-                        }
+                        onChange={(e) => {
+                          const role = e.target.value;
+                          const match = agents.find((a) => a.role === role);
+                          setHandoff((p) => ({
+                            ...p,
+                            to_role: role,
+                            to_user: match?.user ?? "",
+                          }));
+                        }}
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
@@ -1425,13 +1542,39 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                           </option>
                         ))}
                       </select>
+                      <select
+                        className="w-full rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                        value={handoff.to_user}
+                        onChange={(e) =>
+                          setHandoff((p) => ({
+                            ...p,
+                            to_user: e.target.value
+                              ? Number(e.target.value)
+                              : "",
+                          }))
+                        }
+                      >
+                        <option value="">Исполнитель (по роли)</option>
+                        {agents
+                          .filter(
+                            (a) =>
+                              !handoff.to_role || a.role === handoff.to_role,
+                          )
+                          .map((a) => (
+                            <option key={a.id} value={a.user}>
+                              {a.display_name || a.user_email} ({a.actor_type})
+                            </option>
+                          ))}
+                      </select>
                       {(
                         [
-                          ["done_summary", "Done summary"],
-                          ["left_summary", "Left"],
-                          ["branch_or_pr_url", "Branch/PR URL"],
+                          ["done_summary", "Что сделано"],
+                          ["reason", "Причина передачи"],
+                          ["expected_next_step", "Что проверить дальше"],
+                          ["left_summary", "Остаток"],
+                          ["branch_or_pr_url", "Ветка / PR URL"],
                           ["checks_url", "Checks URL"],
-                          ["open_questions", "Open questions"],
+                          ["open_questions", "Открытые вопросы"],
                         ] as const
                       ).map(([key, ph]) => (
                         <input
@@ -1600,11 +1743,22 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                           Add
                         </button>
                       </div>
-                      <h3 className="pt-2 font-semibold">Comments</h3>
-                      <div className="flex gap-2">
+                      <h3 className="pt-2 font-semibold">Журнал</h3>
+                      <div className="flex flex-wrap gap-2">
+                        <select
+                          className="rounded-lg border border-border bg-cream px-2 py-2 text-sm"
+                          value={commentKind}
+                          onChange={(e) => setCommentKind(e.target.value)}
+                        >
+                          <option value="comment">Комментарий</option>
+                          <option value="result">Результат</option>
+                          <option value="review_finding">Замечание проверки</option>
+                          <option value="blocker_note">Блокер</option>
+                          <option value="owner_decision">Решение владельца</option>
+                        </select>
                         <input
-                          className="flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
-                          placeholder="Comment"
+                          className="min-w-48 flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                          placeholder="Запись в журнал"
                           value={commentBody}
                           onChange={(e) => setCommentBody(e.target.value)}
                         />
@@ -1618,6 +1772,7 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                               try {
                                 await api.addComment(selected.id, {
                                   body: commentBody.trim(),
+                                  kind: commentKind,
                                 });
                                 setCommentBody("");
                                 await loadTask(selected.id);

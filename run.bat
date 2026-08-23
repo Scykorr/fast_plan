@@ -71,6 +71,7 @@ echo   Backend:  http://127.0.0.1:8000
 echo   Frontend: http://127.0.0.1:5173
 echo.
 echo   Close Backend and Frontend windows to stop.
+echo   Docker:  run-docker.bat
 echo ========================================
 echo.
 

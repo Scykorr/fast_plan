@@ -236,6 +236,31 @@ services:
       - backend
     restart: unless-stopped
 
+  agent-runner:
+    profiles: ["agents"]
+    image: python:3.12-slim
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # Prefer local tokens file when present; docker.example otherwise.
+      # Path must use forward slashes (Linux container). Host 127.0.0.1 URLs
+      # are rewritten via AGENT_RUNNER_BASE_URL to reach Django from inside Docker.
+      AGENT_RUNNER_CONFIG: ${AGENT_RUNNER_CONFIG:-/app/scripts/agent-runner.config.local.json}
+      # Talk to Django directly (ALLOWED_HOSTS includes "backend", not "frontend")
+      AGENT_RUNNER_BASE_URL: ${AGENT_RUNNER_BASE_URL:-http://backend:8000}
+      AGENT_RUNNER_INTERVAL_SEC: ${AGENT_RUNNER_INTERVAL_SEC:-60}
+      AGENT_RUNNER_CALLBACK_URL: ${AGENT_RUNNER_CALLBACK_URL:-}
+      AGENT_RUNNER_STATE: /tmp/agent-runner-state.json
+    command: ["python", "/app/scripts/agent-runner-poll.py"]
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

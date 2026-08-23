@@ -20,6 +20,8 @@ WEBHOOK_EVENTS = {
     "crm.deal.created",
     "process.updated",
     "process.service",
+    "delivery.task.assigned",
+    "delivery.task.handoff",
 }
 
 

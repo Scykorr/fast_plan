@@ -3,10 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { Attachment } from "../../api/attachments";
 import { parseApiError } from "../../api/errors";
 import type { CustomField, CustomValue, IssueStatus, Tracker } from "../../api/tracking";
-import type { Project, WBSNode, WBSQualityCheckItem } from "../../api/projects";
+import type { Project, WBSNode, WBSQualityCheckItem, WorkItemComment } from "../../api/projects";
 import type { TimeEntry } from "../../api/timelog";
 import type { ObsRole, OrgUnit, WorkspaceMember } from "../../api/workspace";
 import { AssigneeSelect } from "../AssigneeSelect";
+import { CommentThread } from "../comments/CommentThread";
 import { useAttachmentsApi } from "../../hooks/useAttachmentsApi";
 import { useProjectsApi } from "../../hooks/useProjectsApi";
 import { useTimeLogApi } from "../../hooks/useTimeLogApi";
@@ -472,6 +473,10 @@ type WorkItemDetailPanelProps = {
       custom_values?: Record<string, string>;
     },
   ) => void;
+  comments?: WorkItemComment[];
+  onAddComment?: (body: string, kind: "comment" | "decision") => void | Promise<void>;
+  onDeleteComment?: (id: number) => void | Promise<void>;
+  canDeleteComments?: boolean;
 };
 
 function valuesMap(values: CustomValue[]): Record<string, string> {
@@ -499,6 +504,10 @@ export function WorkItemDetailPanel({
   onClose,
   onSaveProject,
   onSaveNode,
+  comments = [],
+  onAddComment,
+  onDeleteComment,
+  canDeleteComments = false,
 }: WorkItemDetailPanelProps) {
   const isProject = mode === "project";
   const trackers = useMemo(
@@ -764,6 +773,17 @@ export function WorkItemDetailPanel({
               <WbsQualityChecklist wbsId={node.id} />
               <WbsAttachments wbsId={node.id} />
               <WbsTimeLog wbsId={node.id} />
+              {onAddComment && (
+                <div className="border-t border-border pt-4">
+                  <CommentThread
+                    comments={comments}
+                    members={members}
+                    onAdd={onAddComment}
+                    onDelete={onDeleteComment}
+                    canDelete={canDeleteComments}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>

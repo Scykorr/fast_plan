@@ -13,6 +13,8 @@ from delivery.models import (
     TaskGitHubReview,
     TaskMeaningChangeRequest,
 )
+from tests.factories import UserFactory
+from workspaces.models import WorkspaceMember
 
 User = get_user_model()
 
@@ -45,6 +47,11 @@ def enable_ops(workspace):
 
 @pytest.mark.django_db
 def test_settings_flag_gates_api(authenticated_client, workspace):
+    # Agent Ops is enabled by default; disable explicitly to verify the gate.
+    DeliverySettings.objects.update_or_create(
+        workspace=workspace,
+        defaults={"agent_ops_enabled": False},
+    )
     denied = authenticated_client.get("/api/delivery/epics/")
     assert denied.status_code == status.HTTP_403_FORBIDDEN
 
@@ -684,7 +691,49 @@ def test_assign_and_subtask_comment(
 
 
 @pytest.mark.django_db
+def test_create_task_auto_assigns_service_account_by_role(
+    authenticated_client, enable_ops, workspace, user
+):
+    backend = UserFactory(email="backend-svc@example.com", username="backendsvc")
+    WorkspaceMember.objects.get_or_create(
+        workspace=workspace,
+        user=backend,
+        defaults={"role": WorkspaceMember.Role.EDITOR},
+    )
+    AgentProfile.objects.create(
+        workspace=workspace,
+        user=backend,
+        role="backend",
+        actor_type=AgentProfile.ActorType.AGENT,
+        display_name="Backend Agent",
+        is_service_account=True,
+        auto_claim_on_assign=True,
+    )
+    create = authenticated_client.post(
+        "/api/delivery/tasks/",
+        {**READY_FIELDS, "assignee_role": "backend"},
+        format="json",
+    )
+    assert create.status_code == status.HTTP_201_CREATED
+    assert create.data["assignee"] == backend.id
+    assert create.data["assignee_role"] == "backend"
+    assert create.data["status"] in ("assigned", "in_progress")
+
+
+@pytest.mark.django_db
+def test_delivery_settings_enabled_by_default(authenticated_client, workspace):
+    DeliverySettings.objects.filter(workspace=workspace).delete()
+    resp = authenticated_client.get("/api/delivery/settings/")
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.data["agent_ops_enabled"] is True
+
+
+@pytest.mark.django_db
 def test_overview_when_disabled(authenticated_client, workspace):
+    DeliverySettings.objects.update_or_create(
+        workspace=workspace,
+        defaults={"agent_ops_enabled": False},
+    )
     resp = authenticated_client.get("/api/delivery/overview/")
     assert resp.status_code == status.HTTP_200_OK
     assert resp.data["agent_ops_enabled"] is False
