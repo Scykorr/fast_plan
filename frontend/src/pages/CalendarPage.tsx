@@ -6,6 +6,7 @@ import type { Contact } from "../api/calendar";
 import { WorkspaceCalendar } from "../components/calendar/WorkspaceCalendar";
 import { ContactForm } from "../components/calendar/ContactForm";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useCalendarApi } from "../hooks/useCalendarApi";
 import { useConfirm } from "../hooks/useConfirm";
 import { useProjectsApi } from "../hooks/useProjectsApi";
@@ -13,6 +14,7 @@ import { downloadBlob } from "../utils/download";
 
 export function CalendarPage() {
   const { isAuthenticated } = useAuth();
+  const { workspaceEpoch } = useWorkspace();
   const calendarApi = useCalendarApi();
   const projectsApi = useProjectsApi();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -39,7 +41,7 @@ export function CalendarPage() {
 
   useEffect(() => {
     void loadContacts();
-  }, [loadContacts]);
+  }, [loadContacts, workspaceEpoch]);
 
   const handleCreateContact = async (data: {
     name: string;

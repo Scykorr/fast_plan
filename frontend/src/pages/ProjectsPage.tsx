@@ -21,7 +21,7 @@ const inputClass =
 
 export function ProjectsPage() {
   const projectsApi = useProjectsApi();
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, workspaceEpoch } = useWorkspace();
   const canEdit =
     activeWorkspace?.role === "owner" || activeWorkspace?.role === "editor";
   const [projects, setProjects] = useState<Project[]>([]);
@@ -61,7 +61,7 @@ export function ProjectsPage() {
 
   useEffect(() => {
     void loadProjects();
-  }, [loadProjects]);
+  }, [loadProjects, workspaceEpoch]);
 
   const resetForm = () => {
     setName("");

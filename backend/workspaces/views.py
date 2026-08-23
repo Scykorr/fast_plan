@@ -6,6 +6,7 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.renderers import BaseRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -43,6 +44,7 @@ from workspaces.services import (
     get_membership,
     get_request_workspace,
     get_user_workspaces,
+    resolve_workspace_for_user,
     set_active_workspace,
 )
 from django.contrib.auth import get_user_model
@@ -50,6 +52,19 @@ from datetime import date
 from django.utils import timezone
 
 logger = logging.getLogger("fast_plan")
+
+
+class ServerSentEventRenderer(BaseRenderer):
+    media_type = "text/event-stream"
+    format = "event-stream"
+    charset = "utf-8"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        if data is None:
+            return b""
+        if isinstance(data, bytes):
+            return data
+        return str(data).encode(self.charset)
 
 
 class WorkspaceDashboardView(WorkspaceMixin, APIView):
@@ -66,8 +81,19 @@ class WorkspaceEventsView(WorkspaceMixin, APIView):
     set custom headers) authenticates the same way as regular GET requests.
     """
 
+    renderer_classes = [ServerSentEventRenderer]
+
     def get(self, request):
-        workspace = self.get_workspace()
+        workspace_id = request.query_params.get("workspace_id")
+        if workspace_id not in (None, ""):
+            try:
+                workspace = resolve_workspace_for_user(request.user, int(workspace_id))
+            except (TypeError, ValueError):
+                raise ValidationError({"workspace_id": "Invalid workspace id."})
+            if workspace is None:
+                raise PermissionDenied("You are not a member of this workspace.")
+        else:
+            workspace = self.get_workspace()
         q = subscribe(workspace.id)
 
         def stream():

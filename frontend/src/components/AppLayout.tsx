@@ -6,6 +6,7 @@ import { NotificationBell } from "./NotificationBell";
 import { FxSettingsLoader } from "./FxSettingsLoader";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearchBar } from "./search/GlobalSearchBar";
+import { notifyDataInvalidated } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLocale } from "../context/LocaleContext";
 import { useWorkspace } from "../context/WorkspaceContext";
@@ -287,19 +288,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { workspaceEpoch, activeWorkspace } = useWorkspace();
+  const { activeWorkspace } = useWorkspace();
   const { isAuthenticated } = useAuth();
   const { t } = useLocale();
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
 
-  useWorkspaceEvents(isAuthenticated && Boolean(activeWorkspace), () => {
-    setToast(t("dataUpdated"));
-    if (toastTimer.current) {
-      window.clearTimeout(toastTimer.current);
-    }
-    toastTimer.current = window.setTimeout(() => setToast(null), 3000);
-  });
+  useWorkspaceEvents(
+    isAuthenticated && Boolean(activeWorkspace),
+    activeWorkspace?.id,
+    () => {
+      notifyDataInvalidated("/workspace/events/", "EVENT");
+      setToast(t("dataUpdated"));
+      if (toastTimer.current) {
+        window.clearTimeout(toastTimer.current);
+      }
+      toastTimer.current = window.setTimeout(() => setToast(null), 3000);
+    },
+  );
 
   useEffect(() => {
     return () => {
@@ -366,7 +372,7 @@ export function AppLayout() {
           <NotificationBell />
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-8" key={workspaceEpoch}>
+        <main className="flex-1 overflow-auto p-4 md:p-8">
           <Outlet />
         </main>
       </div>

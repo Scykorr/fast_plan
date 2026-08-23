@@ -1,0 +1,17 @@
+services:
+  backend:
+    volumes:
+      - media_data:/app/media
+
+  celery-worker:
+    volumes:
+      - media_data:/app/media
+    entrypoint: ["celery", "-A", "config", "worker", "--loglevel=info"]
+
+  celery-beat:
+    volumes:
+      - media_data:/app/media
+    entrypoint: ["celery", "-A", "config", "beat", "--loglevel=info"]
+
+volumes:
+  media_data:

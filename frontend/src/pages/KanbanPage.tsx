@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useKanbanApi } from "../hooks/useKanbanApi";
 import { useProjectsApi } from "../hooks/useProjectsApi";
+import { useWorkspaceEvents } from "../hooks/useWorkspaceEvents";
 import {
   mergeDeepLinkSearch,
   parseDeepLinkParams,
@@ -21,8 +22,12 @@ import {
 
 export function KanbanPage() {
   const { isAuthenticated } = useAuth();
-  const { activeWorkspace, switchWorkspace, isLoading: workspaceLoading } =
-    useWorkspace();
+  const {
+    activeWorkspace,
+    switchWorkspace,
+    isLoading: workspaceLoading,
+    workspaceEpoch,
+  } = useWorkspace();
   const kanbanApi = useKanbanApi();
   const projectsApi = useProjectsApi();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,7 +119,26 @@ export function KanbanPage() {
       return;
     }
     void loadBoard();
-  }, [loadBoard, workspaceReady]);
+  }, [loadBoard, workspaceReady, workspaceEpoch]);
+
+  useWorkspaceEvents(
+    isAuthenticated && workspaceReady && Boolean(activeWorkspace),
+    activeWorkspace?.id,
+    (type, payload) => {
+      const payloadBoardId = Number(payload.board_id ?? 0);
+      const currentBoardId = board?.id ?? boardId ?? 0;
+      if (!currentBoardId || payloadBoardId !== currentBoardId) {
+        return;
+      }
+      if (
+        type === "card.moved" ||
+        type === "card.created" ||
+        type === "column.created"
+      ) {
+        void loadBoard();
+      }
+    },
+  );
 
   const assignees = useMemo(
     () => (board ? collectKanbanAssignees(board) : []),
