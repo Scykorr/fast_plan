@@ -23,7 +23,6 @@ import type {
 } from "../api/projects";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { GlossaryText, TermHint } from "../components/TermHint";
-import { CommentThread } from "../components/comments/CommentThread";
 import type { ObsRole, OrgUnit, WorkspaceMember } from "../api/workspace";
 import { ProjectBudgetSummary } from "../components/finance/ProjectBudgetSummary";
 import { KanbanBoardView } from "../components/kanban/KanbanBoardView";
@@ -1478,16 +1477,17 @@ export function ProjectDetailPage() {
             onClose={handleCloseDetail}
             onSaveProject={(body) => void handleSaveProjectDetail(body)}
             onSaveNode={(nodeId, body) => void handleSaveNodeDetail(nodeId, body)}
+            comments={detailMode === "issue" ? nodeComments : []}
+            onAddComment={
+              detailMode === "issue" && selectedNode
+                ? (body, kind) => handleAddComment(body, kind)
+                : undefined
+            }
+            onDeleteComment={
+              detailMode === "issue" ? (commentId) => handleDeleteComment(commentId) : undefined
+            }
+            canDeleteComments={Boolean(user)}
           />
-          {detailMode === "issue" && selectedNode && (
-            <CommentThread
-              comments={nodeComments}
-              members={members}
-              onAdd={(body, kind) => handleAddComment(body, kind)}
-              onDelete={(commentId) => handleDeleteComment(commentId)}
-              canDelete={Boolean(user)}
-            />
-          )}
         </div>
       )}
 

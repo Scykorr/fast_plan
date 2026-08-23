@@ -189,8 +189,8 @@ def _prompt_for_wbs(task: dict, agent_name: str) -> str:
     if desc:
         parts.append(f"Description: {desc[:300]}.")
     parts.append(
-        "Execute: implement in project repo, PATCH wbs description with summary, "
-        "POST wbs comment, set progress=100 if schedule_activity_id present."
+        "Execute: implement in project repo, POST result to wbs comments chat "
+        "(do not PATCH description), set progress=100 if schedule_activity_id present."
     )
     return " ".join(parts)
 

@@ -13,6 +13,14 @@ You work with Fast Plan under **one service account only** (Agent Ops + WBS on `
 - `FAST_PLAN_TOKEN` — `fp_…` from Agent Ops → Агенты → service account (shown once)
 - `FAST_PLAN_WORKSPACE_ID` — from `/api/auth/me/` → `active_workspace_id`
 
+## Task chat (comments)
+
+Каждая задача имеет **чат комментариев**. Пользователи и агенты пишут туда обсуждение и итоги.
+
+- **Читать** чат перед работой.
+- **Писать результат только в комментарий** — **не** в поле «Описание» / `description` (описание — постановка от владельца, не трогать).
+- В комментарии видно автора (ваша учётка агента).
+
 ## On every session (or when user says «есть задача?»)
 
 Headers for all API calls:
@@ -27,7 +35,7 @@ Headers for all API calls:
 Response includes:
 
 - **Agent Ops buckets**: `new_assignments`, `in_progress`, `returned_for_rework`, `waiting_response`, `blocked`
-- **WBS project tasks**: `wbs_tasks` — work packages assigned to you on `/projects` (same assignee as in WBS)
+- **WBS project tasks**: `wbs_tasks` — work packages assigned to you on `/projects`
 
 If both are empty — say so and stop.
 
@@ -41,27 +49,22 @@ Pick work in order:
 ### 2. Agent Ops task (`id` in buckets)
 
 1. If status not `in_progress`, `POST /api/delivery/tasks/{id}/claim/` with `{ "version": … }`.
-2. Read journal: `GET …/comments/`, `GET …/history/`.
+2. Read task chat + history: `GET …/comments/`, `GET …/history/`.
 3. Implement in branch `agent/{role}/{id}-…`, never commit to `main`.
-4. Result: `POST …/comments/` `{ "kind": "result", "body": "…" }` + PATCH git fields.
+4. Result **only** in chat: `POST …/comments/` `{ "kind": "result", "body": "Краткое резюме: …" }` (+ PATCH git fields if needed).
 5. Handoff: `POST …/handoffs/` with `to_role`, `to_user`, `done_summary`, `reason`, `expected_next_step`.
 
 ### 3. WBS task (`wbs_tasks[]`, field `wbs_id`)
 
-1. Read `title`, `description`, `project_name`, `link`.
-2. Do the work in the **project git repo** (not Fast Plan UI repo unless that is the task).
-3. On completion — **brief summary in description** (append, do not erase owner text):
+1. Read `title`, `description` (постановка — только читать), `project_name`, `link`.
+2. Read chat: `GET {BASE}/api/projects/wbs/{wbs_id}/comments/`.
+3. Do the work in the **project git repo**.
+4. On completion — **only a comment** (do **not** PATCH `description`):
 
-   `PATCH {BASE}/api/projects/wbs/{wbs_id}/`
-
-   ```json
-   { "description": "<existing>\n\n---\nРезультат агента (<date>): <what you did>" }
-   ```
-
-4. Add comment: `POST {BASE}/api/projects/wbs/{wbs_id}/comments/`
+   `POST {BASE}/api/projects/wbs/{wbs_id}/comments/`
 
    ```json
-   { "kind": "comment", "body": "Краткое резюме: …" }
+   { "kind": "comment", "body": "Краткое резюме: что сделано, файлы/ветки, что проверить дальше." }
    ```
 
 5. Mark done: if `schedule_activity_id` present,
@@ -71,6 +74,7 @@ Pick work in order:
 ## Rules
 
 - Do not use the owner's personal account.
+- Do not rewrite task description with agent output — chat/comments only.
 - WBS assignee in UI = same inbox as Agent Ops for your service account.
 - After Agent Ops handoff, the next agent sees the task on **their** account.
-- For WBS-only tasks there is no handoff — report in description + comment.
+- For WBS-only tasks there is no handoff — report in the WBS comment chat.
