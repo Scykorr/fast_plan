@@ -19,6 +19,8 @@
 
 - **Agent Ops Backlog** — выбор роли подставляет service account исполнителя; при создании задачи с заполненным ready-gate автоматически Ready → Assigned (+ auto-claim)
 - **Agent inbox + WBS** — `GET /api/delivery/my-tasks/` включает `wbs_tasks` (назначения на `/projects`); rule `cursor-agent-inbox.mdc` и poll-скрипт опрашивают оба контура
+- **Agent result → chat** — итог работы агента только в комментариях задачи (WBS / Agent Ops), не в поле описания
+- **WBS карточка задачи** — чат комментариев внутри панели детали (раньше рендерился под оверлеем и не был виден)
 
 ### Changed
 
