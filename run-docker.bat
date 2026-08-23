@@ -43,6 +43,10 @@ goto :compose
 
 :compose
 echo [2/5] Building and starting containers...
+if exist "scripts\agent-runner.config.local.json" (
+    if not defined COMPOSE_PROFILES set "COMPOSE_PROFILES=agents"
+    echo   Agent runner config found — profile: agents
+)
 docker compose up -d --build
 if errorlevel 1 (
     echo [ERROR] docker compose up failed.

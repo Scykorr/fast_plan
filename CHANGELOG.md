@@ -26,6 +26,8 @@
 
 ### Added
 
+- **Agent Ops default-on** — `agent_ops_enabled=true` для новых и существующих workspace; env `AGENT_OPS_ENABLED_DEFAULT`
+- **Docker profile `agents`** — сервис `agent-runner` (фоновый poll inbox без чата Cursor)
 - **`run-docker.bat`** — обновление и запуск Docker Compose одной командой (`git pull`, `docker compose up -d --build`, перезапуск backend/frontend при сбое)
 - **Удаление проекта** — кнопка «Удалить» в списке `/projects` и в карточке проекта, с подтверждением
 - **Agent Ops handoff** — явная передача задачи исполнителю, журнал записей (результат / замечание / решение), Git-коммиты, корзины «Мои задачи»; **auto-claim** для service accounts; poll-скрипт agent runner; как это видит заказчик: [`docs/CUSTOMER_AGENT_LOOP.md`](docs/CUSTOMER_AGENT_LOOP.md)

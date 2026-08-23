@@ -152,6 +152,7 @@ activemq-data/
 .env
 .envrc
 scripts/agent-runner.config.local.json
+.agent-runner-state.json
 .venv
 env/
 venv/

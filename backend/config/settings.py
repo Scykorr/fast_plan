@@ -249,6 +249,10 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
 ATTACHMENT_MAX_BYTES = int(os.environ.get("ATTACHMENT_MAX_BYTES", str(5 * 1024 * 1024)))
 AVATAR_MAX_BYTES = int(os.environ.get("AVATAR_MAX_BYTES", str(2 * 1024 * 1024)))
 
+AGENT_OPS_ENABLED_DEFAULT = (
+    os.environ.get("AGENT_OPS_ENABLED_DEFAULT", "true").lower() == "true"
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

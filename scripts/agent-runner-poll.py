@@ -40,13 +40,49 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
+def _resolve_config_path(raw: str) -> Path:
+    """Resolve config path on Windows host and Linux Docker (normalize slashes)."""
+    if not raw:
+        return Path()
+    normalized = raw.replace("\\", "/")
+    path = Path(normalized)
+    if path.is_file():
+        return path
+    script_dir = Path(__file__).resolve().parent
+    candidates = [
+        script_dir / path.name,
+        script_dir / path,
+        Path.cwd() / path,
+        Path("/app/scripts") / path.name,
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return path
+
+
+def _apply_base_url_override(agents: list[dict]) -> list[dict]:
+    """Docker: set AGENT_RUNNER_BASE_URL=http://frontend so host 127.0.0.1 configs work."""
+    override = _env("AGENT_RUNNER_BASE_URL").rstrip("/")
+    if not override:
+        return agents
+    for agent in agents:
+        agent["base_url"] = override
+    return agents
+
+
 def _load_agents() -> list[dict]:
-    config_path = _env("AGENT_RUNNER_CONFIG")
-    if config_path:
-        data = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    config_path = _resolve_config_path(_env("AGENT_RUNNER_CONFIG"))
+    if config_path and str(config_path):
+        if not config_path.is_file():
+            raise SystemExit(
+                f"AGENT_RUNNER_CONFIG not found: {config_path} "
+                f"(cwd={Path.cwd()}, script_dir={Path(__file__).resolve().parent})"
+            )
+        data = json.loads(config_path.read_text(encoding="utf-8"))
         if not isinstance(data, list):
             raise SystemExit("AGENT_RUNNER_CONFIG must be a JSON array")
-        return data
+        return _apply_base_url_override(data)
     base = _env("FAST_PLAN_BASE_URL")
     token = _env("FAST_PLAN_TOKEN")
     ws = _env("FAST_PLAN_WORKSPACE_ID")
@@ -55,14 +91,16 @@ def _load_agents() -> list[dict]:
             "Set FAST_PLAN_BASE_URL, FAST_PLAN_TOKEN, FAST_PLAN_WORKSPACE_ID "
             "or AGENT_RUNNER_CONFIG"
         )
-    return [
-        {
-            "name": _env("AGENT_RUNNER_NAME", "agent"),
-            "base_url": base.rstrip("/"),
-            "token": token,
-            "workspace_id": int(ws),
-        }
-    ]
+    return _apply_base_url_override(
+        [
+            {
+                "name": _env("AGENT_RUNNER_NAME", "agent"),
+                "base_url": base.rstrip("/"),
+                "token": token,
+                "workspace_id": int(ws),
+            }
+        ]
+    )
 
 
 def _state_path() -> Path:

@@ -4,9 +4,9 @@ Operational guide for Fast Plan multi-agent delivery (`/agent-ops`, `/api/delive
 
 ## Enable
 
-1. Open **Agent Ops** in the UI.
-2. Click **Включить Agent Ops** (`PATCH /api/delivery/settings/` → `agent_ops_enabled: true`).
-3. Optional: set **GitHub webhook secret** and **PAT** on the same page (HMAC + attach-PR).
+Agent Ops is **on by default** for every workspace (`agent_ops_enabled=true`). To disable: Agent Ops UI → **Выключить**, or `PATCH /api/delivery/settings/` with `{ "agent_ops_enabled": false }`. Env: `AGENT_OPS_ENABLED_DEFAULT=false` affects **new** `DeliverySettings` rows only.
+
+Optional GitHub: set **webhook secret** and **PAT** on the same page (HMAC + attach-PR).
 
 ## Provision an agent
 
@@ -57,7 +57,7 @@ Idempotency-Key: <optional-uuid>   # for claim / status mutations
 
 Fast Plan **не выполняет код** — только ставит задачу и шлёт сигнал. Исполнение в Cursor/Codex.
 
-### Вариант A — poll-скрипт (локально / cron)
+### Вариант A — poll-скрипт (локально / cron / Docker)
 
 ```bash
 # один агент
@@ -71,7 +71,15 @@ set AGENT_RUNNER_CONFIG=scripts/agent-runner.config.example.json
 python scripts/agent-runner-poll.py
 ```
 
-Скрипт опрашивает `my-tasks` по каждому токену. На новую задачу печатает prompt и опционально POST на `AGENT_RUNNER_CALLBACK_URL`.
+**Docker (фоновый опрос без чата):**
+
+```bash
+# 1) scripts/agent-runner.config.local.json — токены агентов, base_url http://frontend
+# 2) в .env: COMPOSE_PROFILES=agents  AGENT_RUNNER_CONFIG=scripts/agent-runner.config.local.json
+docker compose --profile agents up -d
+```
+
+Скрипт опрашивает `my-tasks` (Agent Ops + WBS) по каждому токену. На новую задачу печатает prompt и опционально POST на `AGENT_RUNNER_CALLBACK_URL`.
 
 Cron: `AGENT_RUNNER_ONCE=1` раз в минуту.
 

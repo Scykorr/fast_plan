@@ -14,7 +14,7 @@ class DeliverySettings(models.Model):
         on_delete=models.CASCADE,
         related_name="delivery_settings",
     )
-    agent_ops_enabled = models.BooleanField(default=False)
+    agent_ops_enabled = models.BooleanField(default=True)
     github_webhook_secret = models.CharField(max_length=255, blank=True, default="")
     # Optional PAT for attaching task links to PRs (TZ §10 desirable)
     github_api_token = models.CharField(max_length=255, blank=True, default="")

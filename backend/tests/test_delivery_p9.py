@@ -716,7 +716,19 @@ def test_create_task_auto_assigns_service_account_by_role(
 
 
 @pytest.mark.django_db
+def test_delivery_settings_enabled_by_default(authenticated_client, workspace):
+    DeliverySettings.objects.filter(workspace=workspace).delete()
+    resp = authenticated_client.get("/api/delivery/settings/")
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.data["agent_ops_enabled"] is True
+
+
+@pytest.mark.django_db
 def test_overview_when_disabled(authenticated_client, workspace):
+    DeliverySettings.objects.update_or_create(
+        workspace=workspace,
+        defaults={"agent_ops_enabled": False},
+    )
     resp = authenticated_client.get("/api/delivery/overview/")
     assert resp.status_code == status.HTTP_200_OK
     assert resp.data["agent_ops_enabled"] is False

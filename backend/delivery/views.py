@@ -14,6 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from delivery.defaults import get_or_create_delivery_settings
 from delivery.models import (
     AgentActionLog,
     AgentProfile,
@@ -96,7 +97,7 @@ class DeliveryOpsMixin(WorkspaceMixin):
 
 
 def _ensure_ops_enabled(workspace):
-    settings_row, _ = DeliverySettings.objects.get_or_create(workspace=workspace)
+    settings_row, _ = get_or_create_delivery_settings(workspace)
     if not settings_row.agent_ops_enabled:
         raise PermissionDenied("Agent Ops is disabled for this workspace.")
     return settings_row
@@ -222,9 +223,7 @@ class DeliverySettingsView(DeliveryOpsMixin, APIView):
 
     def patch(self, request):
         self.require_editor()
-        row, _ = DeliverySettings.objects.get_or_create(
-            workspace=self.get_workspace()
-        )
+        row, _ = get_or_create_delivery_settings(self.get_workspace())
         if "agent_ops_enabled" in request.data:
             row.agent_ops_enabled = bool(request.data.get("agent_ops_enabled"))
         if "github_webhook_secret" in request.data:
@@ -242,9 +241,7 @@ class DeliverySettingsView(DeliveryOpsMixin, APIView):
         return Response(data)
 
     def get(self, request):
-        row, _ = DeliverySettings.objects.get_or_create(
-            workspace=self.get_workspace()
-        )
+        row, _ = get_or_create_delivery_settings(self.get_workspace())
         data = DeliverySettingsSerializer(row).data
         data["github_webhook_secret_set"] = bool(row.github_webhook_secret)
         data["github_api_token_set"] = bool(row.github_api_token)
@@ -1551,7 +1548,7 @@ class OverviewView(DeliveryOpsMixin, APIView):
         from delivery.models import TaskHandoff
 
         ws = self.get_workspace()
-        settings_row, _ = DeliverySettings.objects.get_or_create(workspace=ws)
+        settings_row, _ = get_or_create_delivery_settings(ws)
         if not settings_row.agent_ops_enabled:
             return Response(
                 {
