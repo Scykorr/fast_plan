@@ -6,6 +6,14 @@
 
 Подробности продукта: [AGENT_OPS.md](AGENT_OPS.md). Исходное уточнение заказчика — август 2026.
 
+## Несколько чатов Cursor
+
+Каждый чат = отдельная учётка Agent Ops (свой токен). Чат только говорит «проверь inbox»; очередь и журнал — в Fast Plan. Рецепт: [CUSTOMER_AGENT_LOOP.md §8.3](CUSTOMER_AGENT_LOOP.md).
+
+**Auto-claim:** service account забирает задачу сам при assign/handoff. **Runner:** `scripts/agent-runner-poll.py` или webhook — см. [AGENT_OPS.md](AGENT_OPS.md).
+
+Пример: чат Backend и чат QA. Owner назначил задачу Backend → auto-claim → runner/чат выполняет → handoff → QA видит задачу у себя.
+
 ## Приёмка (первый этап)
 
 1. Owner создаёт задачу в эпике и назначает Backend Agent.

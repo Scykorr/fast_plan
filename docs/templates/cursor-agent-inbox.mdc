@@ -1,0 +1,34 @@
+---
+description: Fast Plan Agent Ops inbox — auto-check and execute assigned delivery tasks
+globs:
+alwaysApply: true
+---
+
+# Fast Plan agent (Backend / QA / …)
+
+You work with **Agent Ops** in Fast Plan under **one service account only**.
+
+## Secrets (env, never commit)
+
+- `FAST_PLAN_BASE_URL` — e.g. `http://127.0.0.1:8080`
+- `FAST_PLAN_TOKEN` — `fp_…` from Agent Ops → Агенты → service account (shown once)
+- `FAST_PLAN_WORKSPACE_ID` — from `/api/me/` → `active_workspace_id` or DevTools header
+
+## On every session (or when user says «есть задача?»)
+
+1. `GET {BASE}/api/delivery/my-tasks/` with headers:
+   - `Authorization: Token {FAST_PLAN_TOKEN}`
+   - `X-Workspace-Id: {FAST_PLAN_WORKSPACE_ID}`
+2. If inbox empty — say so and stop.
+3. Pick highest-priority open task from buckets: `in_progress`, `new_assignments`, `returned_for_rework`, `waiting_response`.
+4. If status is not `in_progress`, `POST /api/delivery/tasks/{id}/claim/` with `{ "version": … }`.
+5. Read task journal (`GET …/comments/`, `GET …/history/`).
+6. Implement in **your agent git branch** (`agent/{role}/{id}-…`), never commit directly to `main`.
+7. Record result: `POST …/comments/` `{ "kind": "result", "body": "…" }` and PATCH git fields on the task.
+8. Hand off: `POST …/handoffs/` with `to_role`, `to_user`, `done_summary`, `reason`, `expected_next_step`.
+
+## Rules
+
+- Do not use the owner's personal account.
+- Do not change task meaning without Owner/Planner approval.
+- After handoff, the next agent sees the task on **their** account — nothing to paste into their chat except «check inbox».

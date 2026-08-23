@@ -45,6 +45,7 @@ export type AgentProfile = {
   display_name: string;
   is_active: boolean;
   is_service_account: boolean;
+  auto_claim_on_assign: boolean;
   allowed_actions: string[];
   allowed_project_ids: number[];
   assigned_open_count?: number;

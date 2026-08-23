@@ -168,6 +168,10 @@ class AgentProfile(models.Model):
     display_name = models.CharField(max_length=255, blank=True, default="")
     is_active = models.BooleanField(default=True)
     is_service_account = models.BooleanField(default=False)
+    auto_claim_on_assign = models.BooleanField(
+        default=False,
+        help_text="Service account: automatically claim (in progress) when assigned or handed off.",
+    )
     # Empty list → use ROLE_DEFAULT_ACTIONS[role]
     allowed_actions = models.JSONField(default=list, blank=True)
     # Empty M2M → all projects in workspace

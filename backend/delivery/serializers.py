@@ -94,6 +94,7 @@ class AgentProfileSerializer(serializers.ModelSerializer):
             "display_name",
             "is_active",
             "is_service_account",
+            "auto_claim_on_assign",
             "allowed_actions",
             "allowed_project_ids",
             "effective_actions",

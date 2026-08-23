@@ -497,6 +497,10 @@ def assign_task(
             reason="unassigned",
         )
         locked.refresh_from_db()
+    if assignee_id:
+        from delivery.agent_runner import after_task_assigned
+
+        locked = after_task_assigned(locked, source="assign")
     return locked
 
 
@@ -613,6 +617,11 @@ def create_handoff(
         target = DeliveryTask.Status.READY
         reason_status = "handoff"
     change_status(task, to_status=target, user=user, reason=reason_status)
+    task.refresh_from_db()
+    if to_user is not None:
+        from delivery.agent_runner import after_task_assigned
+
+        task = after_task_assigned(task, source="handoff")
     return handoff
 
 

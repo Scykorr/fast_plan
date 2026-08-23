@@ -402,6 +402,7 @@ class AgentServiceAccountCreateView(DeliveryOpsMixin, APIView):
                 actor_type=AgentProfile.ActorType.AGENT,
                 display_name=display_name,
                 is_service_account=True,
+                auto_claim_on_assign=request.data.get("auto_claim_on_assign", True),
                 api_token=token,
                 allowed_actions=request.data.get("allowed_actions") or [],
             )

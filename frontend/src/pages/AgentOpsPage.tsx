@@ -962,7 +962,8 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                     </p>
                     <p className="text-xs text-text-muted">
                       {a.actor_type}
-                      {a.is_service_account ? " · service" : ""} · задач:{" "}
+                      {a.is_service_account ? " · service" : ""}
+                      {a.auto_claim_on_assign ? " · auto-claim" : ""} · задач:{" "}
                       {a.assigned_open_count ?? 0} · actions:{" "}
                       {(a.effective_actions || []).join(", ")}
                     </p>
