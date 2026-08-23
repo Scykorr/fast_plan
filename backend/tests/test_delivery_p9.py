@@ -47,6 +47,11 @@ def enable_ops(workspace):
 
 @pytest.mark.django_db
 def test_settings_flag_gates_api(authenticated_client, workspace):
+    # Agent Ops is enabled by default; disable explicitly to verify the gate.
+    DeliverySettings.objects.update_or_create(
+        workspace=workspace,
+        defaults={"agent_ops_enabled": False},
+    )
     denied = authenticated_client.get("/api/delivery/epics/")
     assert denied.status_code == status.HTTP_403_FORBIDDEN
 
