@@ -56,8 +56,9 @@ from delivery.services import (
     MEANING_FIELDS,
     agent_may_close_epic,
     assert_fields_editable,
-    assign_task,
     bucket_my_delivery_tasks,
+    finalize_task_assignment,
+    resolve_service_account_for_role,
     build_task_timeline,
     cancel_blocker,
     change_status,
@@ -72,6 +73,7 @@ from delivery.services import (
 )
 from workspaces.mixins import IsWorkspaceEditorOrReadOnly, WorkspaceMixin
 from workspaces.models import WorkspaceAPIToken, WorkspaceMember
+from workspaces.search import list_my_tasks
 
 User = get_user_model()
 
@@ -593,8 +595,17 @@ class TaskListCreateView(DeliveryOpsMixin, APIView):
             return cached
         ser = DeliveryTaskWriteSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        data = dict(ser.validated_data)
+        assignee = data.pop("assignee", None)
+        assignee_role = data.get("assignee_role") or ""
         task = DeliveryTask.objects.create(
-            workspace=ws, created_by=request.user, **ser.validated_data
+            workspace=ws, created_by=request.user, **data
+        )
+        task = finalize_task_assignment(
+            task,
+            user=request.user,
+            assignee_id=assignee.id if assignee else None,
+            assignee_role=assignee_role or None,
         )
         TaskStatusHistory.objects.create(
             task=task,
@@ -853,8 +864,12 @@ class TaskAssignView(DeliveryOpsMixin, APIView):
         task = get_object_or_404(DeliveryTask.objects.filter(workspace=ws), pk=task_id)
         assignee = request.data.get("assignee", None)
         role = request.data.get("assignee_role")
+        if assignee is None and role:
+            profile = resolve_service_account_for_role(ws, role)
+            if profile is not None:
+                assignee = profile.user_id
         try:
-            assigned = assign_task(
+            assigned = finalize_task_assignment(
                 task,
                 user=request.user,
                 assignee_id=assignee,
@@ -1295,7 +1310,13 @@ class MyDeliveryTasksView(DeliveryOpsMixin, APIView):
             key: DeliveryTaskSerializer(rows, many=True).data
             for key, rows in buckets.items()
         }
-        payload["total"] = sum(len(rows) for rows in buckets.values())
+        wbs_inbox = list_my_tasks(ws, request.user, limit=100)
+        payload["wbs_tasks"] = wbs_inbox["tasks"]
+        payload["wbs_summary"] = wbs_inbox["summary"]
+        payload["total"] = sum(
+            len(rows) for key, rows in buckets.items() if key != "total"
+        )
+        payload["total"] += len(wbs_inbox["tasks"])
         return Response(payload)
 
 

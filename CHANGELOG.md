@@ -15,12 +15,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Agent Ops Backlog** — выбор роли подставляет service account исполнителя; при создании задачи с заполненным ready-gate автоматически Ready → Assigned (+ auto-claim)
+- **Agent inbox + WBS** — `GET /api/delivery/my-tasks/` включает `wbs_tasks` (назначения на `/projects`); rule `cursor-agent-inbox.mdc` и poll-скрипт опрашивают оба контура
+
 ### Changed
 
 - **Сайдбар** — пункты меню сгруппированы в раскрывающиеся разделы (Обзор / Проекты / CRM / Процессы / Система)
 
 ### Added
 
+- **`run-docker.bat`** — обновление и запуск Docker Compose одной командой (`git pull`, `docker compose up -d --build`, перезапуск backend/frontend при сбое)
 - **Удаление проекта** — кнопка «Удалить» в списке `/projects` и в карточке проекта, с подтверждением
 - **Agent Ops handoff** — явная передача задачи исполнителю, журнал записей (результат / замечание / решение), Git-коммиты, корзины «Мои задачи»; **auto-claim** для service accounts; poll-скрипт agent runner; как это видит заказчик: [`docs/CUSTOMER_AGENT_LOOP.md`](docs/CUSTOMER_AGENT_LOOP.md)
 - **OBS ↔ RACI** — назначение RACI по OBS-роли (без стейкхолдера); кнопка «R из OBS» на вкладке стейкхолдеров

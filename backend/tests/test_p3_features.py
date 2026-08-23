@@ -78,6 +78,39 @@ def test_my_tasks_returns_assigned_wbs(authenticated_client, workspace, user):
 
 
 @pytest.mark.django_db
+def test_delivery_my_tasks_includes_wbs(authenticated_client, workspace, user):
+    from delivery.models import DeliverySettings
+
+    DeliverySettings.objects.update_or_create(
+        workspace=workspace, defaults={"agent_ops_enabled": True}
+    )
+    project = ProjectFactory(workspace=workspace, manager=user, name="WBS Inbox")
+    root = project.wbs_nodes.get(code="1")
+    node = WBSNode.objects.create(
+        project=project,
+        parent=root,
+        title="Agent WBS task",
+        description="Do the thing",
+        code="1.2",
+        node_type=WBSNode.NodeType.WORK_PACKAGE,
+        position=0,
+        assignee=user,
+    )
+    ScheduleActivity.objects.create(
+        wbs_node=node,
+        start_date=date.today(),
+        end_date=date.today() + timedelta(days=3),
+        progress=0,
+    )
+    response = authenticated_client.get("/api/delivery/my-tasks/")
+    assert response.status_code == status.HTTP_200_OK
+    wbs_rows = response.data.get("wbs_tasks") or []
+    assert any(row["wbs_id"] == node.id for row in wbs_rows)
+    assert any(row["description"] == "Do the thing" for row in wbs_rows)
+    assert response.data["total"] >= 1
+
+
+@pytest.mark.django_db
 def test_capacity_report(authenticated_client, workspace, user):
     project = ProjectFactory(workspace=workspace, manager=user, name="Cap Proj")
     root = project.wbs_nodes.get(code="1")

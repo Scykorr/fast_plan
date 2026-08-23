@@ -47,6 +47,7 @@ export type AgentProfile = {
   is_service_account: boolean;
   auto_claim_on_assign: boolean;
   allowed_actions: string[];
+  effective_actions?: string[];
   allowed_project_ids: number[];
   assigned_open_count?: number;
   api_token: number | null;
@@ -303,6 +304,19 @@ export function createDeliveryApi() {
         waiting_response: DeliveryTask[];
         returned_for_rework: DeliveryTask[];
         blocked: DeliveryTask[];
+        wbs_tasks?: Array<{
+          source: "wbs";
+          wbs_id: number;
+          wbs_code: string;
+          title: string;
+          description: string;
+          project_id: number;
+          project_name: string;
+          progress: number;
+          schedule_activity_id: number | null;
+          link: string;
+        }>;
+        wbs_summary?: { total: number; overdue: number; due_soon: number };
         total: number;
       }>("/delivery/my-tasks/"),
     createTask: (data: DeliveryTaskWrite & { title: string }) =>

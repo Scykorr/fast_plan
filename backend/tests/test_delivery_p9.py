@@ -13,6 +13,8 @@ from delivery.models import (
     TaskGitHubReview,
     TaskMeaningChangeRequest,
 )
+from tests.factories import UserFactory
+from workspaces.models import WorkspaceMember
 
 User = get_user_model()
 
@@ -681,6 +683,36 @@ def test_assign_and_subtask_comment(
         format="json",
     )
     assert comment.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+def test_create_task_auto_assigns_service_account_by_role(
+    authenticated_client, enable_ops, workspace, user
+):
+    backend = UserFactory(email="backend-svc@example.com", username="backendsvc")
+    WorkspaceMember.objects.get_or_create(
+        workspace=workspace,
+        user=backend,
+        defaults={"role": WorkspaceMember.Role.EDITOR},
+    )
+    AgentProfile.objects.create(
+        workspace=workspace,
+        user=backend,
+        role="backend",
+        actor_type=AgentProfile.ActorType.AGENT,
+        display_name="Backend Agent",
+        is_service_account=True,
+        auto_claim_on_assign=True,
+    )
+    create = authenticated_client.post(
+        "/api/delivery/tasks/",
+        {**READY_FIELDS, "assignee_role": "backend"},
+        format="json",
+    )
+    assert create.status_code == status.HTTP_201_CREATED
+    assert create.data["assignee"] == backend.id
+    assert create.data["assignee_role"] == "backend"
+    assert create.data["status"] in ("assigned", "in_progress")
 
 
 @pytest.mark.django_db

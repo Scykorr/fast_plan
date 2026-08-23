@@ -38,7 +38,7 @@ Idempotency-Key: <optional-uuid>   # for claim / status mutations
 
 ## Typical cycle
 
-1. **Мои задачи** — `GET /api/delivery/my-tasks/` (новые / в работе / ждут ответа / возврат)
+1. **Мои задачи** — `GET /api/delivery/my-tasks/` (Agent Ops buckets + **`wbs_tasks`** с `/projects`)
 2. **Queue** — `GET /api/delivery/queue/?role=backend&status=ready`
 3. **Claim** — `POST /api/delivery/tasks/{id}/claim/` (или **auto-claim** при назначении на service account — см. ниже)
 4. **Work** — PATCH task fields; journal `POST .../comments/` `{ "kind": "result", "body": "..." }`
@@ -86,7 +86,7 @@ Payload: `{ task, auto_claimed, prompt_hint, workspace_id }`. Ваш runner по
 
 ### Вариант C — Cursor rule в каждом чате
 
-Скопируйте [`docs/templates/cursor-agent-inbox.mdc`](templates/cursor-agent-inbox.mdc) в `.cursor/rules/` (отдельный файл или profile на роль). Секреты — в env чата. Команда пользователя: «есть задача?» — агент сам ходит в API.
+Rule для Cursor: [`.cursor/rules/cursor-agent-inbox.mdc`](../.cursor/rules/cursor-agent-inbox.mdc) (шаблон для других репо — [`docs/templates/cursor-agent-inbox.mdc`](templates/cursor-agent-inbox.mdc)). Секреты — в env чата. Команда пользователя: «есть задача?» — агент сам ходит в API.
 
 Сценарий заказчика: [CUSTOMER_AGENT_LOOP.md](CUSTOMER_AGENT_LOOP.md).
 

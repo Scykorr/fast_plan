@@ -1,6 +1,5 @@
 ---
 description: Fast Plan Agent Ops + WBS inbox — auto-check and execute assigned tasks
-globs:
 alwaysApply: true
 ---
 

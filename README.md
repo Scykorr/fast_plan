@@ -41,6 +41,14 @@ run.bat
 
 Откроются два окна: backend и frontend. Сайт: http://localhost:5173
 
+**Windows — Docker (обновление и запуск):**
+
+```bat
+run-docker.bat
+```
+
+Подтянет код (`git pull`), пересоберёт контейнеры и поднимет стек. Без `git pull`: `run-docker.bat start`. Сайт: см. порт frontend в выводе (обычно http://localhost:8080 или `:8088`).
+
 ### Backend
 
 ```bash

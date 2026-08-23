@@ -311,7 +311,7 @@ Cursor **не** «подключается к Fast Plan» одним клико�
 |---|---|
 | **Poll-скрипт** `scripts/agent-runner-poll.py` | cron / фон; опрашивает inbox всех агентов, печатает prompt |
 | **Webhook → ваш runner** | мгновенно при assign/handoff; runner будит нужный чат |
-| **Cursor rule** `docs/templates/cursor-agent-inbox.mdc` | в чате по команде «есть задача?» или при каждом старте |
+| **Cursor rule** `.cursor/rules/cursor-agent-inbox.mdc` | в чате по команде «есть задача?» или при каждом старте |
 
 Poll для нескольких чатов: `scripts/agent-runner.config.example.json` — свой токен на backend и qa.
 

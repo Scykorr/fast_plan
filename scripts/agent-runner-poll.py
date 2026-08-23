@@ -85,7 +85,7 @@ def _api_get(agent: dict, path: str) -> dict:
     req = urllib.request.Request(
         url,
         headers={
-            "Authorization": f"Token {agent['token']}",
+            "Authorization": f"Bearer {agent['token']}",
             "X-Workspace-Id": str(agent["workspace_id"]),
             "Accept": "application/json",
         },
@@ -110,14 +110,22 @@ def _callback(payload: dict) -> None:
         pass
 
 
-def _prompt_for(task: dict, agent_name: str) -> str:
+WORK_BUCKETS = (
+    "in_progress",
+    "new_assignments",
+    "returned_for_rework",
+    "waiting_response",
+)
+
+
+def _prompt_for_delivery(task: dict, agent_name: str) -> str:
     tid = task.get("id")
     title = task.get("title", "")
     status = task.get("status", "")
     branch = task.get("github_branch") or ""
     next_step = task.get("expected_next_step") or ""
     parts = [
-        f"[{agent_name}] Fast Plan task #{tid}: {title}",
+        f"[{agent_name}] Agent Ops #{tid}: {title}",
         f"Status: {status}.",
     ]
     if branch:
@@ -125,14 +133,64 @@ def _prompt_for(task: dict, agent_name: str) -> str:
     if next_step:
         parts.append(f"Expected: {next_step}.")
     parts.append(
-        "Execute in this chat: read journal, implement, commit to agent branch, "
-        "POST result comment, handoff to next role."
+        "Execute: read journal, implement, commit to agent branch, "
+        "POST result comment, handoff when done."
     )
     return " ".join(parts)
 
 
-def _task_key(agent_name: str, task_id: int, version: int) -> str:
-    return f"{agent_name}:{task_id}:v{version}"
+def _prompt_for_wbs(task: dict, agent_name: str) -> str:
+    wid = task.get("wbs_id")
+    title = task.get("title", "")
+    project = task.get("project_name", "")
+    desc = (task.get("description") or "").strip()
+    parts = [
+        f"[{agent_name}] WBS #{wid}: {title}",
+        f"Project: {project}.",
+    ]
+    if desc:
+        parts.append(f"Description: {desc[:300]}.")
+    parts.append(
+        "Execute: implement in project repo, PATCH wbs description with summary, "
+        "POST wbs comment, set progress=100 if schedule_activity_id present."
+    )
+    return " ".join(parts)
+
+
+def _task_key(agent_name: str, source: str, task_id: int, version: int = 0) -> str:
+    return f"{agent_name}:{source}:{task_id}:v{version}"
+
+
+def _emit_trigger(
+    *,
+    triggers: list[dict],
+    seen: dict,
+    agent_name: str,
+    source: str,
+    bucket: str,
+    task_id: int,
+    task: dict,
+    prompt: str,
+    version: int = 0,
+) -> None:
+    key = _task_key(agent_name, source, task_id, version)
+    if key in seen:
+        return
+    seen[key] = {"bucket": bucket, "source": source, "at": time.time()}
+    trigger = {
+        "agent": agent_name,
+        "source": source,
+        "bucket": bucket,
+        "task_id": task_id,
+        "task": task,
+        "prompt": prompt,
+    }
+    triggers.append(trigger)
+    print(trigger["prompt"])
+    try:
+        _callback(trigger)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[{agent_name}] callback failed: {exc}", file=sys.stderr)
 
 
 def poll_once(state: dict) -> list[dict]:
@@ -152,23 +210,31 @@ def poll_once(state: dict) -> list[dict]:
 
         for bucket in WORK_BUCKETS:
             for task in inbox.get(bucket) or []:
-                key = _task_key(name, task["id"], task.get("version", 0))
-                if key in seen:
-                    continue
-                seen[key] = {"bucket": bucket, "at": time.time()}
-                trigger = {
-                    "agent": name,
-                    "bucket": bucket,
-                    "task_id": task["id"],
-                    "task": task,
-                    "prompt": _prompt_for(task, name),
-                }
-                triggers.append(trigger)
-                print(trigger["prompt"])
-                try:
-                    _callback(trigger)
-                except Exception as exc:  # noqa: BLE001
-                    print(f"[{name}] callback failed: {exc}", file=sys.stderr)
+                _emit_trigger(
+                    triggers=triggers,
+                    seen=seen,
+                    agent_name=name,
+                    source="delivery",
+                    bucket=bucket,
+                    task_id=task["id"],
+                    task=task,
+                    prompt=_prompt_for_delivery(task, name),
+                    version=task.get("version", 0),
+                )
+
+        for task in inbox.get("wbs_tasks") or []:
+            if int(task.get("progress") or 0) >= 100:
+                continue
+            _emit_trigger(
+                triggers=triggers,
+                seen=seen,
+                agent_name=name,
+                source="wbs",
+                bucket="wbs_open",
+                task_id=task["wbs_id"],
+                task=task,
+                prompt=_prompt_for_wbs(task, name),
+            )
 
     return triggers
 

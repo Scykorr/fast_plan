@@ -625,6 +625,68 @@ def create_handoff(
     return handoff
 
 
+def resolve_service_account_for_role(workspace, role: str) -> AgentProfile | None:
+    """Default service account for a delivery role (newest active match)."""
+    role = (role or "").strip()
+    if not role:
+        return None
+    return (
+        AgentProfile.objects.filter(
+            workspace=workspace,
+            role=role,
+            is_active=True,
+            is_service_account=True,
+        )
+        .select_related("user")
+        .order_by("-id")
+        .first()
+    )
+
+
+def finalize_task_assignment(
+    task: DeliveryTask,
+    *,
+    user,
+    assignee_id: int | None,
+    assignee_role: str | None = None,
+) -> DeliveryTask:
+    """Set assignee from role when missing; auto-ready + assign when gate passes."""
+    role = (assignee_role or task.assignee_role or "").strip() or None
+    resolved_id = assignee_id
+    if not resolved_id and role:
+        profile = resolve_service_account_for_role(task.workspace, role)
+        if profile is not None:
+            resolved_id = profile.user_id
+    if not resolved_id:
+        return task
+
+    task = assign_task(
+        task,
+        user=user,
+        assignee_id=resolved_id,
+        assignee_role=role,
+    )
+    if task.status != DeliveryTask.Status.DRAFT:
+        return task
+
+    missing = ready_gate_errors(task)
+    if missing:
+        return task
+
+    task = change_status(
+        task,
+        to_status=DeliveryTask.Status.READY,
+        user=user,
+        reason="auto-ready on assign",
+    )
+    return assign_task(
+        task,
+        user=user,
+        assignee_id=resolved_id,
+        assignee_role=role,
+    )
+
+
 def bucket_my_delivery_tasks(workspace, user) -> dict:
     """Inbox buckets for the current assignee (agent or human)."""
     profile = AgentProfile.objects.filter(
@@ -648,7 +710,11 @@ def bucket_my_delivery_tasks(workspace, user) -> dict:
 
     return {
         "new_assignments": ids(
-            [DeliveryTask.Status.ASSIGNED, DeliveryTask.Status.READY]
+            [
+                DeliveryTask.Status.DRAFT,
+                DeliveryTask.Status.ASSIGNED,
+                DeliveryTask.Status.READY,
+            ]
         ),
         "in_progress": ids([DeliveryTask.Status.IN_PROGRESS]),
         "waiting_response": ids(

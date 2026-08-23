@@ -65,6 +65,7 @@ const emptyTaskForm = {
   expected_checks: "",
   result_artifact: "",
   assignee_role: "backend",
+  assignee: "" as number | "",
   next_role: "qa",
   canon_url: "",
   architecture_url: "",
@@ -275,6 +276,25 @@ export function AgentOpsPage() {
     setParams({ task: String(id) });
   };
 
+  const pickAgentForRole = useCallback(
+    (role: string) => {
+      const match =
+        agents.find((a) => a.role === role && a.is_service_account) ??
+        agents.find((a) => a.role === role);
+      return match?.user ?? "";
+    },
+    [agents],
+  );
+
+  useEffect(() => {
+    if (!enabled || agents.length === 0) return;
+    setTaskForm((prev) => {
+      const nextAssignee = pickAgentForRole(prev.assignee_role);
+      if (prev.assignee === nextAssignee) return prev;
+      return { ...prev, assignee: nextAssignee };
+    });
+  }, [enabled, agents, pickAgentForRole, taskForm.assignee_role]);
+
   const toggleEnabled = async () => {
     if (!api) return;
     try {
@@ -329,6 +349,7 @@ export function AgentOpsPage() {
         expected_checks: taskForm.expected_checks,
         result_artifact: taskForm.result_artifact,
         assignee_role: taskForm.assignee_role,
+        assignee: taskForm.assignee === "" ? null : taskForm.assignee,
         next_role: taskForm.next_role,
         canon_url: taskForm.canon_url,
         architecture_url: taskForm.architecture_url,
@@ -1009,18 +1030,44 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                 <select
                   className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
                   value={taskForm.assignee_role}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const role = e.target.value;
                     setTaskForm((p) => ({
                       ...p,
-                      assignee_role: e.target.value,
-                    }))
-                  }
+                      assignee_role: role,
+                      assignee: pickAgentForRole(role),
+                    }));
+                  }}
                 >
                   {ROLES.map((role) => (
                     <option key={role} value={role}>
                       role: {role}
                     </option>
                   ))}
+                </select>
+                <select
+                  className="rounded-lg border border-border bg-cream px-3 py-2 text-sm md:col-span-2"
+                  value={taskForm.assignee}
+                  onChange={(e) =>
+                    setTaskForm((p) => ({
+                      ...p,
+                      assignee: e.target.value ? Number(e.target.value) : "",
+                    }))
+                  }
+                >
+                  <option value="">Исполнитель не выбран</option>
+                  {agents
+                    .filter(
+                      (a) =>
+                        !taskForm.assignee_role ||
+                        a.role === taskForm.assignee_role,
+                    )
+                    .map((a) => (
+                      <option key={a.id} value={a.user}>
+                        {a.display_name || a.user_email}
+                        {a.is_service_account ? " (service)" : ""}
+                      </option>
+                    ))}
                 </select>
                 <select
                   className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"

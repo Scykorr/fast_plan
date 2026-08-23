@@ -214,9 +214,11 @@ def list_my_tasks(
             board_id = None
         tasks.append(
             {
+                "source": "wbs",
                 "wbs_id": node.id,
                 "wbs_code": node.code,
                 "title": node.title,
+                "description": node.description or "",
                 "node_type": node.node_type,
                 "project_id": node.project_id,
                 "project_name": node.project.name,
@@ -227,6 +229,7 @@ def list_my_tasks(
                     node.workflow_status.name if node.workflow_status else None
                 ),
                 "progress": progress,
+                "schedule_activity_id": schedule.id if schedule else None,
                 "start_date": schedule.start_date.isoformat()
                 if schedule and schedule.start_date
                 else None,
