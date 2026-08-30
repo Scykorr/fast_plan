@@ -29,6 +29,7 @@ from workspaces.views import (
     WorkspaceMemberListView,
     WorkspaceMyTasksView,
     WorkspaceSearchView,
+    WorkspaceTasksView,
     WorkspaceWebhookDeliveryListView,
     WorkspaceWebhookDetailView,
     WorkspaceWebhookListCreateView,
@@ -61,6 +62,11 @@ urlpatterns = [
         "workspace/my-tasks/",
         WorkspaceMyTasksView.as_view(),
         name="workspace-my-tasks",
+    ),
+    path(
+        "workspace/tasks/",
+        WorkspaceTasksView.as_view(),
+        name="workspace-tasks",
     ),
     path(
         "workspace/capacity/",

@@ -174,6 +174,9 @@ export function AgentOpsPage() {
   const [commentKind, setCommentKind] = useState("result");
   const [blockerTitle, setBlockerTitle] = useState("");
   const [serviceRole, setServiceRole] = useState("backend");
+  const [serviceDisplayName, setServiceDisplayName] = useState("");
+  const [editingAgentId, setEditingAgentId] = useState<number | null>(null);
+  const [editingAgentName, setEditingAgentName] = useState("");
   const [issuedToken, setIssuedToken] = useState("");
   const [ghSecret, setGhSecret] = useState("");
   const [ghToken, setGhToken] = useState("");
@@ -447,12 +450,42 @@ export function AgentOpsPage() {
   const provisionAgent = async () => {
     if (!api) return;
     try {
+      const name =
+        serviceDisplayName.trim() || `${serviceRole} bot`;
       const row = await api.createServiceAccount({
         role: serviceRole,
-        display_name: `${serviceRole} bot`,
+        display_name: name,
       });
       setIssuedToken(row.api_token_raw || "");
+      setServiceDisplayName("");
       setMessage(`Service account: ${row.service_user_email}`);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err));
+    }
+  };
+
+  const startRenameAgent = (agent: AgentProfile) => {
+    setEditingAgentId(agent.id);
+    setEditingAgentName(agent.display_name || "");
+  };
+
+  const cancelRenameAgent = () => {
+    setEditingAgentId(null);
+    setEditingAgentName("");
+  };
+
+  const saveRenameAgent = async (agentId: number) => {
+    if (!api) return;
+    const name = editingAgentName.trim();
+    if (!name) {
+      setError("Имя агента не может быть пустым");
+      return;
+    }
+    try {
+      await api.updateAgent(agentId, { display_name: name });
+      setMessage(`Имя агента обновлено: ${name}`);
+      cancelRenameAgent();
       await load();
     } catch (err) {
       setError(parseApiError(err));
@@ -959,6 +992,15 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                     ))}
                   </select>
                 </label>
+                <label className="text-sm">
+                  Имя
+                  <input
+                    className="mt-1 block min-w-[12rem] rounded-lg border border-border bg-cream px-3 py-2"
+                    value={serviceDisplayName}
+                    onChange={(e) => setServiceDisplayName(e.target.value)}
+                    placeholder={`${serviceRole} bot`}
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => void provisionAgent()}
@@ -978,10 +1020,52 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                     key={a.id}
                     className="rounded-xl border border-border bg-surface px-4 py-3 text-sm"
                   >
-                    <p className="font-semibold text-text">
-                      {a.display_name || a.user_email} · {a.role}
-                    </p>
-                    <p className="text-xs text-text-muted">
+                    {editingAgentId === a.id ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          className="min-w-[12rem] flex-1 rounded-lg border border-border bg-cream px-3 py-1.5"
+                          value={editingAgentName}
+                          onChange={(e) => setEditingAgentName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void saveRenameAgent(a.id);
+                            }
+                            if (e.key === "Escape") cancelRenameAgent();
+                          }}
+                          autoFocus
+                        />
+                        <span className="text-text-muted">· {a.role}</span>
+                        <button
+                          type="button"
+                          onClick={() => void saveRenameAgent(a.id)}
+                          className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white"
+                        >
+                          Сохранить
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelRenameAgent}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-muted"
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-text">
+                          {a.display_name || a.user_email} · {a.role}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => startRenameAgent(a)}
+                          className="rounded-lg border border-border px-2 py-0.5 text-xs text-text-muted hover:text-text"
+                        >
+                          Переименовать
+                        </button>
+                      </div>
+                    )}
+                    <p className="mt-1 text-xs text-text-muted">
                       {a.actor_type}
                       {a.is_service_account ? " · service" : ""}
                       {a.auto_claim_on_assign ? " · auto-claim" : ""} · задач:{" "}

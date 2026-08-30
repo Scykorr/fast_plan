@@ -361,6 +361,78 @@ class AgentProfileListCreateView(DeliveryOpsMixin, APIView):
         )
 
 
+class AgentProfileDetailView(DeliveryOpsMixin, APIView):
+    """PATCH agent profile fields (display_name, role flags, etc.)."""
+
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+    _PATCHABLE = {
+        "display_name",
+        "role",
+        "actor_type",
+        "is_active",
+        "auto_claim_on_assign",
+        "allowed_actions",
+    }
+
+    def get(self, request, agent_id):
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        profile = get_object_or_404(
+            AgentProfile.objects.filter(workspace=ws).select_related("user"),
+            pk=agent_id,
+        )
+        return Response(AgentProfileSerializer(profile).data)
+
+    def patch(self, request, agent_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        profile = get_object_or_404(
+            AgentProfile.objects.filter(workspace=ws).select_related(
+                "user", "api_token"
+            ),
+            pk=agent_id,
+        )
+        payload = {
+            key: value
+            for key, value in request.data.items()
+            if key in self._PATCHABLE
+        }
+        if not payload:
+            raise ValidationError(
+                {"detail": f"No patchable fields. Allowed: {', '.join(sorted(self._PATCHABLE))}"}
+            )
+        ser = AgentProfileSerializer(profile, data=payload, partial=True)
+        ser.is_valid(raise_exception=True)
+        old_name = profile.display_name
+        for key, value in ser.validated_data.items():
+            setattr(profile, key, value)
+        profile.save()
+        new_name = (profile.display_name or "").strip()
+        if (
+            "display_name" in ser.validated_data
+            and new_name
+            and new_name != old_name
+            and profile.api_token_id
+        ):
+            token = profile.api_token
+            token.name = f"agent:{profile.role}:{new_name}"[:100]
+            token.save(update_fields=["name"])
+        project_ids = request.data.get("allowed_project_ids")
+        if project_ids is not None:
+            profile.allowed_projects.set(project_ids)
+        log_agent_action(
+            workspace=ws,
+            user=request.user,
+            action="agent_profile.update",
+            entity_type="AgentProfile",
+            entity_id=profile.id,
+            detail=new_name or old_name,
+        )
+        profile.refresh_from_db()
+        return Response(AgentProfileSerializer(profile).data)
+
+
 class AgentServiceAccountCreateView(DeliveryOpsMixin, APIView):
     """TZ §9.1 / §15.4 — provision a dedicated agent user + API token."""
 
@@ -390,7 +462,7 @@ class AgentServiceAccountCreateView(DeliveryOpsMixin, APIView):
             )
             token, raw = WorkspaceAPIToken.issue(
                 workspace=ws,
-                name=f"agent:{role}:{display_name}",
+                name=f"agent:{role}:{display_name}"[:100],
                 scopes=["read", "write"],
                 created_by=user,
             )

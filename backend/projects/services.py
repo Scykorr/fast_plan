@@ -244,6 +244,9 @@ def build_wbs_tree(nodes: list[WBSNode]) -> list[dict]:
             "workflow_status_name": (
                 node.workflow_status.name if node.workflow_status else None
             ),
+            "workflow_status_is_closed": bool(
+                node.workflow_status and node.workflow_status.is_closed
+            ),
             "assignee_id": node.assignee_id,
             "assignee_name": (
                 node.assignee.get_username() if node.assignee else None

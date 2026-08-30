@@ -241,6 +241,7 @@ export type WBSNode = {
   tracker_name: string | null;
   workflow_status_id: number | null;
   workflow_status_name: string | null;
+  workflow_status_is_closed?: boolean;
   assignee_id: number | null;
   assignee_name: string | null;
   org_unit_id?: number | null;

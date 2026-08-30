@@ -2,13 +2,13 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { memo } from "react";
 
 import type { WBSFlowNodeData } from "./buildMindMap";
-import { getNodeColor } from "./buildMindMap";
+import { effectiveWbsProgress, getNodeColor } from "./buildMindMap";
 
 function WBSMindMapNodeComponent({ data }: NodeProps<Node<WBSFlowNodeData>>) {
   const { wbsNode, colorMode, isSelected, isCollapsed, hasChildren, isDropTarget, isDragging } =
     data;
   const accent = getNodeColor(wbsNode, colorMode);
-  const progress = wbsNode.schedule?.progress ?? 0;
+  const progress = effectiveWbsProgress(wbsNode);
 
   return (
     <div
@@ -34,11 +34,6 @@ function WBSMindMapNodeComponent({ data }: NodeProps<Node<WBSFlowNodeData>>) {
         <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-tight text-text">
           {wbsNode.title}
         </p>
-        {wbsNode.capacity_hint?.overloaded && (
-          <p className="mt-1 text-[10px] font-medium text-[#c45c26]">
-            Перегруз · {Math.round((wbsNode.capacity_hint.utilization ?? 0) * 100)}%
-          </p>
-        )}
         {wbsNode.quality && wbsNode.quality.total > 0 && (
           <p
             className={[
@@ -70,15 +65,22 @@ function WBSMindMapNodeComponent({ data }: NodeProps<Node<WBSFlowNodeData>>) {
         )}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-text-muted">
           <span className="capitalize">{wbsNode.node_type.replace("_", " ")}</span>
-          {wbsNode.schedule && <span>{progress}%</span>}
+          {(wbsNode.schedule || wbsNode.workflow_status_is_closed) && (
+            <span>{progress}%</span>
+          )}
         </div>
-        {wbsNode.schedule && (
+        {(wbsNode.schedule || wbsNode.workflow_status_is_closed) && (
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-cream">
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${progress}%`, backgroundColor: accent }}
             />
           </div>
+        )}
+        {wbsNode.workflow_status_name && (
+          <p className="mt-1 text-[10px] font-medium text-text-muted">
+            {wbsNode.workflow_status_name}
+          </p>
         )}
       </div>
       <Handle type="source" position={Position.Right} className="!bg-border !w-2 !h-2" />

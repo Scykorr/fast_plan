@@ -12,6 +12,11 @@ urlpatterns = [
     ),
     path("delivery/agents/", views.AgentProfileListCreateView.as_view(), name="delivery-agents"),
     path(
+        "delivery/agents/<int:agent_id>/",
+        views.AgentProfileDetailView.as_view(),
+        name="delivery-agent-detail",
+    ),
+    path(
         "delivery/agents/service-accounts/",
         views.AgentServiceAccountCreateView.as_view(),
         name="delivery-service-accounts",

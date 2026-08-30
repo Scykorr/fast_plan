@@ -37,6 +37,13 @@ function flattenVisible(
   return result;
 }
 
+export function effectiveWbsProgress(node: WBSNode): number {
+  if (node.workflow_status_is_closed) {
+    return 100;
+  }
+  return node.schedule?.progress ?? 0;
+}
+
 export function getNodeColor(node: WBSNode, colorMode: ColorMode): string {
   if (colorMode === "type") {
     if (node.node_type === "milestone") {
@@ -48,7 +55,7 @@ export function getNodeColor(node: WBSNode, colorMode: ColorMode): string {
     return "#C45C3E";
   }
 
-  const progress = node.schedule?.progress ?? 0;
+  const progress = effectiveWbsProgress(node);
   if (progress >= 100) {
     return "#6B8F71";
   }

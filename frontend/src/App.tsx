@@ -25,7 +25,7 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { KanbanPage } from "./pages/KanbanPage";
 import { LoginPage } from "./pages/LoginPage";
-import { MyTasksPage } from "./pages/MyTasksPage";
+import { TasksPage } from "./pages/TasksPage";
 import { PortfolioPage } from "./pages/PortfolioPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ProcessesPage } from "./pages/ProcessesPage";
@@ -108,7 +108,7 @@ export default function App() {
               <Route path="crm-tasks" element={<CrmTasksPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:projectId" element={<ProjectDetailPage />} />
-              <Route path="tasks" element={<MyTasksPage />} />
+              <Route path="tasks" element={<TasksPage />} />
               <Route path="capacity" element={<CapacityPage />} />
               <Route path="kanban" element={<KanbanPage />} />
               <Route path="calendar" element={<CalendarPage />} />

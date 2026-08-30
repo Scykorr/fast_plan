@@ -53,6 +53,60 @@ def test_workspace_search_finds_project(authenticated_client, workspace, user):
 
 
 @pytest.mark.django_db
+def test_workspace_tasks_filters_by_project_and_assignee(
+    authenticated_client, workspace, user
+):
+    from tests.factories import UserFactory
+
+    other = UserFactory(email="other@example.com")
+    from workspaces.models import WorkspaceMember
+
+    WorkspaceMember.objects.get_or_create(
+        workspace=workspace, user=other, defaults={"role": WorkspaceMember.Role.EDITOR}
+    )
+    project_a = ProjectFactory(workspace=workspace, manager=user, name="Alpha")
+    project_b = ProjectFactory(workspace=workspace, manager=user, name="Beta")
+    root_a = project_a.wbs_nodes.get(code="1")
+    root_b = project_b.wbs_nodes.get(code="1")
+    node_a = WBSNode.objects.create(
+        project=project_a,
+        parent=root_a,
+        title="Task A",
+        code="1.1",
+        node_type=WBSNode.NodeType.WORK_PACKAGE,
+        position=0,
+        assignee=user,
+    )
+    node_b = WBSNode.objects.create(
+        project=project_b,
+        parent=root_b,
+        title="Task B",
+        code="1.1",
+        node_type=WBSNode.NodeType.WORK_PACKAGE,
+        position=0,
+        assignee=other,
+    )
+    ScheduleActivity.objects.create(wbs_node=node_a, progress=0)
+    ScheduleActivity.objects.create(wbs_node=node_b, progress=0)
+
+    all_resp = authenticated_client.get("/api/workspace/tasks/")
+    assert all_resp.status_code == status.HTTP_200_OK
+    ids = {row["wbs_id"] for row in all_resp.data["tasks"]}
+    assert node_a.id in ids
+    assert node_b.id in ids
+
+    by_project = authenticated_client.get(
+        f"/api/workspace/tasks/?project={project_a.id}"
+    )
+    assert by_project.status_code == status.HTTP_200_OK
+    assert all(row["project_id"] == project_a.id for row in by_project.data["tasks"])
+
+    by_user = authenticated_client.get(f"/api/workspace/tasks/?assignee={user.id}")
+    assert by_user.status_code == status.HTTP_200_OK
+    assert all(row["assignee_id"] == user.id for row in by_user.data["tasks"])
+
+
+@pytest.mark.django_db
 def test_my_tasks_returns_assigned_wbs(authenticated_client, workspace, user):
     project = ProjectFactory(workspace=workspace, manager=user, name="Tasks Proj")
     root = project.wbs_nodes.get(code="1")

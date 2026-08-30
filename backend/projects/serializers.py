@@ -197,6 +197,7 @@ class WBSNodeUpdateSerializer(serializers.ModelSerializer):
         custom_values = validated_data.pop("custom_values", None)
         org_unit_id = validated_data.pop("org_unit_id", serializers.empty)
         obs_role_id = validated_data.pop("obs_role_id", serializers.empty)
+        workflow_status_changed = "workflow_status_id" in validated_data
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -260,6 +261,19 @@ class WBSNodeUpdateSerializer(serializers.ModelSerializer):
                 )
             except DjangoValidationError as exc:
                 raise serializers.ValidationError(str(exc)) from exc
+
+        if workflow_status_changed:
+            from projects.sync import sync_schedule_from_workflow_status
+
+            refreshed = (
+                WBSNode.objects.select_related(
+                    "workflow_status", "schedule", "card", "card__column__board"
+                )
+                .filter(pk=instance.pk)
+                .first()
+            )
+            if refreshed is not None:
+                sync_schedule_from_workflow_status(refreshed)
 
         instance.refresh_from_db()
         return instance

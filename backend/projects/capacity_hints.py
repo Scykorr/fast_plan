@@ -50,24 +50,5 @@ def capacity_hint_for_assignee(loads: dict[int, dict], assignee_id: int | None) 
     }
 
 
-def attach_capacity_hints_to_wbs_tree(tree: list[dict], loads: dict[int, dict]) -> list[dict]:
-    """Mutate nested WBS tree dicts in place: schedule.capacity_hint + node-level mirror."""
-
-    def walk(nodes: list[dict]) -> None:
-        for node in nodes:
-            assignee_id = node.get("assignee_id")
-            hint = capacity_hint_for_assignee(loads, assignee_id)
-            node["capacity_hint"] = hint
-            schedule = node.get("schedule")
-            if isinstance(schedule, dict):
-                schedule["capacity_hint"] = hint
-            children = node.get("children") or []
-            if children:
-                walk(children)
-
-    walk(tree)
-    return tree
-
-
 def activity_overlaps_week(activity, week_start: date, week_end: date) -> bool:
     return _overlap_days(activity.start_date, activity.end_date, week_start, week_end) > 0

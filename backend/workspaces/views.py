@@ -30,7 +30,7 @@ from workspaces.models import (
     WorkspaceInvitation,
     WorkspaceMember,
 )
-from workspaces.search import build_capacity_report, list_my_tasks, search_workspace
+from workspaces.search import build_capacity_report, list_my_tasks, list_workspace_tasks, search_workspace
 from workspaces.serializers import (
     WorkspaceInvitationSerializer,
     WebhookDeliverySerializer,
@@ -146,6 +146,53 @@ class WorkspaceMyTasksView(WorkspaceMixin, APIView):
                 include_done=include_done,
                 overdue_only=overdue_only,
                 limit=limit,
+            )
+        )
+
+
+class WorkspaceTasksView(WorkspaceMixin, APIView):
+    """Jira-like task list: all WBS work packages with filters."""
+
+    def get(self, request):
+        workspace = self.get_workspace()
+        User = get_user_model()
+        assignee_id = None
+        assignee_raw = request.query_params.get("assignee")
+        unassigned = request.query_params.get("unassigned", "false").lower() == "true"
+        if assignee_raw:
+            if assignee_raw == "me":
+                assignee_id = request.user.id
+            elif assignee_raw != "all":
+                assignee_id = int(assignee_raw)
+                get_object_or_404(
+                    User.objects.filter(workspace_memberships__workspace=workspace),
+                    pk=assignee_id,
+                )
+        project_id = request.query_params.get("project")
+        status_id = request.query_params.get("status")
+        q = request.query_params.get("q") or request.query_params.get("search")
+        include_done = request.query_params.get("include_done", "false").lower() == "true"
+        overdue_only = request.query_params.get("overdue_only", "false").lower() == "true"
+        sort = request.query_params.get("sort", "end_date")
+        order = request.query_params.get("order", "asc")
+        if order not in ("asc", "desc"):
+            raise ValidationError({"order": "Use asc or desc."})
+        limit = min(int(request.query_params.get("limit", 100)), 200)
+        offset = max(int(request.query_params.get("offset", 0)), 0)
+        return Response(
+            list_workspace_tasks(
+                workspace,
+                assignee_id=assignee_id,
+                unassigned=unassigned,
+                project_id=int(project_id) if project_id else None,
+                status_id=int(status_id) if status_id else None,
+                include_done=include_done,
+                overdue_only=overdue_only,
+                q=q,
+                sort=sort,
+                order=order,
+                limit=limit,
+                offset=offset,
             )
         )
 

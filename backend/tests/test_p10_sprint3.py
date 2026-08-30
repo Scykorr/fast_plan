@@ -59,18 +59,19 @@ def test_schedule_capacity_hints_mark_overloaded_assignee(
     wbs = authenticated_client.get(f"/api/projects/{project.id}/wbs/")
     assert wbs.status_code == status.HTTP_200_OK
 
-    def find_hint(nodes):
+    def find_node(nodes, title):
         for node in nodes:
-            if node["title"] == "Task A":
-                return node.get("capacity_hint")
-            child = find_hint(node.get("children") or [])
-            if child is not None:
-                return child
+            if node["title"] == title:
+                return node
+            found = find_node(node.get("children") or [], title)
+            if found is not None:
+                return found
         return None
 
-    hint = find_hint(wbs.data)
-    assert hint is not None
-    assert hint["overloaded"] is True
+    task = find_node(wbs.data, "Task A")
+    assert task is not None
+    assert "capacity_hint" not in task
+    assert task.get("schedule") is None or "capacity_hint" not in task["schedule"]
 
 
 @pytest.mark.django_db

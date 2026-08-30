@@ -214,11 +214,6 @@ class WBSTreeView(WorkspaceMixin, APIView):
 
     def get(self, request, project_id):
         project = get_object_or_404(self.get_project_queryset(), pk=project_id)
-        from projects.capacity_hints import (
-            assignee_week_loads,
-            attach_capacity_hints_to_wbs_tree,
-        )
-
         nodes = (
             project.wbs_nodes.select_related(
                 "schedule",
@@ -233,8 +228,6 @@ class WBSTreeView(WorkspaceMixin, APIView):
             .order_by("position", "id")
         )
         tree = build_wbs_tree(list(nodes))
-        loads = assignee_week_loads(project.workspace)
-        attach_capacity_hints_to_wbs_tree(tree, loads)
         return Response(tree)
 
     def post(self, request, project_id):
@@ -347,7 +340,13 @@ class WBSNodeDetailView(WorkspaceMixin, APIView):
         )
         nodes = (
             node.project.wbs_nodes.select_related(
-                "schedule", "card", "assignee", "org_unit", "obs_role"
+                "schedule",
+                "card",
+                "tracker",
+                "workflow_status",
+                "assignee",
+                "org_unit",
+                "obs_role",
             )
             .prefetch_related("quality_checks")
             .order_by("position", "id")

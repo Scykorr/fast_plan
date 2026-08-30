@@ -59,7 +59,7 @@ describe("AppLayout", () => {
     renderLayout("/clients");
     expect(screen.getAllByRole("button", { name: /CRM/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Клиенты").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Мои задачи")).not.toBeInTheDocument();
+    expect(screen.queryByText("Задачи")).not.toBeInTheDocument();
   });
 
   it("expands a collapsed group on click", async () => {

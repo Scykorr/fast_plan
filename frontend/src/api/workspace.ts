@@ -174,6 +174,7 @@ export type MyTask = {
   wbs_id: number;
   wbs_code: string;
   title: string;
+  description?: string;
   node_type: string;
   project_id: number;
   project_name: string;
@@ -181,6 +182,7 @@ export type MyTask = {
   assignee_name: string | null;
   workflow_status_id: number | null;
   workflow_status_name: string | null;
+  workflow_status_is_closed?: boolean;
   progress: number;
   start_date: string | null;
   end_date: string | null;
@@ -188,6 +190,19 @@ export type MyTask = {
   card_id: number | null;
   board_id: number | null;
   link: string;
+};
+
+export type WorkspaceTask = MyTask;
+
+export type WorkspaceTasksResponse = {
+  workspace_id: number;
+  summary: {
+    total: number;
+    overdue: number;
+    due_soon: number;
+    returned: number;
+  };
+  tasks: WorkspaceTask[];
 };
 
 export type CapacityMember = {
@@ -382,6 +397,60 @@ export function createWorkspaceApi() {
         summary: { total: number; overdue: number; due_soon: number };
         tasks: MyTask[];
       }>(`/workspace/my-tasks/${suffix}`, {});
+    },
+
+    getTasks: (params?: {
+      assignee?: number | "me" | "all";
+      project?: number;
+      status?: number;
+      unassigned?: boolean;
+      include_done?: boolean;
+      overdue_only?: boolean;
+      q?: string;
+      sort?: string;
+      order?: "asc" | "desc";
+      limit?: number;
+      offset?: number;
+    }) => {
+      const query = new URLSearchParams();
+      if (params?.assignee != null && params.assignee !== "all") {
+        query.set(
+          "assignee",
+          params.assignee === "me" ? "me" : String(params.assignee),
+        );
+      }
+      if (params?.project != null) {
+        query.set("project", String(params.project));
+      }
+      if (params?.status != null) {
+        query.set("status", String(params.status));
+      }
+      if (params?.unassigned) {
+        query.set("unassigned", "true");
+      }
+      if (params?.include_done) {
+        query.set("include_done", "true");
+      }
+      if (params?.overdue_only) {
+        query.set("overdue_only", "true");
+      }
+      if (params?.q?.trim()) {
+        query.set("q", params.q.trim());
+      }
+      if (params?.sort) {
+        query.set("sort", params.sort);
+      }
+      if (params?.order) {
+        query.set("order", params.order);
+      }
+      if (params?.limit != null) {
+        query.set("limit", String(params.limit));
+      }
+      if (params?.offset != null) {
+        query.set("offset", String(params.offset));
+      }
+      const suffix = query.toString() ? `?${query.toString()}` : "";
+      return request<WorkspaceTasksResponse>(`/workspace/tasks/${suffix}`, {});
     },
 
     getCapacity: (weekStart?: string) => {

@@ -277,6 +277,21 @@ export function createDeliveryApi() {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    updateAgent: (
+      id: number,
+      data: {
+        display_name?: string;
+        role?: string;
+        actor_type?: string;
+        is_active?: boolean;
+        auto_claim_on_assign?: boolean;
+        allowed_actions?: string[];
+      },
+    ) =>
+      request<AgentProfile>(`/delivery/agents/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
     listEpics: () => request<DeliveryEpic[]>("/delivery/epics/"),
     createEpic: (data: Partial<DeliveryEpic> & { title: string }) =>
       request<DeliveryEpic>("/delivery/epics/", {

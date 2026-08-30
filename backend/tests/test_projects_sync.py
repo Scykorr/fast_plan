@@ -2,7 +2,7 @@ import pytest
 from datetime import date
 from rest_framework import status
 
-from projects.models import Project, ScheduleActivity
+from projects.models import Project, ScheduleActivity, WBSNode
 
 
 @pytest.fixture
@@ -57,6 +57,45 @@ def test_move_card_to_in_progress_sets_partial_progress(authenticated_client, pr
     assert response.status_code == status.HTTP_200_OK
     activity.refresh_from_db()
     assert activity.progress == 50
+
+
+@pytest.mark.django_db
+def test_closed_workflow_status_syncs_wbs_progress(authenticated_client, project, workspace):
+    from tracking.models import IssueStatus
+
+    closed = IssueStatus.objects.filter(workspace=workspace, is_closed=True).first()
+    assert closed is not None
+
+    root = project.wbs_nodes.get(code="1")
+    authenticated_client.post(
+        f"/api/projects/{project.id}/wbs/",
+        {"title": "Close me", "parent_id": root.id, "node_type": "work_package"},
+        format="json",
+    )
+    node = WBSNode.objects.get(title="Close me")
+    activity = ScheduleActivity.objects.get(wbs_node=node)
+    assert activity.progress == 0
+
+    response = authenticated_client.patch(
+        f"/api/wbs/{node.id}/",
+        {"workflow_status_id": closed.id},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    activity.refresh_from_db()
+    assert activity.progress == 100
+
+    flat = []
+
+    def walk(items):
+        for item in items:
+            flat.append(item)
+            walk(item.get("children") or [])
+
+    walk(response.data)
+    updated = next(item for item in flat if item["id"] == node.id)
+    assert updated["workflow_status_is_closed"] is True
+    assert updated["schedule"]["progress"] == 100
 
 
 @pytest.mark.django_db

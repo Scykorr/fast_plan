@@ -10,7 +10,13 @@ Optional GitHub: set **webhook secret** and **PAT** on the same page (HMAC + att
 
 ## Provision an agent
 
-UI: tab **Агенты** → choose role → **Создать service account + token**.
+UI: tab **Агенты** → choose role (optional **Имя**) → **Создать service account + token**.
+Rename later via **Переименовать** on the agent card, or:
+
+```http
+PATCH /api/delivery/agents/{id}/
+{ "display_name": "Backend Agent" }
+```
 
 Один агент / один чат Cursor (или Codex) = **одна** учётка + **свой** токен. Несколько чатов → несколько service accounts (backend, frontend, qa, …). Как это стыкуется с формулировкой заказчика: [CUSTOMER_AGENT_LOOP.md](CUSTOMER_AGENT_LOOP.md) §8.3.
 

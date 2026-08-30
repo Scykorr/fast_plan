@@ -30,6 +30,7 @@ type NavItem = {
     | "crmAnalytics"
     | "crmTasks"
     | "projects"
+    | "tasks"
     | "myTasks"
     | "calendar"
     | "finance"
@@ -64,7 +65,7 @@ const navGroups: NavGroup[] = [
     labelKey: "navProjects",
     items: [
       { to: "/projects", labelKey: "projects" },
-      { to: "/tasks", labelKey: "myTasks" },
+      { to: "/tasks", labelKey: "tasks" },
       { to: "/capacity", label: "Capacity", term: "capacity" },
       { to: "/kanban", label: "Kanban", term: "kanban" },
     ],

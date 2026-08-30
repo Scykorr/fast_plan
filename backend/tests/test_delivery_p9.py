@@ -336,6 +336,40 @@ def test_service_account_provision(authenticated_client, enable_ops):
 
 
 @pytest.mark.django_db
+def test_agent_profile_rename(authenticated_client, enable_ops):
+    created = authenticated_client.post(
+        "/api/delivery/agents/service-accounts/",
+        {"role": "qa", "display_name": "QA Bot"},
+        format="json",
+    )
+    assert created.status_code == status.HTTP_201_CREATED
+    agent_id = created.data["id"]
+    token_id = created.data["api_token"]
+
+    renamed = authenticated_client.patch(
+        f"/api/delivery/agents/{agent_id}/",
+        {"display_name": "QA Reviewer"},
+        format="json",
+    )
+    assert renamed.status_code == status.HTTP_200_OK
+    assert renamed.data["display_name"] == "QA Reviewer"
+
+    listed = authenticated_client.get("/api/delivery/agents/")
+    assert listed.status_code == status.HTTP_200_OK
+    row = next(item for item in listed.data if item["id"] == agent_id)
+    assert row["display_name"] == "QA Reviewer"
+
+    from workspaces.models import WorkspaceAPIToken
+
+    token = WorkspaceAPIToken.objects.get(pk=token_id)
+    assert token.name == "agent:qa:QA Reviewer"
+
+    detail = authenticated_client.get(f"/api/delivery/agents/{agent_id}/")
+    assert detail.status_code == status.HTTP_200_OK
+    assert detail.data["display_name"] == "QA Reviewer"
+
+
+@pytest.mark.django_db
 def test_github_webhook_updates_task_and_reviews(workspace, enable_ops):
     task = DeliveryTask.objects.create(
         workspace=workspace,

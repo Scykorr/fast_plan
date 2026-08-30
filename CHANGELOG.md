@@ -24,10 +24,14 @@
 
 ### Changed
 
+- **WBS** — убраны capacity hints и бейдж «Перегруз» с mind map; перегруз по-прежнему виден на Gantt и `/capacity`
+- **WBS: статус завершения** — закрывающий workflow status (`is_closed`) синхронизирует `schedule.progress` и Kanban; на карточке mind map отображаются статус и прогресс
 - **Сайдбар** — пункты меню сгруппированы в раскрывающиеся разделы (Обзор / Проекты / CRM / Процессы / Система)
 
 ### Added
 
+- **Задачи (`/tasks`)** — Jira-like список всех WBS work packages: фильтры по проекту, исполнителю, статусу, поиск, сортировка по столбцам, выбор видимых столбцов, режим «Список + карточка»; API `GET /api/workspace/tasks/`
+- **Agent Ops: переименование агентов** — `PATCH /api/delivery/agents/{id}/` (`display_name` и флаги); на вкладке «Агенты» — поле имени при создании и кнопка «Переименовать»
 - **Agent Ops default-on** — `agent_ops_enabled=true` для новых и существующих workspace; env `AGENT_OPS_ENABLED_DEFAULT`
 - **Docker profile `agents`** — сервис `agent-runner` (фоновый poll inbox без чата Cursor)
 - **`run-docker.bat`** — обновление и запуск Docker Compose одной командой (`git pull`, `docker compose up -d --build`, перезапуск backend/frontend при сбое)

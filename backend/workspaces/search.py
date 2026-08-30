@@ -162,17 +162,83 @@ def search_workspace(workspace, query: str, *, types=None, limit=20):
     }
 
 
-def list_my_tasks(
+def _serialize_wbs_task(node, workspace, *, today=None):
+    today = today or date.today()
+    schedule = getattr(node, "schedule", None)
+    progress = schedule.progress if schedule else 0
+    if node.workflow_status and node.workflow_status.is_closed:
+        progress = max(progress, 100)
+    end_date = schedule.end_date if schedule else None
+    days_overdue = (
+        (today - end_date).days
+        if end_date and end_date < today and progress < 100
+        else 0
+    )
+    try:
+        card = node.card
+        card_id = card.id
+        board_id = card.column.board_id
+    except ObjectDoesNotExist:
+        card_id = None
+        board_id = None
+    return {
+        "source": "wbs",
+        "wbs_id": node.id,
+        "wbs_code": node.code,
+        "title": node.title,
+        "description": node.description or "",
+        "node_type": node.node_type,
+        "project_id": node.project_id,
+        "project_name": node.project.name,
+        "assignee_id": node.assignee_id,
+        "assignee_name": _user_label(node.assignee),
+        "workflow_status_id": node.workflow_status_id,
+        "workflow_status_name": (
+            node.workflow_status.name if node.workflow_status else None
+        ),
+        "workflow_status_is_closed": bool(
+            node.workflow_status and node.workflow_status.is_closed
+        ),
+        "progress": progress,
+        "schedule_activity_id": schedule.id if schedule else None,
+        "start_date": schedule.start_date.isoformat()
+        if schedule and schedule.start_date
+        else None,
+        "end_date": end_date.isoformat() if end_date else None,
+        "days_overdue": days_overdue,
+        "card_id": card_id,
+        "board_id": board_id,
+        "link": _project_link(
+            node.project_id,
+            workspace.id,
+            tab="wbs",
+            node=node.id,
+        ),
+    }
+
+
+def list_workspace_tasks(
     workspace,
-    assignee,
     *,
+    assignee_id=None,
+    unassigned=False,
+    project_id=None,
+    status_id=None,
     include_done=False,
     overdue_only=False,
-    limit=50,
+    q=None,
+    sort="end_date",
+    order="asc",
+    limit=100,
+    offset=0,
 ):
+    """All WBS work packages in workspace with Jira-like filters."""
     today = date.today()
     nodes = (
-        WBSNode.objects.filter(project__workspace=workspace, assignee=assignee)
+        WBSNode.objects.filter(
+            project__workspace=workspace,
+            node_type=WBSNode.NodeType.WORK_PACKAGE,
+        )
         .select_related(
             "project",
             "assignee",
@@ -181,90 +247,103 @@ def list_my_tasks(
         )
         .order_by("id")
     )
+    if assignee_id is not None:
+        nodes = nodes.filter(assignee_id=assignee_id)
+    if unassigned:
+        nodes = nodes.filter(assignee__isnull=True)
+    if project_id is not None:
+        nodes = nodes.filter(project_id=project_id)
+    if status_id is not None:
+        nodes = nodes.filter(workflow_status_id=status_id)
+    if q:
+        term = q.strip()
+        if term:
+            nodes = nodes.filter(Q(title__icontains=term) | Q(code__icontains=term))
+
     tasks = []
     overdue = 0
     due_soon = 0
     for node in nodes:
-        schedule = getattr(node, "schedule", None)
-        progress = schedule.progress if schedule else 0
-        if not include_done and progress >= 100:
+        row = _serialize_wbs_task(node, workspace, today=today)
+        if not include_done and (
+            row["progress"] >= 100 or row["workflow_status_is_closed"]
+        ):
             continue
-        end_date = schedule.end_date if schedule else None
-        days_overdue = (
-            (today - end_date).days
-            if end_date and end_date < today and progress < 100
-            else 0
-        )
-        if days_overdue > 0:
+        if row["days_overdue"] > 0:
             overdue += 1
         elif (
-            end_date
-            and today <= end_date <= today + timedelta(days=7)
-            and progress < 100
+            row["end_date"]
+            and today <= date.fromisoformat(row["end_date"]) <= today + timedelta(days=7)
+            and row["progress"] < 100
         ):
             due_soon += 1
-        if overdue_only and days_overdue <= 0:
+        if overdue_only and row["days_overdue"] <= 0:
             continue
-        try:
-            card = node.card
-            card_id = card.id
-            board_id = card.column.board_id
-        except ObjectDoesNotExist:
-            card_id = None
-            board_id = None
-        tasks.append(
-            {
-                "source": "wbs",
-                "wbs_id": node.id,
-                "wbs_code": node.code,
-                "title": node.title,
-                "description": node.description or "",
-                "node_type": node.node_type,
-                "project_id": node.project_id,
-                "project_name": node.project.name,
-                "assignee_id": node.assignee_id,
-                "assignee_name": _user_label(node.assignee),
-                "workflow_status_id": node.workflow_status_id,
-                "workflow_status_name": (
-                    node.workflow_status.name if node.workflow_status else None
-                ),
-                "progress": progress,
-                "schedule_activity_id": schedule.id if schedule else None,
-                "start_date": schedule.start_date.isoformat()
-                if schedule and schedule.start_date
-                else None,
-                "end_date": end_date.isoformat() if end_date else None,
-                "days_overdue": days_overdue,
-                "card_id": card_id,
-                "board_id": board_id,
-                "link": _project_link(
-                    node.project_id,
-                    workspace.id,
-                    tab="wbs",
-                    node=node.id,
-                ),
-            }
-        )
+        tasks.append(row)
 
-    tasks.sort(
-        key=lambda item: (
-            0 if item["days_overdue"] > 0 else 1,
-            item["end_date"] or "9999-12-31",
-            item["wbs_id"],
+    sort_key_map = {
+        "code": lambda item: (item["wbs_code"] or "").lower(),
+        "title": lambda item: (item["title"] or "").lower(),
+        "project": lambda item: (item["project_name"] or "").lower(),
+        "assignee": lambda item: (item["assignee_name"] or "").lower(),
+        "status": lambda item: (item["workflow_status_name"] or "").lower(),
+        "progress": lambda item: item["progress"],
+        "start_date": lambda item: item["start_date"] or "9999-12-31",
+        "end_date": lambda item: item["end_date"] or "9999-12-31",
+        "days_overdue": lambda item: item["days_overdue"],
+    }
+    key_fn = sort_key_map.get(sort, sort_key_map["end_date"])
+    reverse = order == "desc"
+    if sort == "days_overdue" and order == "asc":
+        tasks.sort(
+            key=lambda item: (
+                0 if item["days_overdue"] > 0 else 1,
+                item["end_date"] or "9999-12-31",
+                item["wbs_id"],
+            )
         )
-    )
-    tasks = tasks[:limit]
+    else:
+        tasks.sort(key=key_fn, reverse=reverse)
+
+    total = len(tasks)
+    page = tasks[offset : offset + limit]
     return {
         "workspace_id": workspace.id,
-        "assignee_id": assignee.id,
-        "assignee_name": _user_label(assignee),
         "summary": {
-            "total": len(tasks),
+            "total": total,
             "overdue": overdue,
             "due_soon": due_soon,
+            "returned": len(page),
         },
-        "tasks": tasks,
+        "tasks": page,
     }
+
+
+def list_my_tasks(
+    workspace,
+    assignee,
+    *,
+    include_done=False,
+    overdue_only=False,
+    limit=50,
+):
+    payload = list_workspace_tasks(
+        workspace,
+        assignee_id=assignee.id,
+        include_done=include_done,
+        overdue_only=overdue_only,
+        limit=limit,
+        sort="end_date",
+        order="asc",
+    )
+    payload["assignee_id"] = assignee.id
+    payload["assignee_name"] = _user_label(assignee)
+    payload["summary"] = {
+        "total": payload["summary"]["total"],
+        "overdue": payload["summary"]["overdue"],
+        "due_soon": payload["summary"]["due_soon"],
+    }
+    return payload
 
 
 def _overlap_days(start: date | None, end: date | None, week_start: date, week_end: date) -> int:

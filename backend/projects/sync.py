@@ -1,5 +1,5 @@
 from kanban.models import Card, Column
-from projects.models import ScheduleActivity
+from projects.models import ScheduleActivity, WBSNode
 
 
 def progress_for_column(card: Card) -> int:
@@ -58,3 +58,21 @@ def sync_activity_from_card(card: Card) -> None:
     if schedule.progress != progress:
         schedule.progress = progress
         schedule.save(update_fields=["progress"])
+
+
+def sync_schedule_from_workflow_status(node: WBSNode) -> None:
+    """Closed workflow status → 100% schedule progress + Kanban column sync."""
+    status = getattr(node, "workflow_status", None)
+    if status is None or not status.is_closed:
+        return
+
+    schedule = getattr(node, "schedule", None)
+    if schedule is None:
+        schedule = ScheduleActivity.objects.filter(wbs_node=node).first()
+    if schedule is None:
+        return
+
+    if schedule.progress != 100:
+        schedule.progress = 100
+        schedule.save(update_fields=["progress"])
+    sync_card_from_activity(schedule)
