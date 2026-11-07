@@ -18,6 +18,7 @@ import { MobileSettingsPanel } from "../components/settings/MobileSettingsPanel"
 import { CalendarSyncPanel } from "../components/settings/CalendarSyncPanel";
 import { SmtpStatusPanel } from "../components/settings/SmtpStatusPanel";
 import { ObsSettingsPanel } from "../components/settings/ObsSettingsPanel";
+import { LadyaHubSettingsPanel } from "../components/settings/LadyaHubSettingsPanel";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLocale, type Currency, type Locale } from "../context/LocaleContext";
@@ -430,6 +431,7 @@ export function SettingsPage() {
       {user && <MobileSettingsPanel />}
       {user && <CalendarSyncPanel />}
       {activeWorkspace?.role === "owner" && <SmtpStatusPanel />}
+      {activeWorkspace && <LadyaHubSettingsPanel />}
       {activeWorkspace && <ObsSettingsPanel />}
 
       <div className="max-w-2xl rounded-xl border border-border bg-surface p-6">

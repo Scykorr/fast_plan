@@ -31,6 +31,7 @@ import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ProcessesPage } from "./pages/ProcessesPage";
 import { ProcessTasksPage } from "./pages/ProcessTasksPage";
 import { AgentOpsPage } from "./pages/AgentOpsPage";
+import { LadyaPage } from "./pages/LadyaPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -102,6 +103,7 @@ export default function App() {
               <Route path="processes" element={<ProcessesPage />} />
               <Route path="process-tasks" element={<ProcessTasksPage />} />
               <Route path="agent-ops" element={<AgentOpsPage />} />
+              <Route path="ladya/*" element={<LadyaPage />} />
               <Route path="crm-ai" element={<CrmAiPage />} />
               <Route path="crm-commerce" element={<CrmCommercePage />} />
               <Route path="crm-analytics" element={<CrmAnalyticsPage />} />

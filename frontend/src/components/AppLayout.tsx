@@ -10,6 +10,7 @@ import { notifyDataInvalidated } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLocale } from "../context/LocaleContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useLadyaApi } from "../hooks/useLadyaApi";
 import { useWorkspaceEvents } from "../hooks/useWorkspaceEvents";
 import { APP_VERSION } from "../version";
 
@@ -41,12 +42,14 @@ type NavItem = {
   end?: boolean;
 };
 
-type NavGroupId = "overview" | "projects" | "crm" | "process" | "system";
+type NavGroupId = "overview" | "projects" | "crm" | "process" | "ladya" | "system";
 
 type NavGroup = {
   id: NavGroupId;
-  labelKey: "navOverview" | "navProjects" | "navCrm" | "navProcess" | "navSystem";
+  labelKey?: "navOverview" | "navProjects" | "navCrm" | "navProcess" | "navSystem";
+  label?: string;
   items: NavItem[];
+  feature?: "ladya";
 };
 
 const navGroups: NavGroup[] = [
@@ -90,6 +93,16 @@ const navGroups: NavGroup[] = [
       { to: "/process-tasks", labelKey: "processTasks" },
       { to: "/automations", labelKey: "automations" },
       { to: "/agent-ops", labelKey: "agentOps" },
+    ],
+  },
+  {
+    id: "ladya",
+    label: "Ладья",
+    feature: "ladya",
+    items: [
+      { to: "/ladya/packages", label: "Пакеты" },
+      { to: "/ladya/labs", label: "Лаборатории" },
+      { to: "/ladya/intake", label: "Вход" },
     ],
   },
   {
@@ -154,17 +167,51 @@ function NavItemLink({
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   const { t } = useLocale();
-  const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
+  const { workspaces, activeWorkspace, switchWorkspace, workspaceEpoch } =
+    useWorkspace();
+  const ladyaApi = useLadyaApi();
   const { pathname } = useLocation();
   const [switching, setSwitching] = useState(false);
+  const [ladyaEnabled, setLadyaEnabled] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<NavGroupId>>(() => {
     const active = navGroups.find((group) => groupContainsPath(group, pathname));
     return new Set(active ? [active.id] : ["overview"]);
   });
 
+  useEffect(() => {
+    if (!ladyaApi || !activeWorkspace) {
+      setLadyaEnabled(false);
+      return;
+    }
+    let cancelled = false;
+    void ladyaApi
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) {
+          setLadyaEnabled(Boolean(settings.ladya_hub_enabled));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLadyaEnabled(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ladyaApi, activeWorkspace?.id, workspaceEpoch]);
+
+  const visibleNavGroups = useMemo(
+    () =>
+      navGroups.filter(
+        (group) => group.feature !== "ladya" || ladyaEnabled,
+      ),
+    [ladyaEnabled],
+  );
+
   const activeGroupId = useMemo(
-    () => navGroups.find((group) => groupContainsPath(group, pathname))?.id,
-    [pathname],
+    () => visibleNavGroups.find((group) => groupContainsPath(group, pathname))?.id,
+    [pathname, visibleNavGroups],
   );
 
   useEffect(() => {
@@ -234,7 +281,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto pr-1">
-        {navGroups.map((group) => {
+        {visibleNavGroups.map((group) => {
           const open = openGroups.has(group.id);
           const panelId = `nav-group-${group.id}`;
           return (
@@ -251,7 +298,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     : "text-text-muted hover:bg-cream hover:text-text",
                 ].join(" ")}
               >
-                <span>{t(group.labelKey)}</span>
+                <span>{group.labelKey ? t(group.labelKey) : group.label}</span>
                 <span className="text-[10px]" aria-hidden>
                   {open ? "▾" : "▸"}
                 </span>
