@@ -90,6 +90,7 @@ class AgentProfileSerializer(serializers.ModelSerializer):
             "user",
             "user_email",
             "role",
+            "ladya_role",
             "actor_type",
             "display_name",
             "is_active",

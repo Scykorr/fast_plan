@@ -37,6 +37,16 @@ class AgentRole(models.TextChoices):
     REVIEWER = "reviewer", "Reviewer"
 
 
+class LadyaAgentRole(models.TextChoices):
+    """Optional Ladya methodology roles on AgentProfile (hint / display)."""
+
+    NONE = "", "—"
+    LAD = "lad", "ЛАД"
+    CARTOGRAPHER = "cartographer", "Картограф"
+    QUEST = "quest", "Квест"
+    CURATOR = "curator", "Куратор (человек)"
+
+
 # TZ §4 / §12 — default action sets per role
 ROLE_DEFAULT_ACTIONS: dict[str, list[str]] = {
     AgentRole.PLANNER: [
@@ -162,6 +172,13 @@ class AgentProfile(models.Model):
         related_name="delivery_agent_profiles",
     )
     role = models.CharField(max_length=32, choices=AgentRole.choices)
+    ladya_role = models.CharField(
+        max_length=32,
+        choices=LadyaAgentRole.choices,
+        blank=True,
+        default="",
+        help_text="Optional Ladya Hub role (lad/cartographer/quest/curator).",
+    )
     actor_type = models.CharField(
         max_length=16, choices=ActorType.choices, default=ActorType.HUMAN
     )

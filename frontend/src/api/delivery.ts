@@ -41,6 +41,7 @@ export type AgentProfile = {
   user: number;
   user_email: string;
   role: string;
+  ladya_role: string;
   actor_type: "human" | "agent";
   display_name: string;
   is_active: boolean;
@@ -275,6 +276,18 @@ export function createDeliveryApi() {
     }) =>
       request<AgentProfile>("/delivery/agents/service-accounts/", {
         method: "POST",
+        body: JSON.stringify(data),
+      }),
+    patchAgent: (
+      id: number,
+      data: Partial<{
+        display_name: string;
+        ladya_role: string;
+        is_active: boolean;
+      }>,
+    ) =>
+      request<AgentProfile>(`/delivery/agents/${id}/`, {
+        method: "PATCH",
         body: JSON.stringify(data),
       }),
     listEpics: () => request<DeliveryEpic[]>("/delivery/epics/"),

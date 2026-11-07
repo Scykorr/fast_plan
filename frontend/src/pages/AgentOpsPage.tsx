@@ -54,6 +54,14 @@ const ROLES = [
   "observer",
 ] as const;
 
+const LADYA_ROLES = [
+  { value: "", label: "— (без роли Ладьи)" },
+  { value: "lad", label: "ЛАД" },
+  { value: "cartographer", label: "Картограф" },
+  { value: "quest", label: "Квест" },
+  { value: "curator", label: "Куратор" },
+] as const;
+
 const emptyTaskForm = {
   title: "",
   business_outcome: "",
@@ -976,10 +984,16 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                 {agents.map((a) => (
                   <li
                     key={a.id}
-                    className="rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+                    className="rounded-xl border border-border bg-surface px-4 py-3 text-sm space-y-2"
                   >
                     <p className="font-semibold text-text">
                       {a.display_name || a.user_email} · {a.role}
+                      {a.ladya_role
+                        ? ` · Ладья: ${
+                            LADYA_ROLES.find((r) => r.value === a.ladya_role)
+                              ?.label ?? a.ladya_role
+                          }`
+                        : ""}
                     </p>
                     <p className="text-xs text-text-muted">
                       {a.actor_type}
@@ -988,6 +1002,26 @@ POST /api/delivery/tasks/{id}/handoffs/`}
                       {a.assigned_open_count ?? 0} · actions:{" "}
                       {(a.effective_actions || []).join(", ")}
                     </p>
+                    <label className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+                      Роль Ладьи
+                      <select
+                        className="rounded-lg border border-border bg-cream px-2 py-1 text-sm text-text"
+                        value={a.ladya_role || ""}
+                        onChange={(e) => {
+                          if (!api) return;
+                          void api
+                            .patchAgent(a.id, { ladya_role: e.target.value })
+                            .then(() => load())
+                            .catch((err) => setError(parseApiError(err)));
+                        }}
+                      >
+                        {LADYA_ROLES.map((r) => (
+                          <option key={r.value || "none"} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </li>
                 ))}
               </ul>

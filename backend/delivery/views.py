@@ -422,6 +422,26 @@ class AgentServiceAccountCreateView(DeliveryOpsMixin, APIView):
         return Response(data, status=201)
 
 
+class AgentProfileDetailView(DeliveryOpsMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def patch(self, request, agent_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ops_enabled(ws)
+        profile = get_object_or_404(
+            AgentProfile.objects.filter(workspace=ws), pk=agent_id
+        )
+        if "display_name" in request.data:
+            profile.display_name = (request.data.get("display_name") or "")[:255]
+        if "ladya_role" in request.data:
+            profile.ladya_role = (request.data.get("ladya_role") or "")[:32]
+        if "is_active" in request.data:
+            profile.is_active = bool(request.data.get("is_active"))
+        profile.save()
+        return Response(AgentProfileSerializer(profile).data)
+
+
 class AgentActionLogListView(DeliveryOpsMixin, APIView):
     permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
