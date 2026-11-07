@@ -15,6 +15,8 @@ class LadyaSettings(models.Model):
         related_name="ladya_settings",
     )
     ladya_hub_enabled = models.BooleanField(default=False)
+    # Shared secret for POST /api/ladya/telegram/<secret>/ (Intake only; never agents).
+    telegram_webhook_secret = models.CharField(max_length=64, blank=True, default="")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -37,6 +39,14 @@ class Laboratory(models.Model):
     title = models.CharField(max_length=255)
     kind = models.CharField(max_length=32, choices=Kind.choices)
     is_active = models.BooleanField(default=True)
+    # Optional link to an existing workspace/project chat (not a new messenger).
+    chat_room = models.ForeignKey(
+        "chats.ChatRoom",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ladya_laboratories",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -102,6 +112,8 @@ class Package(models.Model):
         blank=True,
         related_name="ladya_packages",
     )
+    # Hint for next Agent Ops / Ladya role — not a lifecycle enforcer.
+    preferred_role = models.CharField(max_length=32, blank=True, default="")
     manifest_sha256 = models.CharField(max_length=64, blank=True, default="")
     notes_limitations = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -199,6 +211,7 @@ class IntakeRequest(models.Model):
     class Source(models.TextChoices):
         WEB_FORM = "web_form", "Веб-форма"
         MANUAL = "manual", "Вручную"
+        TELEGRAM = "telegram", "Telegram"
 
     workspace = models.ForeignKey(
         "workspaces.Workspace",

@@ -3,12 +3,12 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ladya.defaults import get_or_create_ladya_settings
-from ladya.models import IntakeRequest, Laboratory, Package, PackageFile
+from ladya.models import IntakeRequest, Laboratory, LadyaSettings, Package, PackageFile
 from ladya.serializers import (
     IntakeConvertSerializer,
     IntakeRequestSerializer,
@@ -73,6 +73,14 @@ class LadyaSettingsView(WorkspaceMixin, APIView):
         row, _ = get_or_create_ladya_settings(self.get_workspace())
         if "ladya_hub_enabled" in request.data:
             row.ladya_hub_enabled = bool(request.data.get("ladya_hub_enabled"))
+        if request.data.get("rotate_telegram_webhook_secret"):
+            from ladya.telegram import new_telegram_webhook_secret
+
+            row.telegram_webhook_secret = new_telegram_webhook_secret()
+        elif "telegram_webhook_secret" in request.data:
+            row.telegram_webhook_secret = (
+                str(request.data.get("telegram_webhook_secret") or "")[:64]
+            )
         row.save()
         return Response(LadyaSettingsSerializer(row).data)
 
@@ -114,7 +122,12 @@ class LaboratoryDetailView(WorkspaceMixin, APIView):
     def patch(self, request, lab_id):
         self.require_editor()
         lab = self.get_lab(lab_id)
-        serializer = LaboratoryWriteSerializer(lab, data=request.data, partial=True)
+        serializer = LaboratoryWriteSerializer(
+            lab,
+            data=request.data,
+            partial=True,
+            context={"workspace": self.get_workspace()},
+        )
         serializer.is_valid(raise_exception=True)
         lab = serializer.save()
         return Response(LaboratorySerializer(lab).data)
@@ -492,3 +505,34 @@ class LadyaEventsFeedView(WorkspaceMixin, APIView):
             row["package_title"] = event.package.title
             data.append(row)
         return Response(data)
+
+
+class LadyaTelegramWebhookView(APIView):
+    """Public webhook: POST /api/ladya/telegram/<secret>/ → IntakeRequest only."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, secret):
+        from ladya.telegram import ingest_telegram_intake
+
+        row = (
+            LadyaSettings.objects.filter(
+                ladya_hub_enabled=True,
+                telegram_webhook_secret=secret,
+            )
+            .exclude(telegram_webhook_secret="")
+            .select_related("workspace")
+            .first()
+        )
+        if row is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        payload = request.data if isinstance(request.data, dict) else {}
+        intake = ingest_telegram_intake(row, payload)
+        return Response(
+            {
+                "ok": True,
+                "intake_id": intake.id if intake else None,
+                "delivery_task_created": False,
+            }
+        )

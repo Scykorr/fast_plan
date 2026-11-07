@@ -3,8 +3,17 @@ import { request, requestForm } from "./client";
 export type LadyaSettings = {
   ladya_hub_enabled: boolean;
   package_max_bytes: number;
+  telegram_webhook_secret_set: boolean;
+  telegram_webhook_path: string;
   updated_at: string;
 };
+
+export type LadyaRole =
+  | ""
+  | "lad"
+  | "cartographer"
+  | "quest"
+  | "curator";
 
 export type LadyaStatusEvent = {
   id: number;
@@ -32,6 +41,7 @@ export type Laboratory = {
   title: string;
   kind: LaboratoryKind;
   is_active: boolean;
+  chat_room: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -78,6 +88,7 @@ export type LadyaPackage = {
   status: PackageStatus;
   created_by: number;
   linked_delivery_task: number | null;
+  preferred_role: LadyaRole | string;
   manifest_sha256: string;
   notes_limitations: string;
   created_at: string;
@@ -93,7 +104,7 @@ export type IntakeRequest = {
   body: string;
   contact: string;
   status: IntakeStatus;
-  source: "web_form" | "manual";
+  source: "web_form" | "manual" | "telegram";
   package: number | null;
   created_by: number | null;
   created_at: string;
@@ -103,7 +114,10 @@ export type IntakeRequest = {
 export function createLadyaApi() {
   return {
     getSettings: () => request<LadyaSettings>("/ladya/settings/"),
-    patchSettings: (data: { ladya_hub_enabled: boolean }) =>
+    patchSettings: (data: {
+      ladya_hub_enabled?: boolean;
+      rotate_telegram_webhook_secret?: boolean;
+    }) =>
       request<LadyaSettings>("/ladya/settings/", {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -127,6 +141,7 @@ export function createLadyaApi() {
         title: string;
         kind: LaboratoryKind;
         is_active: boolean;
+        chat_room: number | null;
       }>,
     ) =>
       request<Laboratory>(`/ladya/laboratories/${id}/`, {
@@ -157,6 +172,7 @@ export function createLadyaApi() {
       from_laboratory?: number | null;
       to_laboratory?: number | null;
       linked_delivery_task?: number | null;
+      preferred_role?: string;
       notes_limitations?: string;
     }) =>
       request<LadyaPackage>("/ladya/packages/", {
@@ -171,6 +187,7 @@ export function createLadyaApi() {
         from_laboratory: number | null;
         to_laboratory: number | null;
         linked_delivery_task: number | null;
+        preferred_role: string;
         notes_limitations: string;
       }>,
     ) =>

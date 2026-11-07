@@ -3,6 +3,11 @@ from django.urls import path
 from ladya import views
 
 urlpatterns = [
+    path(
+        "ladya/telegram/<str:secret>/",
+        views.LadyaTelegramWebhookView.as_view(),
+        name="ladya-telegram-webhook",
+    ),
     path("ladya/settings/", views.LadyaSettingsView.as_view(), name="ladya-settings"),
     path(
         "ladya/laboratories/",

@@ -13,16 +13,37 @@ from ladya.services import next_package_number
 
 class LadyaSettingsSerializer(serializers.ModelSerializer):
     package_max_bytes = serializers.SerializerMethodField()
+    telegram_webhook_secret_set = serializers.SerializerMethodField()
+    telegram_webhook_path = serializers.SerializerMethodField()
 
     class Meta:
         model = LadyaSettings
-        fields = ("ladya_hub_enabled", "package_max_bytes", "updated_at")
-        read_only_fields = ("updated_at", "package_max_bytes")
+        fields = (
+            "ladya_hub_enabled",
+            "package_max_bytes",
+            "telegram_webhook_secret_set",
+            "telegram_webhook_path",
+            "updated_at",
+        )
+        read_only_fields = (
+            "updated_at",
+            "package_max_bytes",
+            "telegram_webhook_secret_set",
+            "telegram_webhook_path",
+        )
 
     def get_package_max_bytes(self, _obj) -> int:
         from django.conf import settings
 
         return int(getattr(settings, "LADYA_PACKAGE_MAX_BYTES", 256 * 1024 * 1024))
+
+    def get_telegram_webhook_secret_set(self, obj) -> bool:
+        return bool(obj.telegram_webhook_secret)
+
+    def get_telegram_webhook_path(self, obj) -> str:
+        if not obj.telegram_webhook_secret:
+            return ""
+        return f"/api/ladya/telegram/{obj.telegram_webhook_secret}/"
 
 
 class LaboratorySerializer(serializers.ModelSerializer):
@@ -34,6 +55,7 @@ class LaboratorySerializer(serializers.ModelSerializer):
             "title",
             "kind",
             "is_active",
+            "chat_room",
             "created_at",
             "updated_at",
         )
@@ -43,7 +65,18 @@ class LaboratorySerializer(serializers.ModelSerializer):
 class LaboratoryWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Laboratory
-        fields = ("slug", "title", "kind", "is_active")
+        fields = ("slug", "title", "kind", "is_active", "chat_room")
+
+    def validate_chat_room(self, value):
+        if value is None:
+            return value
+        workspace = self.context["workspace"]
+        # Room must belong to this workspace (direct or via project).
+        if value.workspace_id and value.workspace_id != workspace.id:
+            raise serializers.ValidationError("Чат из другого workspace.")
+        if value.project_id and value.project.workspace_id != workspace.id:
+            raise serializers.ValidationError("Чат проекта из другого workspace.")
+        return value
 
     def create(self, validated_data):
         return Laboratory.objects.create(
@@ -102,6 +135,7 @@ class PackageSerializer(serializers.ModelSerializer):
             "status",
             "created_by",
             "linked_delivery_task",
+            "preferred_role",
             "manifest_sha256",
             "notes_limitations",
             "created_at",
@@ -128,6 +162,9 @@ class PackageWriteSerializer(serializers.Serializer):
     from_laboratory = serializers.IntegerField(required=False, allow_null=True)
     to_laboratory = serializers.IntegerField(required=False, allow_null=True)
     linked_delivery_task = serializers.IntegerField(required=False, allow_null=True)
+    preferred_role = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=32
+    )
     manifest_sha256 = serializers.CharField(
         required=False, allow_blank=True, default="", max_length=64
     )
@@ -170,6 +207,7 @@ class PackageWriteSerializer(serializers.Serializer):
             from_laboratory=self._lab(validated_data.get("from_laboratory")),
             to_laboratory=self._lab(validated_data.get("to_laboratory")),
             linked_delivery_task=self._task(validated_data.get("linked_delivery_task")),
+            preferred_role=validated_data.get("preferred_role", ""),
             manifest_sha256=validated_data.get("manifest_sha256", ""),
             notes_limitations=validated_data.get("notes_limitations", ""),
             created_by=user,
@@ -198,6 +236,8 @@ class PackageWriteSerializer(serializers.Serializer):
             instance.linked_delivery_task = self._task(
                 validated_data["linked_delivery_task"]
             )
+        if "preferred_role" in validated_data:
+            instance.preferred_role = validated_data["preferred_role"] or ""
         if "manifest_sha256" in validated_data:
             instance.manifest_sha256 = validated_data["manifest_sha256"]
         if "notes_limitations" in validated_data:
