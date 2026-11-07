@@ -53,23 +53,6 @@ export function LadyaHubSettingsPanel() {
     }
   };
 
-  const rotateSecret = async () => {
-    if (!api) return;
-    setSaving(true);
-    setMessage("");
-    try {
-      const next = await api.patchSettings({
-        rotate_telegram_webhook_secret: true,
-      });
-      setSettings(next);
-      setMessage("Telegram webhook secret обновлён. Укажите новый URL в setWebhook.");
-    } catch (err) {
-      setError(parseApiError(err, "Не удалось сгенерировать secret"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const enabled = Boolean(settings?.ladya_hub_enabled);
 
   return (
@@ -79,6 +62,7 @@ export function LadyaHubSettingsPanel() {
         <p className="mt-1 text-sm text-text-muted">
           Feature-flag для workspace
           {activeWorkspace ? ` «${activeWorkspace.name}»` : ""}. По умолчанию выключен.
+          Вход людей — форма Intake и внутренний чат Fast Plan (не Telegram).
         </p>
       </div>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
@@ -86,42 +70,15 @@ export function LadyaHubSettingsPanel() {
       {loading || !settings ? (
         <p className="text-sm text-text-muted">Загрузка...</p>
       ) : (
-        <>
-          <label className="flex items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              checked={enabled}
-              disabled={saving}
-              onChange={() => void toggle()}
-            />
-            <span>Включить раздел «Ладья» (ladya_hub_enabled)</span>
-          </label>
-
-          <div className="rounded-lg border border-border/60 bg-cream/40 p-3 space-y-2 text-sm">
-            <p className="font-medium text-text">Telegram → Intake</p>
-            <p className="text-xs text-text-muted">
-              Webhook создаёт только обращение во Вход. DeliveryTask / claim не
-              запускаются. См. docs/LADYA_HUB.md.
-            </p>
-            {settings.telegram_webhook_secret_set && settings.telegram_webhook_path ? (
-              <code className="block break-all rounded border border-border bg-surface px-2 py-1 text-xs">
-                {settings.telegram_webhook_path}
-              </code>
-            ) : (
-              <p className="text-xs text-text-muted">Secret ещё не задан.</p>
-            )}
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void rotateSecret()}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-cream disabled:opacity-50"
-            >
-              {settings.telegram_webhook_secret_set
-                ? "Ротировать secret"
-                : "Сгенерировать secret"}
-            </button>
-          </div>
-        </>
+        <label className="flex items-center gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={saving}
+            onChange={() => void toggle()}
+          />
+          <span>Включить раздел «Ладья» (ladya_hub_enabled)</span>
+        </label>
       )}
     </section>
   );

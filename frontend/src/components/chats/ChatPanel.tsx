@@ -10,6 +10,7 @@ import type {
 import { ErrorMessage } from "../ErrorMessage";
 import { useAuth } from "../../context/AuthContext";
 import { useChatsApi } from "../../hooks/useChatsApi";
+import { useLadyaApi } from "../../hooks/useLadyaApi";
 import { useWorkspaceEvents } from "../../hooks/useWorkspaceEvents";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { useProjectsApi } from "../../hooks/useProjectsApi";
@@ -39,12 +40,16 @@ const STATUS_LABELS: Record<ChatStatus, string> = {
 
 export function ChatPanel({ scope, projectId, roomId }: Props) {
   const chatsApi = useChatsApi();
+  const ladyaApi = useLadyaApi();
   const projectsApi = useProjectsApi();
   const workspaceApi = useWorkspaceApi();
   const { isAuthenticated, user } = useAuth();
   const { activeWorkspace } = useWorkspace();
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
+  const [canCreateIntake, setCanCreateIntake] = useState(false);
+  const [intakeBusyId, setIntakeBusyId] = useState<number | null>(null);
+  const [intakeToast, setIntakeToast] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [displayBodies, setDisplayBodies] = useState<
     Record<number, { text: string; mediaUrl?: string; mediaKind?: "attachment" | "voice"; fileName?: string }>
@@ -91,6 +96,22 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
     return chatsApi.resolveWorkspaceChat();
   }, [chatsApi, scope, projectId, roomId]);
 
+  const refreshLadyaCaps = useCallback(
+    async (nextRoom: ChatRoom | null) => {
+      if (!ladyaApi || !nextRoom) {
+        setCanCreateIntake(false);
+        return;
+      }
+      try {
+        const caps = await ladyaApi.chatCapabilities(nextRoom.id);
+        setCanCreateIntake(Boolean(caps.can_create_intake));
+      } catch {
+        setCanCreateIntake(false);
+      }
+    },
+    [ladyaApi],
+  );
+
   const refresh = useCallback(async () => {
     if (!chatsApi) {
       return;
@@ -103,9 +124,11 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
         setRoom(null);
         setMessages([]);
         setRoomKey(null);
+        setCanCreateIntake(false);
         return;
       }
       setRoom(nextRoom);
+      void refreshLadyaCaps(nextRoom);
       const listed = await chatsApi.listMessages(nextRoom.id);
       setMessages(listed.results);
 
@@ -136,7 +159,21 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [chatsApi, loadRoom, user?.id]);
+  }, [chatsApi, loadRoom, refreshLadyaCaps, user?.id]);
+
+  const createIntakeFromMessage = async (message: ChatMessage) => {
+    if (!ladyaApi) return;
+    setIntakeBusyId(message.id);
+    setIntakeToast("");
+    try {
+      const intake = await ladyaApi.intakeFromChatMessage(message.id);
+      setIntakeToast(`Intake #${intake.id} создан → /ladya/intake`);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать Intake из сообщения"));
+    } finally {
+      setIntakeBusyId(null);
+    }
+  };
 
   useEffect(() => {
     void refresh();
@@ -576,6 +613,14 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
       )}
 
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      {intakeToast && (
+        <p className="rounded-md border border-border bg-cream px-2.5 py-1.5 text-xs text-primary">
+          {intakeToast}{" "}
+          <a className="underline" href="/ladya/intake">
+            открыть Вход
+          </a>
+        </p>
+      )}
       {banner && (
         <p className="rounded-md border border-border bg-cream px-2.5 py-1.5 text-xs text-text">
           {banner}
@@ -760,6 +805,22 @@ export function ChatPanel({ scope, projectId, roomId }: Props) {
                   >
                     Ответить
                   </button>
+                  {canCreateIntake &&
+                    !message.is_encrypted &&
+                    !message.is_deleted &&
+                    Boolean(message.body?.trim()) && (
+                      <button
+                        type="button"
+                        disabled={intakeBusyId === message.id}
+                        onClick={() => void createIntakeFromMessage(message)}
+                        className="text-xs text-primary hover:underline disabled:opacity-50"
+                        title="Создать обращение Ladya Intake из текста сообщения"
+                      >
+                        {intakeBusyId === message.id
+                          ? "Intake…"
+                          : "Создать Intake"}
+                      </button>
+                    )}
                   {!message.is_encrypted && (
                     <button
                       type="button"

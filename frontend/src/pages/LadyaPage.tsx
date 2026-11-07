@@ -78,6 +78,9 @@ function SubNav() {
       <NavLink to="/ladya/intake" className={linkClass}>
         Вход (Intake)
       </NavLink>
+      <NavLink to="/ladya/agents" className={linkClass}>
+        Агенты
+      </NavLink>
     </div>
   );
 }
@@ -445,6 +448,7 @@ function PackageDetailPanel() {
   const [transferReason, setTransferReason] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [reason, setReason] = useState("");
 
   const id = Number(packageId);
@@ -641,6 +645,7 @@ function PackageDetailPanel() {
         ← К списку пакетов
       </button>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      {notice && <p className="text-sm text-primary">{notice}</p>}
       <div className="rounded-xl border border-border bg-surface p-5">
         <p className="text-xs uppercase tracking-wide text-text-muted">
           {pkg.display_code}
@@ -685,7 +690,61 @@ function PackageDetailPanel() {
               </select>
             </dd>
           </div>
+          <div>
+            <dt className="text-text-muted">Чаты лабораторий</dt>
+            <dd className="flex flex-wrap gap-2 pt-1">
+              {pkg.from_laboratory != null &&
+                labs.find((l) => l.id === pkg.from_laboratory)?.chat_room !=
+                  null && (
+                  <Link
+                    to="/portfolio"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Чат отправителя
+                  </Link>
+                )}
+              {pkg.to_laboratory != null &&
+                labs.find((l) => l.id === pkg.to_laboratory)?.chat_room !=
+                  null && (
+                  <Link
+                    to="/portfolio"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Чат получателя
+                  </Link>
+                )}
+              {pkg.to_laboratory != null &&
+                labs.find((l) => l.id === pkg.to_laboratory)?.chat_room ==
+                  null && (
+                  <span className="text-xs text-text-muted">
+                    У получателя нет chat_room — создайте на карточке lab
+                  </span>
+                )}
+            </dd>
+          </div>
         </dl>
+        {pkg.to_laboratory != null &&
+          labs.find((l) => l.id === pkg.to_laboratory)?.chat_room != null && (
+            <button
+              type="button"
+              className="mt-3 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-cream"
+              onClick={() => {
+                if (!api) return;
+                void api
+                  .notifyPackageChat(pkg.id)
+                  .then((row) =>
+                    setNotice(`Сообщение #${row.message_id} отправлено в чат`),
+                  )
+                  .catch((err) =>
+                    setError(
+                      parseApiError(err, "Не удалось отправить в чат"),
+                    ),
+                  );
+              }}
+            >
+              Сообщить в чат лаборатории-получателя
+            </button>
+          )}
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
@@ -947,26 +1006,25 @@ function LabDetailPanel() {
     }
   };
 
-  const onEnsureWorkspaceChat = async () => {
-    if (!api || !lab || !chatsApi) return;
+  const onCreateLabChat = async () => {
+    if (!api || !lab) return;
     try {
-      const room = await chatsApi.resolveWorkspaceChat();
-      const updated = await api.patchLaboratory(lab.id, { chat_room: room.id });
-      setLab(updated);
-      setChatPick(room.id);
+      const result = await api.ensureLaboratoryChat(lab.id);
+      setLab(result.laboratory);
+      setChatPick(result.chat_room_id);
       setChatOptions((prev) =>
-        prev.some((r) => r.id === room.id)
+        prev.some((r) => r.id === result.chat_room_id)
           ? prev
           : [
               ...prev,
               {
-                id: room.id,
-                label: `${room.label || "workspace"} (#${room.id})`,
+                id: result.chat_room_id,
+                label: `Портфель (#${result.chat_room_id})`,
               },
             ],
       );
     } catch (err) {
-      setError(parseApiError(err, "Не удалось открыть чат workspace"));
+      setError(parseApiError(err, "Не удалось создать комнату лаборатории"));
     }
   };
 
@@ -1023,14 +1081,22 @@ function LabDetailPanel() {
               <button
                 type="button"
                 className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white"
-                onClick={() => void onEnsureWorkspaceChat()}
+                onClick={() => void onCreateLabChat()}
               >
-                Открыть чат workspace
+                Создать комнату лаборатории
               </button>
+              <Link
+                to="/portfolio"
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-cream"
+              >
+                Открыть чат
+              </Link>
             </div>
             {lab.chat_room != null && (
               <p className="text-xs text-text-muted">
-                Привязан room #{lab.chat_room}
+                Привязан room #{lab.chat_room} (чат портфеля workspace). Для
+                central_lad / external_intake в сообщениях появится «Создать
+                Intake».
               </p>
             )}
           </div>
@@ -1158,8 +1224,9 @@ function IntakePanel() {
     <div className="space-y-4">
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
       <p className="text-sm text-text-muted">
-        Человек пишет во Вход; ЛАД принимает обращение и превращает его в Package.
-        Внутренние пакеты здесь не показываются.
+        Форма здесь или кнопка «Создать Intake» в чате портфеля (после привязки
+        комнаты к central_lad). Telegram для Ладьи не используем. Пакеты здесь не
+        показываются.
       </p>
       <form
         onSubmit={(e) => void onCreate(e)}
@@ -1287,6 +1354,239 @@ function IntakePanel() {
   );
 }
 
+function AgentsPanel() {
+  const api = useLadyaApi();
+  const { workspaceEpoch, activeWorkspace } = useWorkspace();
+  const [labs, setLabs] = useState<Laboratory[]>([]);
+  const [labId, setLabId] = useState<number | "">("");
+  const [ladyaRole, setLadyaRole] = useState<LadyaRole>("quest");
+  const [displayName, setDisplayName] = useState("");
+  const [agents, setAgents] = useState<
+    Array<{
+      id: number;
+      display_name: string;
+      role: string;
+      ladya_role: string;
+      user_email: string;
+      is_active: boolean;
+      is_service_account: boolean;
+    }>
+  >([]);
+  const [card, setCard] = useState<{
+    instruction: string;
+    token: string | null;
+    email: string | null;
+  } | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!api) return;
+    try {
+      const [labRows, agentRows] = await Promise.all([
+        api.listLaboratories(),
+        api.listLadyaAgents(labId === "" ? undefined : labId),
+      ]);
+      setLabs(labRows);
+      setAgents(agentRows);
+      setError("");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось загрузить агентов"));
+    }
+  }, [api, labId]);
+
+  useEffect(() => {
+    void load();
+  }, [load, workspaceEpoch]);
+
+  const onConnect = async () => {
+    if (!api || !ladyaRole) return;
+    setBusy(true);
+    setCard(null);
+    try {
+      const row = await api.connectAgent({
+        ladya_role: ladyaRole,
+        display_name: displayName || undefined,
+        laboratory: labId === "" ? null : labId,
+        frontend_base_url: window.location.origin,
+      });
+      setCard({
+        instruction: row.connect_instruction,
+        token: row.api_token_raw,
+        email: row.service_user_email,
+      });
+      setDisplayName("");
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось подключить агента"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyAll = async () => {
+    if (!card) return;
+    await navigator.clipboard.writeText(card.instruction);
+  };
+
+  return (
+    <div className="space-y-4">
+      {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-text">Подключить агента</h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Создать → скопировать инструкцию → вставить в Cursor/Codex. Агент
+              смотрит только inbox. Справка:{" "}
+              <code className="text-xs">docs/LADYA_CONNECT_AGENT.md</code>
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="text-sm">
+            Лаборатория
+            <select
+              className="mt-1 block w-full rounded-lg border border-border bg-cream px-3 py-2"
+              value={labId}
+              onChange={(e) =>
+                setLabId(e.target.value === "" ? "" : Number(e.target.value))
+              }
+            >
+              <option value="">Общие (workspace)</option>
+              {labs.map((lab) => (
+                <option key={lab.id} value={lab.id}>
+                  {lab.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Роль Ладьи
+            <select
+              className="mt-1 block w-full rounded-lg border border-border bg-cream px-3 py-2"
+              value={ladyaRole}
+              onChange={(e) => setLadyaRole(e.target.value as LadyaRole)}
+            >
+              {LADYA_ROLES.filter((r) => r.value).map((row) => (
+                <option key={row.value} value={row.value}>
+                  {row.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Имя
+            <input
+              className="mt-1 block w-full rounded-lg border border-border bg-cream px-3 py-2"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Quest bot"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          disabled={busy || !ladyaRole}
+          onClick={() => void onConnect()}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          Создать и выдать доступ
+        </button>
+        {activeWorkspace && (
+          <p className="text-xs text-text-muted">
+            Workspace id: {activeWorkspace.id} · API: {window.location.origin}/api
+          </p>
+        )}
+      </div>
+
+      {card && (
+        <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <h3 className="text-sm font-semibold">Карточка подключения (один раз)</h3>
+          {card.email && (
+            <p className="text-xs text-text-muted">Учётка: {card.email}</p>
+          )}
+          <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-cream p-3 text-xs">
+            {card.instruction}
+          </pre>
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-cream"
+            onClick={() => void copyAll()}
+          >
+            Скопировать всё
+          </button>
+        </div>
+      )}
+
+      <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
+        <h3 className="text-sm font-semibold">Подключённые агенты</h3>
+        <ul className="space-y-2">
+          {agents.map((a) => (
+            <li
+              key={a.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
+            >
+              <div>
+                <p className="font-medium">
+                  {a.display_name || a.user_email} · {a.ladya_role || a.role}
+                  {!a.is_active ? " · отозван" : ""}
+                </p>
+                <p className="text-xs text-text-muted">{a.user_email}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {a.is_service_account && a.is_active && (
+                  <button
+                    type="button"
+                    className="rounded-lg border border-border px-2 py-1 text-xs hover:bg-cream"
+                    onClick={() => {
+                      if (!api) return;
+                      void api
+                        .reissueAgent(a.id, window.location.origin)
+                        .then((row) =>
+                          setCard({
+                            instruction: row.connect_instruction,
+                            token: row.api_token_raw,
+                            email: a.user_email,
+                          }),
+                        )
+                        .catch((err) =>
+                          setError(parseApiError(err, "Не удалось перевыпустить")),
+                        );
+                    }}
+                  >
+                    Перевыпустить token
+                  </button>
+                )}
+                {a.is_active && (
+                  <button
+                    type="button"
+                    className="rounded-lg border border-border px-2 py-1 text-xs hover:bg-cream"
+                    onClick={() => {
+                      if (!api) return;
+                      void api
+                        .revokeAgent(a.id)
+                        .then(() => load())
+                        .catch((err) =>
+                          setError(parseApiError(err, "Не удалось отозвать")),
+                        );
+                    }}
+                  >
+                    Отозвать
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+          {agents.length === 0 && (
+            <li className="text-sm text-text-muted">Пока никого</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export function LadyaPage() {
   const api = useLadyaApi();
   const { theme } = useTheme();
@@ -1350,8 +1650,8 @@ export function LadyaPage() {
               </p>
               <h1 className="text-3xl font-bold text-text">Ладья</h1>
               <p className="mt-1 max-w-xl text-sm text-text-muted">
-                Операционный контур лабораторий: пакеты работы, файлы, вход
-                людей. Не приёмка Lab-0 — координация обмена.
+                Пакеты, внутренний чат Fast Plan, подключение агентов. Telegram
+                для Ладьи не используем.
               </p>
             </div>
           </div>
@@ -1366,6 +1666,7 @@ export function LadyaPage() {
         <Route path="packages" element={<PackagesPanel />} />
         <Route path="packages/:packageId" element={<PackageDetailPanel />} />
         <Route path="intake" element={<IntakePanel />} />
+        <Route path="agents" element={<AgentsPanel />} />
       </Routes>
     </div>
   );

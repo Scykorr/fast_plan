@@ -3,8 +3,6 @@ import { request, requestForm } from "./client";
 export type LadyaSettings = {
   ladya_hub_enabled: boolean;
   package_max_bytes: number;
-  telegram_webhook_secret_set: boolean;
-  telegram_webhook_path: string;
   updated_at: string;
 };
 
@@ -104,7 +102,7 @@ export type IntakeRequest = {
   body: string;
   contact: string;
   status: IntakeStatus;
-  source: "web_form" | "manual" | "telegram";
+  source: "web_form" | "manual" | "internal_chat" | "telegram";
   package: number | null;
   created_by: number | null;
   created_at: string;
@@ -114,10 +112,7 @@ export type IntakeRequest = {
 export function createLadyaApi() {
   return {
     getSettings: () => request<LadyaSettings>("/ladya/settings/"),
-    patchSettings: (data: {
-      ladya_hub_enabled?: boolean;
-      rotate_telegram_webhook_secret?: boolean;
-    }) =>
+    patchSettings: (data: { ladya_hub_enabled?: boolean }) =>
       request<LadyaSettings>("/ladya/settings/", {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -150,6 +145,27 @@ export function createLadyaApi() {
       }),
     deleteLaboratory: (id: number) =>
       request<void>(`/ladya/laboratories/${id}/`, { method: "DELETE" }),
+    ensureLaboratoryChat: (id: number) =>
+      request<{
+        laboratory: Laboratory;
+        chat_room_id: number;
+        open_path: string;
+      }>(`/ladya/laboratories/${id}/ensure-chat/`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    listLaboratoryAgents: (labId: number) =>
+      request<
+        Array<{
+          id: number;
+          display_name: string;
+          role: string;
+          ladya_role: string;
+          user_email: string;
+          is_active: boolean;
+          is_service_account: boolean;
+        }>
+      >(`/ladya/laboratories/${labId}/agents/`),
 
     listPackages: (params?: {
       status?: string;
@@ -233,6 +249,79 @@ export function createLadyaApi() {
         method: "POST",
         body: JSON.stringify({}),
       }),
+    notifyPackageChat: (id: number, text?: string) =>
+      request<{ message_id: number; room_id: number; body: string }>(
+        `/ladya/packages/${id}/notify-chat/`,
+        {
+          method: "POST",
+          body: JSON.stringify(text ? { text } : {}),
+        },
+      ),
+    chatCapabilities: (roomId: number) =>
+      request<{
+        ladya_enabled: boolean;
+        can_create_intake: boolean;
+        lab_ids: number[];
+      }>(`/ladya/chat-rooms/${roomId}/capabilities/`),
+    intakeFromChatMessage: (messageId: number) =>
+      request<IntakeRequest>("/ladya/intake/from-chat-message/", {
+        method: "POST",
+        body: JSON.stringify({ message_id: messageId }),
+      }),
+    listLadyaAgents: (laboratory?: number) => {
+      const q =
+        laboratory != null ? `?laboratory=${laboratory}` : "";
+      return request<
+        Array<{
+          id: number;
+          display_name: string;
+          role: string;
+          ladya_role: string;
+          user_email: string;
+          is_active: boolean;
+          is_service_account: boolean;
+        }>
+      >(`/ladya/agents/${q}`);
+    },
+    connectAgent: (data: {
+      ladya_role: string;
+      display_name?: string;
+      laboratory?: number | null;
+      ops_role?: string;
+      frontend_base_url?: string;
+    }) =>
+      request<{
+        id: number;
+        display_name: string;
+        role: string;
+        ladya_role: string;
+        user_email: string;
+        api_token_raw: string | null;
+        service_user_email: string | null;
+        workspace_id: number;
+        connect_instruction: string;
+        laboratory_id: number | null;
+      }>("/ladya/agents/", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    reissueAgent: (id: number, frontend_base_url?: string) =>
+      request<{
+        id: number;
+        api_token_raw: string;
+        connect_instruction: string;
+        workspace_id: number;
+      }>(`/ladya/agents/${id}/reissue/`, {
+        method: "POST",
+        body: JSON.stringify(
+          frontend_base_url ? { frontend_base_url } : {},
+        ),
+      }),
+    revokeAgent: (id: number) =>
+      request<{ id: number; is_active: boolean }>(
+        `/ladya/agents/${id}/revoke/`,
+        { method: "POST", body: JSON.stringify({}) },
+      ),
     buildManifest: (id: number) =>
       request<{ manifest: Record<string, unknown>; manifest_sha256: string }>(
         `/ladya/packages/${id}/manifest/`,
