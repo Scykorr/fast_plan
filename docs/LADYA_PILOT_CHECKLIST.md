@@ -1,6 +1,8 @@
 # Чеклист пилота Ladya Hub (10–15 мин)
 
-Ветка: `feature/ladya-hub`. Цель — один живой прогон «человек → ЛАД → лаборатории», не приёмка Lab-0.
+Ветка: `feature/ladya-hub`. Цель — один живой прогон «человек → ЛАД → лаборатории».
+
+**Внешний вход = форма Intake и/или сообщение во внутреннем чате Fast Plan. Telegram для Ладьи не используем.**
 
 ## Подготовка
 
@@ -12,46 +14,39 @@
 
 - [ ] Создать `central_lad` (slug например `central`)
 - [ ] Создать `lab0` (slug `lab0`)
-- [ ] Создать 1–2 `private_lab` (например `anton-stand`, `nikita`)
+- [ ] Создать 1–2 `private_lab`
+- [ ] На central: **Создать комнату лаборатории** → **Открыть чат** (`/portfolio`)
 
 ## Вход человека
 
+### Вариант A — форма
+
 - [ ] Ладья → **Вход**: отправить Intake (текст + контакт)
-- [ ] Triage → `triaged`
-- [ ] Convert → Package с обязательным `to_laboratory` (обычно central)
-- [ ] Intake.status = `converted`, пакет открывается
+- [ ] Triage → Convert → Package
+
+### Вариант B — внутренний чат
+
+- [ ] Портфель → чат: написать сообщение
+- [ ] Editor: кнопка **Создать Intake** на сообщении
+- [ ] Intake `source=internal_chat` → triage → convert
 
 ## Пакет
 
-- [ ] Открыть Package: upload файла (zip при необходимости; лимит `LADYA_PACKAGE_MAX_BYTES`, default 256 MiB)
-- [ ] Видны `sha256` и size
-- [ ] **Собрать манифест** → скачан JSON, заполнен `manifest_sha256`
-- [ ] Статусы: `submitted` → `accepted` (или дальше по сценарию)
-- [ ] **Передать** в другую lab + reason → событие в истории
-- [ ] **Создать задачу Agent Ops** → `linked_delivery_task` заполнен, без auto-claim
-- [ ] Закрыть пакет (`closed`) или вернуть (`returned`)
+- [ ] Upload файла + **Собрать манифест**
+- [ ] Transfer в другую lab
+- [ ] **Создать задачу Agent Ops** (без auto-claim для человека)
+- [ ] **Сообщить в чат лаборатории-получателя** (явный клик)
+- [ ] closed / returned
 
-## Изоляция / негатив (быстро)
+## Агенты (оператор)
 
-- [ ] При выключенном флаге пункта «Ладья» нет / API 403
-- [ ] Запрещённый переход (например draft→closed) → ошибка
+- [ ] Ладья → **Агенты** → создать quest/lad → **Скопировать всё**
+- [ ] (Имитация) агент с token видит `/api/delivery/my-tasks/`
 
-## Боль / наблюдения (заполнить человеку)
+## Боль / наблюдения
 
 | Что больно / чего не хватает | Критичность |
 | --- | --- |
 |  |  |
-|  |  |
-|  |  |
 
-## P2 smoke (после основного пилота)
-
-- [ ] Настройки → Ладья → сгенерировать Telegram webhook secret, скопировать path
-- [ ] POST mock update на webhook → Intake `source=telegram` + notification editor
-- [ ] Agent Ops → у service account выставить `ladya_role`
-- [ ] На пакете выставить `preferred_role` (hint)
-- [ ] На лаборатории привязать `chat_room` (или «чат workspace»)
-
-## После пилота
-
-Документация: [`LADYA_HUB.md`](LADYA_HUB.md), [`LADYA_ROLES.md`](LADYA_ROLES.md).
+Документация: [`LADYA_HUB.md`](LADYA_HUB.md), [`LADYA_CONNECT_AGENT.md`](LADYA_CONNECT_AGENT.md).

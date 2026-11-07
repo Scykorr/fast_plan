@@ -117,35 +117,39 @@ GET /api/ladya/events/?limit=30
 4. Intake → triage → convert (to central) → Package.
 5. Манифест → скачать JSON, сверить `manifest_sha256`.
 
-## Telegram → Intake (P2a)
+## Человек → ЛАД через внутренний чат
 
-Отдельный webhook **только** для `IntakeRequest`. Не создаёт DeliveryTask, не делает claim/handoff.
+**Telegram для Ладьи out of scope.** CRM Telegram webhooks не трогаем и не расширяем под Laboratory/Package/Intake.
 
-1. Настройки → «Ладья» → **Сгенерировать secret** (или `PATCH /api/ladya/settings/` с `{"rotate_telegram_webhook_secret": true}`).
-2. В ответе: `telegram_webhook_path` вида `/api/ladya/telegram/<secret>/`.
-3. Полный URL: `{BASE_URL}{telegram_webhook_path}` (например `https://app.example.com/api/ladya/telegram/…/`).
-4. У бота Telegram:
+Каналы входа:
 
-```bash
-curl "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
-  -d "url=https://<host>/api/ladya/telegram/<secret>/"
-```
-
-Входящее `message` / `edited_message` с текстом → Intake `source=telegram`, `status=new`, contact=`@username chat:<id>`; editors/owners получают in-app notification. Пустые апдейты без текста → `ok` без Intake.
-
-## Роли Ладьи (P2b)
-
-См. [`LADYA_ROLES.md`](LADYA_ROLES.md). На AgentProfile: поле `ladya_role` (`lad` / `cartographer` / `quest` / `curator`). На Package: `preferred_role` — hint, не enforcement.
+1. Форма **Ладья → Вход** (`source=web_form`).
+2. Внутренний чат Fast Plan: на `central_lad` / `external_intake` нажмите **Создать комнату лаборатории** (привязка к чату портфеля `/portfolio`). Editor на сообщении → **Создать Intake** (`source=internal_chat`). Без автосоздания на каждое сообщение.
 
 ```http
-PATCH /api/delivery/agents/<id>/
-{"ladya_role": "lad"}
+POST /api/ladya/laboratories/<id>/ensure-chat/
+POST /api/ladya/intake/from-chat-message/
+{"message_id": 123}
+POST /api/ladya/packages/<id>/notify-chat/   # явный клик, не spam при transition
 ```
 
-## Чат лаборатории (P2c)
+Новый Intake (форма или чат) → in-app notification editors/owners.
 
-На `Laboratory` — optional FK `chat_room` на существующий `ChatRoom` workspace/project. Участники workspace видят ссылку; внешний Intake по-прежнему не видит внутренние пакеты. Отдельный мессенджер / Signal group rooms — отложены (см. ADR).
+## Подключение агентов
+
+Мастер **Ладья → Агенты**: выбрать lab + роль → создать service account → скопировать инструкцию+token. Шпаргалка: [`LADYA_CONNECT_AGENT.md`](LADYA_CONNECT_AGENT.md).
+
+```http
+POST /api/ladya/agents/
+{"ladya_role": "quest", "laboratory": 1, "display_name": "Quest bot"}
+```
+
+Роли: [`LADYA_ROLES.md`](LADYA_ROLES.md). `Package.preferred_role` — hint. Агенты — только через Agent Ops inbox.
+
+## Чат лаборатории
+
+`Laboratory.chat_room` → существующий ChatRoom (в пилоте — единый workspace portfolio chat). Отдельные lab rooms / Matrix / Signal E2E — отложены (ADR).
 
 ## Не в scope (позже)
 
-Chunked/S3 multipart; Matrix/свой мессенджер; анонимный публичный intake без secret; merge в main / переименование Fast Plan; приёмка Lab-0.
+Telegram для Ladya; chunked/S3; свой мессенджер; анонимный публичный intake; merge в main; приёмка Lab-0.
