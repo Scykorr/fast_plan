@@ -31,6 +31,7 @@ urlpatterns = [
     path("api/", include("process.urls")),
     path("api/", include("delivery.urls")),
     path("api/", include("scrum.urls")),
+    path("api/", include("ladya.urls")),
 ]
 
 if settings.DEBUG:

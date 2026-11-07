@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "process",
     "delivery",
     "scrum",
+    "ladya",
     "drf_spectacular",
 ]
 
@@ -251,6 +252,10 @@ AVATAR_MAX_BYTES = int(os.environ.get("AVATAR_MAX_BYTES", str(2 * 1024 * 1024)))
 
 AGENT_OPS_ENABLED_DEFAULT = (
     os.environ.get("AGENT_OPS_ENABLED_DEFAULT", "true").lower() == "true"
+)
+
+LADYA_HUB_ENABLED_DEFAULT = (
+    os.environ.get("LADYA_HUB_ENABLED_DEFAULT", "false").lower() == "true"
 )
 
 LOGGING = {
