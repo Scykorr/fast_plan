@@ -1,9 +1,10 @@
 # Ladya Hub (контур лабораторий на Fast Plan)
 
-Операционный контур: лаборатории передают друг другу **пакеты** (задача + файлы + статус), люди пишут во **вход (Intake)**. Агенты по-прежнему берут работу только через Agent Ops inbox/handoff — не из сырого чата.
+Операционный контур координации: лаборатории передают друг другу **пакеты** (задача + файлы + статус), люди пишут во **вход (Intake)**. Агенты по-прежнему берут работу только через Agent Ops inbox/handoff — не из сырого чата.
 
 ТЗ: [`TZ_LADYA_HUB_ON_FAST_PLAN_v0.1.md`](TZ_LADYA_HUB_ON_FAST_PLAN_v0.1.md)  
-ADR: [`adr-ladya-hub.md`](adr-ladya-hub.md)
+ADR: [`adr-ladya-hub.md`](adr-ladya-hub.md)  
+Ветка: **`feature/ladya-hub`** (не merge в main без явной просьбы).
 
 ## Включить флаг
 
@@ -17,72 +18,89 @@ X-Workspace-Id: <id>
 {"ladya_hub_enabled": true}
 ```
 
-Env default (обычно `false`): `LADYA_HUB_ENABLED_DEFAULT=false`.
+Env: `LADYA_HUB_ENABLED_DEFAULT=false` (default).
 
-После включения в сайдбаре появляется раздел **Ладья**.
-
-## Создать лаборатории
-
-UI: Ладья → Лаборатории, или:
+## Лаборатории и пакеты
 
 ```http
 POST /api/ladya/laboratories/
 {"slug": "central", "title": "Центральный ЛАД", "kind": "central_lad"}
-POST /api/ladya/laboratories/
-{"slug": "nikita", "title": "Lab Никита", "kind": "private_lab"}
+
+POST /api/ladya/packages/
+{"title": "…", "from_laboratory": 1, "to_laboratory": 2}
+
+POST /api/ladya/packages/<id>/transition/
+{"status": "submitted", "reason": "…"}
 ```
 
-Kinds: `central_lad` | `lab0` | `private_lab` | `external_intake`.
+### Крупные файлы (M1)
 
-## Пакет с файлом и статусами
+- Лимит: env **`LADYA_PACKAGE_MAX_BYTES`** (default **256 MiB**), отдельно от `ATTACHMENT_MAX_BYTES`.
+- Hash: потоковый sha256 на сервере (chunks), без удержания всего файла в RAM.
+- Self-host: для upload > proxy body limit увеличьте `client_max_body_size` в nginx / reverse-proxy и при необходимости Django `DATA_UPLOAD_MAX_MEMORY_SIZE` (большие файлы всё равно уходят во временный файл на диск).
+- Chunked/S3 — зарезервировано на следующий этап (интерфейс PackageFile уже с sha256/size).
 
 ```http
-POST /api/ladya/packages/
-{"title": "Методологический возврат", "from_laboratory": 1, "to_laboratory": 2}
-
-POST /api/ladya/packages/<id>/transition/
-{"status": "submitted", "reason": "на приёмку"}
-
-POST /api/ladya/packages/<id>/transition/
-{"status": "accepted"}
-
-POST /api/ladya/packages/<id>/files/
-Content-Type: multipart/form-data
-file: <binary>   # сервер считает sha256; лимит = ATTACHMENT_MAX_BYTES
-
-POST /api/ladya/packages/<id>/transition/
-{"status": "in_progress"}
-POST /api/ladya/packages/<id>/transition/
-{"status": "closed"}
+POST /api/ladya/packages/<id>/files/   # multipart file
 ```
 
-Переходы: `draft → submitted → accepted → in_progress → returned|closed`; также `rejected` с допустимых шагов. Терминалы: `closed`, `rejected`.
+### Передача между лабораториями
+
+```http
+POST /api/ladya/packages/<id>/transfer/
+{"to_laboratory": 2, "reason": "возврат в ЛАД"}
+```
+
+Разрешено из `accepted` | `in_progress` | `returned`. Пишет `PackageStatusEvent`.
+
+### DeliveryTask из пакета
+
+```http
+POST /api/ladya/packages/<id>/create-delivery-task/
+```
+
+Создаёт draft DeliveryTask, линкует FK, **без auto-claim**. Агенты — только через inbox.
+
+### Манифест
+
+```http
+POST /api/ladya/packages/<id>/manifest/   # считает manifest_sha256
+GET  /api/ladya/packages/<id>/manifest/   # скачать JSON
+```
 
 ## Intake → Package
 
+Человек пишет во **Вход**; ЛАД triagе/convert → Package.
+
 ```http
 POST /api/ladya/intake/
-{"body": "Нужна помощь", "contact": "@user", "source": "web_form"}
+{"body": "…", "contact": "@user", "source": "web_form"}
+
+POST /api/ladya/intake/<id>/triage/
+{"status": "triaged"}   # или closed
 
 POST /api/ladya/intake/<id>/convert/
-{"title": "Из обращения", "to_laboratory": 1}
+{"to_laboratory": 1}    # обязателен; title по умолчанию из начала body
 ```
 
-В M0 intake только для authenticated участников workspace (viewer может создать обращение).
+В этом контуре intake только для authenticated участников workspace (viewer может создать). Публичный анонимный endpoint без rate-limit — не включён.
 
-## Связка с DeliveryTask (M1-lite)
-
-В карточке пакета (UI) можно привязать существующую задачу Agent Ops, если `agent_ops_enabled`.
+## Фильтры и лаборатория
 
 ```http
-PATCH /api/ladya/packages/<id>/
-{"linked_delivery_task": 42}
-PATCH /api/ladya/packages/<id>/
-{"linked_delivery_task": null}
+GET /api/ladya/packages/?status=accepted&from_lab=1&to_lab=2&q=текст
+GET /api/ladya/laboratories/<id>/packages/?direction=incoming|outgoing|all
+GET /api/ladya/events/?limit=30
 ```
 
-Агенты по-прежнему берут работу только через inbox/handoff DeliveryTask — Package сам inbox не открывает. Claim/handoff из карточки пакета — позже.
+## Ручная проверка за 5–10 минут
 
-## Что ещё в M1
+1. Settings → включить Ладью.
+2. Создать central_lad + private_lab.
+3. Пакет → submitted → accepted → файл → transfer в другую lab → create DeliveryTask.
+4. Intake → triage → convert (to central) → Package.
+5. Манифест → скачать JSON, сверить `manifest_sha256`.
 
-См. ТЗ §6: chunked/S3, claim/handoff из UI пакета, Telegram → Intake, комнаты чата на Laboratory, роли ЛАД/Картограф/Квест, zip+MANIFEST.
+## Не в scope (P2+)
+
+Telegram → Intake, роли ЛАД/Картограф/Квест, чат-комнаты на Laboratory, chunked/S3.

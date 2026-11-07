@@ -10,8 +10,9 @@
 3. **Истина по работе** = Package (+ опциональная DeliveryTask), не последнее сообщение в чате.
 4. **Feature-flag.** `LadyaSettings.ladya_hub_enabled` (default `false`), зеркало `DeliverySettings`. API `/api/ladya/...` кроме GET/PATCH settings закрыт при выключенном флаге.
 5. **Intake в M0** — только authenticated участник workspace (`source=web_form|manual`). Публичная анонимная форма — M1.
-6. **Файлы.** `PackageFile` со своим storage + `sha256` на сервере; лимит как у attachments (`ATTACHMENT_MAX_BYTES`). Chunked/S3 — M1.
+6. **Файлы.** `PackageFile` + потоковый `sha256`; лимит **`LADYA_PACKAGE_MAX_BYTES`** (default 256 MiB), отдельно от attachments. Chunked/S3 — следующий этап (TODO).
 7. **Reuse.** workspaces (права/`X-Workspace-Id`), delivery (DeliveryTask), attachments (паттерн upload), chats не расширяем в M0.
+8. **M1 операции.** Transfer между lab — отдельный action + audit; DeliveryTask создаётся из Package без claim; convert Intake требует `to_laboratory`; manifest JSON → `manifest_sha256` (без volatile `updated_at` в каноне).
 
 ## Consequences
 
