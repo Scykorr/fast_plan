@@ -17,8 +17,10 @@ import type {
   LadyaPackage,
   PackageStatus,
 } from "../api/ladya";
+import type { DeliveryTask } from "../api/delivery";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useDeliveryApi } from "../hooks/useDeliveryApi";
 import { useLadyaApi } from "../hooks/useLadyaApi";
 
 const LAB_KINDS: Array<{ value: LaboratoryKind; label: string }> = [
@@ -331,9 +333,14 @@ function PackagesPanel() {
 function PackageDetailPanel() {
   const { packageId } = useParams();
   const api = useLadyaApi();
+  const deliveryApi = useDeliveryApi();
   const navigate = useNavigate();
   const [pkg, setPkg] = useState<LadyaPackage | null>(null);
   const [labs, setLabs] = useState<Laboratory[]>([]);
+  const [deliveryTasks, setDeliveryTasks] = useState<DeliveryTask[]>([]);
+  const [linkedTask, setLinkedTask] = useState<DeliveryTask | null>(null);
+  const [taskPick, setTaskPick] = useState<number | "">("");
+  const [opsAvailable, setOpsAvailable] = useState(false);
   const [error, setError] = useState("");
   const [reason, setReason] = useState("");
 
@@ -349,10 +356,39 @@ function PackageDetailPanel() {
       setPkg(row);
       setLabs(labRows);
       setError("");
+
+      if (deliveryApi) {
+        try {
+          const settings = await deliveryApi.getSettings();
+          setOpsAvailable(Boolean(settings.agent_ops_enabled));
+          if (settings.agent_ops_enabled) {
+            const tasks = await deliveryApi.listTasks();
+            setDeliveryTasks(tasks);
+            if (row.linked_delivery_task) {
+              const found =
+                tasks.find((t) => t.id === row.linked_delivery_task) ??
+                (await deliveryApi.getTask(row.linked_delivery_task));
+              setLinkedTask(found);
+              setTaskPick(found.id);
+            } else {
+              setLinkedTask(null);
+              setTaskPick("");
+            }
+          } else {
+            setDeliveryTasks([]);
+            setLinkedTask(null);
+            setTaskPick("");
+          }
+        } catch {
+          setOpsAvailable(false);
+          setDeliveryTasks([]);
+          setLinkedTask(null);
+        }
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить пакет"));
     }
-  }, [api, id]);
+  }, [api, deliveryApi, id]);
 
   useEffect(() => {
     void load();
@@ -380,6 +416,36 @@ function PackageDetailPanel() {
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить файл"));
+    }
+  };
+
+  const onLinkTask = async () => {
+    if (!api || !pkg || taskPick === "") return;
+    try {
+      const updated = await api.patchPackage(pkg.id, {
+        linked_delivery_task: taskPick,
+      });
+      setPkg(updated);
+      const task =
+        deliveryTasks.find((t) => t.id === taskPick) ??
+        (deliveryApi ? await deliveryApi.getTask(taskPick) : null);
+      setLinkedTask(task);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось связать DeliveryTask"));
+    }
+  };
+
+  const onUnlinkTask = async () => {
+    if (!api || !pkg) return;
+    try {
+      const updated = await api.patchPackage(pkg.id, {
+        linked_delivery_task: null,
+      });
+      setPkg(updated);
+      setLinkedTask(null);
+      setTaskPick("");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось отвязать DeliveryTask"));
     }
   };
 
@@ -428,6 +494,76 @@ function PackageDetailPanel() {
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
+        <h3 className="text-sm font-semibold">Связь с Agent Ops (DeliveryTask)</h3>
+        {!opsAvailable ? (
+          <p className="text-sm text-text-muted">
+            Agent Ops выключен в этом workspace — привязка недоступна. Включите
+            модуль на странице Agent Ops.
+          </p>
+        ) : (
+          <>
+            {linkedTask ? (
+              <div className="rounded-lg border border-border/60 bg-cream/40 px-3 py-2 text-sm">
+                <div className="font-medium">
+                  #{linkedTask.id} · {linkedTask.title}
+                </div>
+                <div className="mt-1 text-text-muted">
+                  Статус: {linkedTask.status_label ?? linkedTask.status}
+                  {linkedTask.assignee_email
+                    ? ` · ${linkedTask.assignee_email}`
+                    : ""}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Link
+                    to="/agent-ops"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-cream"
+                  >
+                    Открыть Agent Ops
+                  </Link>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-cream"
+                    onClick={() => void onUnlinkTask()}
+                  >
+                    Отвязать
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-text-muted">
+                Пакет ещё не связан с задачей агентов. Выберите DeliveryTask —
+                агенты продолжают брать работу только через inbox/handoff.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="min-w-[16rem] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                value={taskPick}
+                onChange={(e) =>
+                  setTaskPick(e.target.value === "" ? "" : Number(e.target.value))
+                }
+              >
+                <option value="">Выберите DeliveryTask…</option>
+                {deliveryTasks.map((task) => (
+                  <option key={task.id} value={task.id}>
+                    #{task.id} · {task.title} ({task.status})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                disabled={taskPick === ""}
+                onClick={() => void onLinkTask()}
+              >
+                Привязать
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {next.length > 0 && (

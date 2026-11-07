@@ -70,6 +70,19 @@ POST /api/ladya/intake/<id>/convert/
 
 В M0 intake только для authenticated участников workspace (viewer может создать обращение).
 
-## Что не в M0
+## Связка с DeliveryTask (M1-lite)
 
-См. ТЗ §6 (M1): chunked/S3, связка Package↔DeliveryTask claim из UI, Telegram, комнаты чата на Laboratory, роли ЛАД/Картограф/Квест, zip+MANIFEST.
+В карточке пакета (UI) можно привязать существующую задачу Agent Ops, если `agent_ops_enabled`.
+
+```http
+PATCH /api/ladya/packages/<id>/
+{"linked_delivery_task": 42}
+PATCH /api/ladya/packages/<id>/
+{"linked_delivery_task": null}
+```
+
+Агенты по-прежнему берут работу только через inbox/handoff DeliveryTask — Package сам inbox не открывает. Claim/handoff из карточки пакета — позже.
+
+## Что ещё в M1
+
+См. ТЗ §6: chunked/S3, claim/handoff из UI пакета, Telegram → Intake, комнаты чата на Laboratory, роли ЛАД/Картограф/Квест, zip+MANIFEST.

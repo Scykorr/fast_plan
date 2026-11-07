@@ -207,6 +207,40 @@ def test_package_transition_matrix_unit():
     assert "accepted" in PACKAGE_TRANSITIONS["submitted"]
 
 
+def test_package_link_delivery_task(authenticated_client, workspace, user, enable_ladya):
+    from delivery.models import DeliveryTask
+
+    task = DeliveryTask.objects.create(
+        workspace=workspace,
+        title="Agent task for package",
+        created_by=user,
+        status=DeliveryTask.Status.DRAFT,
+    )
+    created = authenticated_client.post(
+        "/api/ladya/packages/",
+        {"title": "Связанный пакет"},
+        format="json",
+    )
+    assert created.status_code == 201
+    package_id = created.data["id"]
+
+    linked = authenticated_client.patch(
+        f"/api/ladya/packages/{package_id}/",
+        {"linked_delivery_task": task.id},
+        format="json",
+    )
+    assert linked.status_code == 200
+    assert linked.data["linked_delivery_task"] == task.id
+
+    unlinked = authenticated_client.patch(
+        f"/api/ladya/packages/{package_id}/",
+        {"linked_delivery_task": None},
+        format="json",
+    )
+    assert unlinked.status_code == 200
+    assert unlinked.data["linked_delivery_task"] is None
+
+
 def test_viewer_can_create_intake_but_not_lab(
     api_client, workspace, enable_ladya, other_user
 ):

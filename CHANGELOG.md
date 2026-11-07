@@ -29,6 +29,7 @@
 ### Added
 
 - **Ladya Hub (M0)** — операционный контур лабораторий за флагом `ladya_hub_enabled` (default off): app `ladya`, лаборатории, пакеты со статусами и sha256-файлами, Intake→Package; UI «Ладья»; docs [`LADYA_HUB.md`](docs/LADYA_HUB.md), ADR [`adr-ladya-hub.md`](docs/adr-ladya-hub.md)
+- **Ladya ↔ Agent Ops** — в карточке пакета ручная привязка/отвязка `linked_delivery_task` (без auto-claim; агенты через inbox)
 - **Agent Ops default-on** — `agent_ops_enabled=true` для новых и существующих workspace; env `AGENT_OPS_ENABLED_DEFAULT`
 - **Docker profile `agents`** — сервис `agent-runner` (фоновый poll inbox без чата Cursor)
 - **`run-docker.bat`** — обновление и запуск Docker Compose одной командой (`git pull`, `docker compose up -d --build`, перезапуск backend/frontend при сбое)
