@@ -6,6 +6,17 @@
 ADR: [`adr-ladya-hub.md`](adr-ladya-hub.md)  
 Ветка: **`feature/ladya-hub`** (не merge в main без явной просьбы).
 
+## Брендинг (светлая тема)
+
+Ассеты в `frontend/public/ladya/`:
+
+- `logo-mark.png` / `logo-mark.svg` — прозрачный знак ладьи для UI
+- `logo-light.png` — вариант mark для светлого фона
+- `hero-light.jpg` — баннер шапки раздела `/ladya`
+- `logo-dark.jpg` — исходный вид на тёмном фоне
+
+Пересборка из исходников: `python scripts/prepare_ladya_assets.py`.
+
 ## Включить флаг
 
 1. Войти в workspace (редактор/владелец).
