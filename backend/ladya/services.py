@@ -163,17 +163,146 @@ def convert_intake_to_package(
     return package
 
 
-def sha256_of_upload(upload: BinaryIO) -> str:
+def sha256_of_upload(upload: BinaryIO, *, chunk_size: int = 1024 * 1024) -> str:
+    """Stream hash — do not load the whole file into RAM."""
     digest = hashlib.sha256()
     pos = upload.tell() if hasattr(upload, "tell") else None
     if hasattr(upload, "seek"):
         upload.seek(0)
-    for chunk in upload.chunks() if hasattr(upload, "chunks") else [upload.read()]:
-        if not chunk:
-            break
-        digest.update(chunk)
-    if hasattr(upload, "seek") and pos is not None:
-        upload.seek(pos)
-    elif hasattr(upload, "seek"):
-        upload.seek(0)
+    if hasattr(upload, "chunks"):
+        for chunk in upload.chunks(chunk_size):
+            if chunk:
+                digest.update(chunk)
+    else:
+        while True:
+            chunk = upload.read(chunk_size)
+            if not chunk:
+                break
+            digest.update(chunk)
+    if hasattr(upload, "seek"):
+        upload.seek(pos if pos is not None else 0)
     return digest.hexdigest()
+
+
+TRANSFER_ALLOWED_STATUSES = {
+    Package.Status.ACCEPTED,
+    Package.Status.IN_PROGRESS,
+    Package.Status.RETURNED,
+}
+
+
+@transaction.atomic
+def transfer_package(
+    package: Package,
+    *,
+    to_laboratory,
+    user,
+    reason: str = "",
+) -> Package:
+    if package.status not in TRANSFER_ALLOWED_STATUSES:
+        raise ValidationError(
+            {
+                "status": (
+                    f"Передача из статуса {package.status} запрещена. "
+                    f"Допустимо: {sorted(TRANSFER_ALLOWED_STATUSES)}."
+                )
+            }
+        )
+    if to_laboratory is None:
+        raise ValidationError({"to_laboratory": "Укажите целевую лабораторию."})
+    if to_laboratory.workspace_id != package.workspace_id:
+        raise ValidationError({"to_laboratory": "Лаборатория из другого workspace."})
+    if not to_laboratory.is_active:
+        raise ValidationError({"to_laboratory": "Лаборатория неактивна."})
+    from_lab = package.to_laboratory
+    if from_lab and from_lab.id == to_laboratory.id:
+        raise ValidationError({"to_laboratory": "Пакет уже в этой лаборатории."})
+    package.to_laboratory = to_laboratory
+    package.save(update_fields=["to_laboratory", "updated_at"])
+    PackageStatusEvent.objects.create(
+        package=package,
+        from_status=package.status,
+        to_status=package.status,
+        from_laboratory=from_lab,
+        to_laboratory=to_laboratory,
+        reason=reason or "Передача между лабораториями",
+        changed_by=user,
+    )
+    return package
+
+
+@transaction.atomic
+def create_delivery_task_from_package(package: Package, *, user):
+    """Create Agent Ops DeliveryTask and link it; never auto-claims."""
+    from delivery.models import DeliveryTask
+
+    if package.linked_delivery_task_id:
+        raise ValidationError(
+            {"linked_delivery_task": "Пакет уже связан с DeliveryTask."}
+        )
+    task = DeliveryTask.objects.create(
+        workspace=package.workspace,
+        title=f"[Ladya {package.display_code}] {package.title}"[:255],
+        description=package.summary or "",
+        context=(
+            f"Создано из пакета Ладьи {package.display_code} (id={package.pk}).\n"
+            f"От: {package.from_laboratory_id} → Кому: {package.to_laboratory_id}"
+        ),
+        business_outcome=package.summary or package.title,
+        created_by=user,
+        status=DeliveryTask.Status.DRAFT,
+        external_pack_url="",
+    )
+    package.linked_delivery_task = task
+    package.save(update_fields=["linked_delivery_task", "updated_at"])
+    PackageStatusEvent.objects.create(
+        package=package,
+        from_status=package.status,
+        to_status=package.status,
+        from_laboratory=package.to_laboratory,
+        to_laboratory=package.to_laboratory,
+        reason=f"Создана DeliveryTask #{task.id} (без auto-claim)",
+        changed_by=user,
+    )
+    return task
+
+
+def build_package_manifest(package: Package) -> dict:
+    """Canonical package evidence. Omits volatile updated_at so sha256 stays stable on save."""
+    files = [
+        {
+            "id": f.id,
+            "original_name": f.original_name,
+            "size": f.size,
+            "sha256": f.sha256,
+            "content_type": f.content_type,
+        }
+        for f in package.files.order_by("id")
+    ]
+    return {
+        "package_id": package.id,
+        "display_code": package.display_code,
+        "public_number": package.public_number,
+        "title": package.title,
+        "status": package.status,
+        "from_laboratory": package.from_laboratory_id,
+        "to_laboratory": package.to_laboratory_id,
+        "linked_delivery_task": package.linked_delivery_task_id,
+        "created_at": package.created_at.isoformat(),
+        "files": files,
+    }
+
+
+def canonical_manifest_json(manifest: dict) -> str:
+    import json
+
+    return json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def apply_manifest_sha256(package: Package) -> tuple[dict, str]:
+    manifest = build_package_manifest(package)
+    raw = canonical_manifest_json(manifest)
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    package.manifest_sha256 = digest
+    package.save(update_fields=["manifest_sha256", "updated_at"])
+    return manifest, digest

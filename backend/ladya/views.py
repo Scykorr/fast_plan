@@ -19,13 +19,17 @@ from ladya.serializers import (
     LadyaSettingsSerializer,
     PackageFileSerializer,
     PackageSerializer,
+    PackageTransferSerializer,
     PackageTransitionSerializer,
     PackageWriteSerializer,
 )
 from ladya.services import (
+    apply_manifest_sha256,
     assert_intake_transition,
     convert_intake_to_package,
+    create_delivery_task_from_package,
     sha256_of_upload,
+    transfer_package,
     transition_package,
 )
 from workspaces.mixins import (
@@ -42,16 +46,18 @@ def _ensure_ladya_enabled(workspace):
     return row
 
 
+def _package_max_bytes() -> int:
+    return int(getattr(settings, "LADYA_PACKAGE_MAX_BYTES", 256 * 1024 * 1024))
+
+
 def _validate_upload(upload):
     if not upload:
         raise ValidationError({"file": "Файл обязателен."})
-    if upload.size > settings.ATTACHMENT_MAX_BYTES:
+    limit = _package_max_bytes()
+    size = getattr(upload, "size", None)
+    if size is not None and size > limit:
         raise ValidationError(
-            {
-                "file": (
-                    f"Файл превышает лимит {settings.ATTACHMENT_MAX_BYTES} байт."
-                )
-            }
+            {"file": f"Файл превышает лимит {limit} байт (LADYA_PACKAGE_MAX_BYTES)."}
         )
 
 
@@ -135,6 +141,15 @@ class PackageListCreateView(WorkspaceMixin, APIView):
         status_filter = request.query_params.get("status")
         if status_filter:
             qs = qs.filter(status=status_filter)
+        from_lab = request.query_params.get("from_lab")
+        if from_lab:
+            qs = qs.filter(from_laboratory_id=from_lab)
+        to_lab = request.query_params.get("to_lab")
+        if to_lab:
+            qs = qs.filter(to_laboratory_id=to_lab)
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(title__icontains=q)
         return Response(PackageSerializer(qs, many=True).data)
 
     def post(self, request):
@@ -250,6 +265,9 @@ class IntakeListCreateView(WorkspaceMixin, APIView):
         ws = self.get_workspace()
         _ensure_ladya_enabled(ws)
         rows = IntakeRequest.objects.filter(workspace=ws)
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            rows = rows.filter(status=status_filter)
         return Response(IntakeRequestSerializer(rows, many=True).data)
 
     def post(self, request):
@@ -301,18 +319,23 @@ class IntakeConvertView(WorkspaceMixin, APIView):
                 return None
             return get_object_or_404(Laboratory, pk=lab_id, workspace=ws)
 
+        to_lab = get_object_or_404(
+            Laboratory, pk=data["to_laboratory"], workspace=ws, is_active=True
+        )
+
         # Allow convert from NEW by first moving to TRIAGED implicitly if still NEW.
         if intake.status == IntakeRequest.Status.NEW:
             intake.status = IntakeRequest.Status.TRIAGED
             intake.save(update_fields=["status", "updated_at"])
 
+        default_title = " ".join((intake.body or "").split()[:8]).strip()
         package = convert_intake_to_package(
             intake,
             user=request.user,
-            title=data.get("title") or "",
+            title=data.get("title") or default_title or f"Intake #{intake.pk}",
             summary=data.get("summary") or "",
             from_laboratory=lab_or_none("from_laboratory"),
-            to_laboratory=lab_or_none("to_laboratory"),
+            to_laboratory=to_lab,
         )
         package = Package.objects.prefetch_related("files", "status_events").get(
             pk=package.pk
@@ -324,3 +347,148 @@ class IntakeConvertView(WorkspaceMixin, APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class PackageTransferView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, package_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        package = get_object_or_404(Package, pk=package_id, workspace=ws)
+        serializer = PackageTransferSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        to_lab = get_object_or_404(
+            Laboratory,
+            pk=serializer.validated_data["to_laboratory"],
+            workspace=ws,
+        )
+        package = transfer_package(
+            package,
+            to_laboratory=to_lab,
+            user=request.user,
+            reason=serializer.validated_data.get("reason", ""),
+        )
+        package = Package.objects.prefetch_related("files", "status_events").get(
+            pk=package.pk
+        )
+        return Response(PackageSerializer(package).data)
+
+
+class PackageCreateDeliveryTaskView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, package_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        package = get_object_or_404(Package, pk=package_id, workspace=ws)
+        task = create_delivery_task_from_package(package, user=request.user)
+        package = Package.objects.prefetch_related("files", "status_events").get(
+            pk=package.pk
+        )
+        return Response(
+            {
+                "package": PackageSerializer(package).data,
+                "delivery_task": {
+                    "id": task.id,
+                    "title": task.title,
+                    "status": task.status,
+                    "assignee": task.assignee_id,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PackageManifestView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, package_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        package = get_object_or_404(
+            Package.objects.filter(workspace=ws).prefetch_related("files"),
+            pk=package_id,
+        )
+        manifest, digest = apply_manifest_sha256(package)
+        return Response({"manifest": manifest, "manifest_sha256": digest})
+
+    def get(self, request, package_id):
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        package = get_object_or_404(
+            Package.objects.filter(workspace=ws).prefetch_related("files"),
+            pk=package_id,
+        )
+        from ladya.services import build_package_manifest, canonical_manifest_json
+
+        manifest = build_package_manifest(package)
+        raw = canonical_manifest_json(manifest)
+        from django.http import HttpResponse
+
+        response = HttpResponse(raw, content_type="application/json")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{package.display_code}-manifest.json"'
+        )
+        return response
+
+
+class LaboratoryPackagesView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, lab_id):
+        from django.db.models import Q
+
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        lab = get_object_or_404(Laboratory, pk=lab_id, workspace=ws)
+        direction = request.query_params.get("direction", "all")
+        status_filter = request.query_params.get("status")
+        if direction == "incoming":
+            packages = Package.objects.filter(workspace=ws, to_laboratory=lab)
+        elif direction == "outgoing":
+            packages = Package.objects.filter(workspace=ws, from_laboratory=lab)
+        else:
+            packages = Package.objects.filter(workspace=ws).filter(
+                Q(from_laboratory=lab) | Q(to_laboratory=lab)
+            )
+        if status_filter:
+            packages = packages.filter(status=status_filter)
+        packages = packages.prefetch_related("files", "status_events").distinct()
+        return Response(
+            {
+                "laboratory": LaboratorySerializer(lab).data,
+                "packages": PackageSerializer(packages, many=True).data,
+            }
+        )
+
+
+class LadyaEventsFeedView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        from ladya.models import PackageStatusEvent
+        from ladya.serializers import PackageStatusEventSerializer
+
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        try:
+            limit = min(int(request.query_params.get("limit", 30)), 100)
+        except (TypeError, ValueError):
+            limit = 30
+        events = (
+            PackageStatusEvent.objects.filter(package__workspace=ws)
+            .select_related("package", "changed_by")
+            .order_by("-created_at")[:limit]
+        )
+        data = []
+        for event in events:
+            row = PackageStatusEventSerializer(event).data
+            row["package_id"] = event.package_id
+            row["package_code"] = event.package.display_code
+            row["package_title"] = event.package.title
+            data.append(row)
+        return Response(data)

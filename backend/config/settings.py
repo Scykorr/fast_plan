@@ -258,6 +258,11 @@ LADYA_HUB_ENABLED_DEFAULT = (
     os.environ.get("LADYA_HUB_ENABLED_DEFAULT", "false").lower() == "true"
 )
 
+# Package file upload limit for Ladya Hub (self-host zip комплекты). Default 256 MiB.
+LADYA_PACKAGE_MAX_BYTES = int(
+    os.environ.get("LADYA_PACKAGE_MAX_BYTES", str(256 * 1024 * 1024))
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

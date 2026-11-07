@@ -35,6 +35,31 @@ urlpatterns = [
         name="ladya-package-files",
     ),
     path(
+        "ladya/packages/<int:package_id>/transfer/",
+        views.PackageTransferView.as_view(),
+        name="ladya-package-transfer",
+    ),
+    path(
+        "ladya/packages/<int:package_id>/create-delivery-task/",
+        views.PackageCreateDeliveryTaskView.as_view(),
+        name="ladya-package-create-delivery-task",
+    ),
+    path(
+        "ladya/packages/<int:package_id>/manifest/",
+        views.PackageManifestView.as_view(),
+        name="ladya-package-manifest",
+    ),
+    path(
+        "ladya/laboratories/<int:lab_id>/packages/",
+        views.LaboratoryPackagesView.as_view(),
+        name="ladya-lab-packages",
+    ),
+    path(
+        "ladya/events/",
+        views.LadyaEventsFeedView.as_view(),
+        name="ladya-events-feed",
+    ),
+    path(
         "ladya/intake/",
         views.IntakeListCreateView.as_view(),
         name="ladya-intake-list",

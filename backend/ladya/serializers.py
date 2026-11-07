@@ -12,10 +12,17 @@ from ladya.services import next_package_number
 
 
 class LadyaSettingsSerializer(serializers.ModelSerializer):
+    package_max_bytes = serializers.SerializerMethodField()
+
     class Meta:
         model = LadyaSettings
-        fields = ("ladya_hub_enabled", "updated_at")
-        read_only_fields = ("updated_at",)
+        fields = ("ladya_hub_enabled", "package_max_bytes", "updated_at")
+        read_only_fields = ("updated_at", "package_max_bytes")
+
+    def get_package_max_bytes(self, _obj) -> int:
+        from django.conf import settings
+
+        return int(getattr(settings, "LADYA_PACKAGE_MAX_BYTES", 256 * 1024 * 1024))
 
 
 class LaboratorySerializer(serializers.ModelSerializer):
@@ -262,4 +269,14 @@ class IntakeConvertSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255, required=False, allow_blank=True)
     summary = serializers.CharField(required=False, allow_blank=True, default="")
     from_laboratory = serializers.IntegerField(required=False, allow_null=True)
-    to_laboratory = serializers.IntegerField(required=False, allow_null=True)
+    to_laboratory = serializers.IntegerField(required=True)
+
+    def validate_to_laboratory(self, value):
+        if value is None:
+            raise serializers.ValidationError("to_laboratory обязателен для convert.")
+        return value
+
+
+class PackageTransferSerializer(serializers.Serializer):
+    to_laboratory = serializers.IntegerField()
+    reason = serializers.CharField(required=False, allow_blank=True, default="")
