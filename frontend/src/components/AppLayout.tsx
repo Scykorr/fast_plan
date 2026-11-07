@@ -298,7 +298,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     : "text-text-muted hover:bg-cream hover:text-text",
                 ].join(" ")}
               >
-                <span>{group.labelKey ? t(group.labelKey) : group.label}</span>
+                <span className="inline-flex items-center gap-2">
+                  {group.id === "ladya" && (
+                    <img
+                      src="/ladya/logo-mark.svg"
+                      alt=""
+                      className="h-4 w-4"
+                      aria-hidden
+                    />
+                  )}
+                  {group.labelKey ? t(group.labelKey) : group.label}
+                </span>
                 <span className="text-[10px]" aria-hidden>
                   {open ? "▾" : "▸"}
                 </span>

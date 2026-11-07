@@ -1174,7 +1174,15 @@ export function LadyaPage() {
   if (enabled === false) {
     return (
       <div className="space-y-4">
-        <h1 className="text-3xl font-bold text-text">Ладья</h1>
+        <div className="flex items-center gap-3">
+          <img
+            src="/ladya/logo-mark.svg"
+            alt=""
+            className="h-10 w-10"
+            aria-hidden
+          />
+          <h1 className="text-3xl font-bold text-text">Ладья</h1>
+        </div>
         <p className="text-sm text-text-muted">
           Контур выключен для workspace
           {activeWorkspace ? ` «${activeWorkspace.name}»` : ""}. Включите флаг в
@@ -1186,12 +1194,33 @@ export function LadyaPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-text">Ладья</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Операционный контур лабораторий: пакеты работы, файлы, вход людей
-        </p>
-      </div>
+      <section className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="relative min-h-[9.5rem] md:min-h-[11rem]">
+          <img
+            src="/ladya/hero-light.jpg"
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/90 to-surface/40" />
+          <div className="relative flex items-center gap-4 px-5 py-6 md:px-7">
+            <img
+              src="/ladya/logo-mark.png"
+              alt="Ладья"
+              className="h-16 w-16 shrink-0 drop-shadow-sm md:h-20 md:w-20"
+            />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Контур координации
+              </p>
+              <h1 className="text-3xl font-bold text-text">Ладья</h1>
+              <p className="mt-1 max-w-xl text-sm text-text-muted">
+                Операционный контур лабораторий: пакеты работы, файлы, вход
+                людей. Не приёмка Lab-0 — координация обмена.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
       <SubNav />
       <Routes>
