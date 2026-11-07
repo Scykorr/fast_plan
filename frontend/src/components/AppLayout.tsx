@@ -258,25 +258,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="mb-6 px-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <img
-                src={ladyaNavIcon}
-                alt=""
-                className="h-8 w-8 shrink-0"
-                aria-hidden
-              />
-              <h1 className="text-xl font-bold text-primary">Fast Plan</h1>
-            </div>
-            <p className="mt-1 text-sm text-text-muted">{t("planner")}</p>
-            <p className="mt-1 text-xs text-text-muted" title="Версия продукта">
-              v{APP_VERSION}
-            </p>
-          </div>
-          <ThemeToggle className="mt-0.5" />
+      <div className="relative mb-6 px-2">
+        <div className="absolute right-0 top-0 z-10">
+          <ThemeToggle />
         </div>
+        <img
+          src={ladyaNavIcon}
+          alt=""
+          className="mx-auto mb-3 h-24 w-24 object-contain sm:h-28 sm:w-28"
+          aria-hidden
+        />
+        <h1 className="text-center text-xl font-bold text-primary">Fast Plan</h1>
+        <p className="mt-1 text-center text-sm text-text-muted">{t("planner")}</p>
+        <p
+          className="mt-1 text-center text-xs text-text-muted"
+          title="Версия продукта"
+        >
+          v{APP_VERSION}
+        </p>
         {workspaces.length > 0 && (
           <label className="mt-3 block text-xs text-text-muted">
             <TermHint term="workspace">Workspace</TermHint>
@@ -424,17 +423,14 @@ export function AppLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 md:hidden">
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-text hover:bg-cream"
-              aria-label="Открыть меню"
-            >
-              ☰ Меню
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-text hover:bg-cream"
+            aria-label="Открыть меню"
+          >
+            ☰ Меню
+          </button>
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
             <GlobalSearchBar />
             <NotificationBell />
@@ -442,12 +438,9 @@ export function AppLayout() {
           </div>
         </header>
 
-        <header className="hidden items-center justify-between gap-3 border-b border-border bg-surface px-8 py-3 md:flex">
-          <ThemeToggle />
-          <div className="flex items-center gap-3">
-            <GlobalSearchBar />
-            <NotificationBell />
-          </div>
+        <header className="hidden items-center justify-end gap-3 border-b border-border bg-surface px-8 py-3 md:flex">
+          <GlobalSearchBar />
+          <NotificationBell />
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-8">
