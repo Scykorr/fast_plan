@@ -1437,8 +1437,9 @@ function AgentsPanel() {
           <div>
             <h2 className="text-lg font-semibold text-text">Подключить агента</h2>
             <p className="mt-1 text-sm text-text-muted">
-              Создать → скопировать инструкцию → вставить в Cursor/Codex. Агент
-              смотрит только inbox. Справка:{" "}
+              Создать → скопировать карточку → вставить в системный промпт /
+              первую инструкцию агента в своей среде (Cursor, Codex, Claude,
+              …). Агент ходит в Fast Plan API и смотрит только inbox. Справка:{" "}
               <code className="text-xs">docs/LADYA_CONNECT_AGENT.md</code>
             </p>
           </div>

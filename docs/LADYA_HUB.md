@@ -137,7 +137,7 @@ POST /api/ladya/packages/<id>/notify-chat/   # явный клик, не spam п
 
 ## Подключение агентов
 
-Мастер **Ладья → Агенты**: выбрать lab + роль → создать service account → скопировать инструкцию+token. Шпаргалка: [`LADYA_CONNECT_AGENT.md`](LADYA_CONNECT_AGENT.md).
+Мастер **Ладья → Агенты**: выбрать lab + роль → создать service account → скопировать карточку (credentials + правила). Вставить в **любой** агентный рантайм (Cursor / Codex / Claude / …) — Fast Plan API один и тот же. Шпаргалка: [`LADYA_CONNECT_AGENT.md`](LADYA_CONNECT_AGENT.md).
 
 ```http
 POST /api/ladya/agents/

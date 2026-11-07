@@ -22,5 +22,6 @@
 - Lab-0 как продуктовая сущность «принята».
 - Skills / Core центрального ЛАДа.
 - Автозапуск агента из Telegram или сырого чата.
+- Привязка рантайма к одной IDE: агент = любой клиент Fast Plan API (Cursor / Codex / Claude / …).
 
 См. также: [`LADYA_HUB.md`](LADYA_HUB.md), [`adr-ladya-hub.md`](adr-ladya-hub.md).
