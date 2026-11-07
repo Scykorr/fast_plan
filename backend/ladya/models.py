@@ -47,6 +47,12 @@ class Laboratory(models.Model):
         blank=True,
         related_name="ladya_laboratories",
     )
+    # Agent Ops profiles bound to this lab (connect wizard).
+    agents = models.ManyToManyField(
+        "delivery.AgentProfile",
+        blank=True,
+        related_name="ladya_laboratories",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -211,7 +217,9 @@ class IntakeRequest(models.Model):
     class Source(models.TextChoices):
         WEB_FORM = "web_form", "Веб-форма"
         MANUAL = "manual", "Вручную"
-        TELEGRAM = "telegram", "Telegram"
+        INTERNAL_CHAT = "internal_chat", "Внутренний чат Fast Plan"
+        # Legacy / unused for Ladya (Telegram out of scope). Kept for DB rows only.
+        TELEGRAM = "telegram", "Telegram (deprecated)"
 
     workspace = models.ForeignKey(
         "workspaces.Workspace",

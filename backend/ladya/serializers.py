@@ -13,37 +13,23 @@ from ladya.services import next_package_number
 
 class LadyaSettingsSerializer(serializers.ModelSerializer):
     package_max_bytes = serializers.SerializerMethodField()
-    telegram_webhook_secret_set = serializers.SerializerMethodField()
-    telegram_webhook_path = serializers.SerializerMethodField()
 
     class Meta:
         model = LadyaSettings
         fields = (
             "ladya_hub_enabled",
             "package_max_bytes",
-            "telegram_webhook_secret_set",
-            "telegram_webhook_path",
             "updated_at",
         )
         read_only_fields = (
             "updated_at",
             "package_max_bytes",
-            "telegram_webhook_secret_set",
-            "telegram_webhook_path",
         )
 
     def get_package_max_bytes(self, _obj) -> int:
         from django.conf import settings
 
         return int(getattr(settings, "LADYA_PACKAGE_MAX_BYTES", 256 * 1024 * 1024))
-
-    def get_telegram_webhook_secret_set(self, obj) -> bool:
-        return bool(obj.telegram_webhook_secret)
-
-    def get_telegram_webhook_path(self, obj) -> str:
-        if not obj.telegram_webhook_secret:
-            return ""
-        return f"/api/ladya/telegram/{obj.telegram_webhook_secret}/"
 
 
 class LaboratorySerializer(serializers.ModelSerializer):
@@ -280,13 +266,19 @@ class IntakeWriteSerializer(serializers.Serializer):
     body = serializers.CharField()
     contact = serializers.CharField(required=False, allow_blank=True, default="")
     source = serializers.ChoiceField(
-        choices=IntakeRequest.Source.choices,
+        choices=[
+            IntakeRequest.Source.WEB_FORM,
+            IntakeRequest.Source.MANUAL,
+            IntakeRequest.Source.INTERNAL_CHAT,
+        ],
         required=False,
         default=IntakeRequest.Source.WEB_FORM,
     )
 
     def create(self, validated_data):
-        return IntakeRequest.objects.create(
+        from ladya.chat_bridge import notify_intake_editors
+
+        intake = IntakeRequest.objects.create(
             workspace=self.context["workspace"],
             created_by=self.context["user"],
             body=validated_data["body"],
@@ -294,6 +286,8 @@ class IntakeWriteSerializer(serializers.Serializer):
             source=validated_data.get("source", IntakeRequest.Source.WEB_FORM),
             status=IntakeRequest.Status.NEW,
         )
+        notify_intake_editors(self.context["workspace"], intake)
+        return intake
 
 
 class IntakeTriageSerializer(serializers.Serializer):

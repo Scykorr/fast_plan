@@ -3,12 +3,14 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from delivery.models import AgentProfile
+from delivery.serializers import AgentProfileSerializer
 from ladya.defaults import get_or_create_ladya_settings
-from ladya.models import IntakeRequest, Laboratory, LadyaSettings, Package, PackageFile
+from ladya.models import IntakeRequest, Laboratory, Package, PackageFile
 from ladya.serializers import (
     IntakeConvertSerializer,
     IntakeRequestSerializer,
@@ -73,14 +75,6 @@ class LadyaSettingsView(WorkspaceMixin, APIView):
         row, _ = get_or_create_ladya_settings(self.get_workspace())
         if "ladya_hub_enabled" in request.data:
             row.ladya_hub_enabled = bool(request.data.get("ladya_hub_enabled"))
-        if request.data.get("rotate_telegram_webhook_secret"):
-            from ladya.telegram import new_telegram_webhook_secret
-
-            row.telegram_webhook_secret = new_telegram_webhook_secret()
-        elif "telegram_webhook_secret" in request.data:
-            row.telegram_webhook_secret = (
-                str(request.data.get("telegram_webhook_secret") or "")[:64]
-            )
         row.save()
         return Response(LadyaSettingsSerializer(row).data)
 
@@ -507,32 +501,243 @@ class LadyaEventsFeedView(WorkspaceMixin, APIView):
         return Response(data)
 
 
-class LadyaTelegramWebhookView(APIView):
-    """Public webhook: POST /api/ladya/telegram/<secret>/ → IntakeRequest only."""
+class LaboratoryEnsureChatView(WorkspaceMixin, APIView):
+    """Bind laboratory to workspace portfolio ChatRoom."""
 
-    permission_classes = [AllowAny]
-    authentication_classes = []
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
 
-    def post(self, request, secret):
-        from ladya.telegram import ingest_telegram_intake
+    def post(self, request, lab_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        from ladya.chat_bridge import ensure_laboratory_chat_room
 
-        row = (
-            LadyaSettings.objects.filter(
-                ladya_hub_enabled=True,
-                telegram_webhook_secret=secret,
-            )
-            .exclude(telegram_webhook_secret="")
-            .select_related("workspace")
-            .first()
-        )
-        if row is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        payload = request.data if isinstance(request.data, dict) else {}
-        intake = ingest_telegram_intake(row, payload)
+        lab = get_object_or_404(Laboratory, pk=lab_id, workspace=ws)
+        room = ensure_laboratory_chat_room(lab)
         return Response(
             {
-                "ok": True,
-                "intake_id": intake.id if intake else None,
-                "delivery_task_created": False,
+                "laboratory": LaboratorySerializer(lab).data,
+                "chat_room_id": room.id,
+                "open_path": "/portfolio",
             }
         )
+
+
+class ChatRoomLadyaCapabilitiesView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMember]
+
+    def get(self, request, room_id):
+        ws = self.get_workspace()
+        try:
+            _ensure_ladya_enabled(ws)
+        except PermissionDenied:
+            return Response(
+                {"ladya_enabled": False, "can_create_intake": False, "lab_ids": []}
+            )
+        from chats.models import ChatRoom
+        from ladya.chat_bridge import room_allows_intake_create
+
+        room = get_object_or_404(ChatRoom, pk=room_id)
+        if room.host_workspace_id != ws.id:
+            raise PermissionDenied("Чат из другого workspace.")
+        from workspaces.models import WorkspaceMember
+
+        labs = list(
+            Laboratory.objects.filter(workspace=ws, chat_room_id=room_id).values_list(
+                "id", flat=True
+            )
+        )
+        membership = WorkspaceMember.objects.filter(
+            workspace=ws, user=request.user
+        ).first()
+        is_editor = bool(
+            membership
+            and membership.role
+            in (WorkspaceMember.Role.OWNER, WorkspaceMember.Role.EDITOR)
+        )
+        can = is_editor and room_allows_intake_create(ws, room)
+        return Response(
+            {
+                "ladya_enabled": True,
+                "can_create_intake": can,
+                "lab_ids": labs,
+            }
+        )
+
+
+class IntakeFromChatMessageView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        from chats.models import ChatMessage
+        from ladya.chat_bridge import create_intake_from_chat_message
+
+        message_id = request.data.get("message_id")
+        if not message_id:
+            raise ValidationError({"message_id": "Required"})
+        message = get_object_or_404(
+            ChatMessage.objects.select_related("room", "author"), pk=message_id
+        )
+        try:
+            intake = create_intake_from_chat_message(
+                workspace=ws, message=message, actor=request.user
+            )
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        return Response(
+            IntakeRequestSerializer(intake).data, status=status.HTTP_201_CREATED
+        )
+
+
+class PackageNotifyChatView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, package_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        from ladya.chat_bridge import post_package_notice
+
+        package = get_object_or_404(
+            Package.objects.select_related("to_laboratory", "to_laboratory__chat_room"),
+            pk=package_id,
+            workspace=ws,
+        )
+        try:
+            msg = post_package_notice(
+                package=package,
+                actor=request.user,
+                text=request.data.get("text") or None,
+            )
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        return Response(
+            {"message_id": msg.id, "room_id": msg.room_id, "body": msg.body},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class LaboratoryAgentsView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request, lab_id):
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        lab = get_object_or_404(Laboratory, pk=lab_id, workspace=ws)
+        rows = lab.agents.filter(workspace=ws).select_related("user", "api_token")
+        return Response(AgentProfileSerializer(rows, many=True).data)
+
+
+class LadyaAgentConnectView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def get(self, request):
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        lab_id = request.query_params.get("laboratory")
+        qs = AgentProfile.objects.filter(workspace=ws).select_related("user")
+        if lab_id:
+            lab = get_object_or_404(Laboratory, pk=lab_id, workspace=ws)
+            qs = lab.agents.all()
+        else:
+            qs = qs.filter(ladya_role__gt="").distinct()
+        return Response(AgentProfileSerializer(qs, many=True).data)
+
+    def post(self, request):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        from ladya.agent_connect import build_connect_instruction, connect_agent
+
+        ladya_role = (request.data.get("ladya_role") or "").strip()
+        display_name = (request.data.get("display_name") or "").strip()
+        ops_role = (request.data.get("ops_role") or "").strip() or None
+        lab = None
+        lab_id = request.data.get("laboratory")
+        if lab_id not in (None, ""):
+            lab = get_object_or_404(Laboratory, pk=lab_id, workspace=ws)
+        try:
+            profile, raw, email = connect_agent(
+                workspace=ws,
+                actor=request.user,
+                ladya_role=ladya_role,
+                display_name=display_name,
+                laboratory=lab,
+                ops_role=ops_role,
+            )
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        base = request.build_absolute_uri("/").rstrip("/")
+        # Prefer frontend origin hint if provided
+        fe = (request.data.get("frontend_base_url") or "").strip().rstrip("/")
+        api_base = fe or base
+        instruction = build_connect_instruction(
+            profile=profile,
+            workspace_id=ws.id,
+            base_url=api_base,
+            token=raw,
+            laboratory=lab,
+        )
+        data = AgentProfileSerializer(profile).data
+        data["api_token_raw"] = raw
+        data["service_user_email"] = email
+        data["workspace_id"] = ws.id
+        data["connect_instruction"] = instruction
+        data["laboratory_id"] = lab.id if lab else None
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class LadyaAgentReissueView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, agent_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        from ladya.agent_connect import build_connect_instruction, reissue_agent_token
+
+        profile = get_object_or_404(
+            AgentProfile.objects.select_related("user"), pk=agent_id, workspace=ws
+        )
+        lab = profile.ladya_laboratories.filter(workspace=ws).first()
+        try:
+            raw = reissue_agent_token(
+                workspace=ws, actor=request.user, profile=profile
+            )
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        base = (request.data.get("frontend_base_url") or "").strip().rstrip("/")
+        if not base:
+            base = request.build_absolute_uri("/").rstrip("/")
+        instruction = build_connect_instruction(
+            profile=profile,
+            workspace_id=ws.id,
+            base_url=base,
+            token=raw,
+            laboratory=lab,
+        )
+        data = AgentProfileSerializer(profile).data
+        data["api_token_raw"] = raw
+        data["connect_instruction"] = instruction
+        data["workspace_id"] = ws.id
+        return Response(data)
+
+
+class LadyaAgentRevokeView(WorkspaceMixin, APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceEditorOrReadOnly]
+
+    def post(self, request, agent_id):
+        self.require_editor()
+        ws = self.get_workspace()
+        _ensure_ladya_enabled(ws)
+        from ladya.agent_connect import revoke_agent_token
+
+        profile = get_object_or_404(AgentProfile, pk=agent_id, workspace=ws)
+        try:
+            revoke_agent_token(workspace=ws, actor=request.user, profile=profile)
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        return Response(AgentProfileSerializer(profile).data)

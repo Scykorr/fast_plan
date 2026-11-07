@@ -1,130 +1,21 @@
-"""P2: Telegram→Intake, ladya_role, Laboratory.chat_room."""
-
-import pytest
-from rest_framework.test import APIClient
+"""P2 leftovers: roles + lab chat_room (Telegram removed for Ladya)."""
 
 from chats.models import ChatRoom
-from delivery.models import AgentProfile, DeliverySettings, DeliveryTask, LadyaAgentRole
+from delivery.models import AgentProfile, DeliverySettings, LadyaAgentRole
 from ladya.defaults import get_or_create_ladya_settings
-from ladya.models import IntakeRequest, Laboratory, Package
-from ladya.telegram import new_telegram_webhook_secret
-from notifications.models import Notification
+from ladya.models import Laboratory, Package
 from tests.factories import UserFactory
 
 
-@pytest.fixture
-def enable_ladya(workspace):
+def _enable(workspace):
     row, _ = get_or_create_ladya_settings(workspace)
     row.ladya_hub_enabled = True
-    secret = new_telegram_webhook_secret()
-    row.telegram_webhook_secret = secret
-    row.save(
-        update_fields=[
-            "ladya_hub_enabled",
-            "telegram_webhook_secret",
-            "updated_at",
-        ]
-    )
+    row.save(update_fields=["ladya_hub_enabled", "updated_at"])
     return row
 
 
-def test_telegram_webhook_creates_intake_and_notifies(
-    enable_ladya, workspace, user
-):
-    secret = enable_ladya.telegram_webhook_secret
-    client = APIClient()
-    update = {
-        "update_id": 1,
-        "message": {
-            "message_id": 10,
-            "text": "Нужна помощь с пакетом",
-            "chat": {"id": 4242, "type": "private"},
-            "from": {"id": 7, "username": "pilot_user"},
-        },
-    }
-    resp = client.post(f"/api/ladya/telegram/{secret}/", update, format="json")
-    assert resp.status_code == 200
-    assert resp.data["ok"] is True
-    assert resp.data["delivery_task_created"] is False
-    intake_id = resp.data["intake_id"]
-    assert intake_id
-
-    intake = IntakeRequest.objects.get(pk=intake_id)
-    assert intake.workspace_id == workspace.id
-    assert intake.source == IntakeRequest.Source.TELEGRAM
-    assert intake.status == IntakeRequest.Status.NEW
-    assert intake.body.startswith("Нужна помощь")
-    assert "@pilot_user" in intake.contact
-    assert "chat:4242" in intake.contact
-    assert DeliveryTask.objects.filter(workspace=workspace).count() == 0
-
-    notes = Notification.objects.filter(
-        user=user,
-        workspace=workspace,
-        dedupe_key=f"ladya-intake-{intake.id}-user-{user.id}",
-    )
-    assert notes.count() == 1
-    assert "Telegram" in notes.first().title
-
-
-def test_telegram_webhook_bad_secret_404(enable_ladya):
-    client = APIClient()
-    resp = client.post(
-        "/api/ladya/telegram/wrong-secret/",
-        {"message": {"text": "x", "chat": {"id": 1}, "from": {}}},
-        format="json",
-    )
-    assert resp.status_code == 404
-    assert IntakeRequest.objects.count() == 0
-
-
-def test_telegram_webhook_empty_text_ok_no_intake(enable_ladya):
-    secret = enable_ladya.telegram_webhook_secret
-    client = APIClient()
-    resp = client.post(
-        f"/api/ladya/telegram/{secret}/",
-        {"message": {"text": "  ", "chat": {"id": 1}, "from": {}}},
-        format="json",
-    )
-    assert resp.status_code == 200
-    assert resp.data["intake_id"] is None
-    assert IntakeRequest.objects.count() == 0
-
-
-def test_telegram_webhook_disabled_hub_404(workspace, enable_ladya):
-    enable_ladya.ladya_hub_enabled = False
-    enable_ladya.save(update_fields=["ladya_hub_enabled", "updated_at"])
-    client = APIClient()
-    resp = client.post(
-        f"/api/ladya/telegram/{enable_ladya.telegram_webhook_secret}/",
-        {
-            "message": {
-                "text": "hi",
-                "chat": {"id": 1},
-                "from": {"username": "x"},
-            }
-        },
-        format="json",
-    )
-    assert resp.status_code == 404
-
-
-def test_rotate_telegram_secret(authenticated_client, enable_ladya):
-    old = enable_ladya.telegram_webhook_secret
-    resp = authenticated_client.patch(
-        "/api/ladya/settings/",
-        {"rotate_telegram_webhook_secret": True},
-        format="json",
-    )
-    assert resp.status_code == 200
-    assert resp.data["telegram_webhook_secret_set"] is True
-    assert resp.data["telegram_webhook_path"].startswith("/api/ladya/telegram/")
-    enable_ladya.refresh_from_db()
-    assert enable_ladya.telegram_webhook_secret
-    assert enable_ladya.telegram_webhook_secret != old
-
-
-def test_agent_ladya_role_patch(authenticated_client, workspace, enable_ladya, user):
+def test_agent_ladya_role_patch(authenticated_client, workspace, user):
+    _enable(workspace)
     row, _ = DeliverySettings.objects.get_or_create(workspace=workspace)
     row.agent_ops_enabled = True
     row.save(update_fields=["agent_ops_enabled", "updated_at"])
@@ -144,13 +35,12 @@ def test_agent_ladya_role_patch(authenticated_client, workspace, enable_ladya, u
     )
     assert resp.status_code == 200
     assert resp.data["ladya_role"] == "lad"
-    profile.refresh_from_db()
-    assert profile.ladya_role == "lad"
 
 
 def test_package_preferred_role_and_lab_chat_room(
-    authenticated_client, workspace, enable_ladya, user
+    authenticated_client, workspace, user
 ):
+    _enable(workspace)
     lab = Laboratory.objects.create(
         workspace=workspace,
         slug="central",
@@ -180,13 +70,13 @@ def test_package_preferred_role_and_lab_chat_room(
     )
     assert created.status_code == 201
     assert created.data["preferred_role"] == "cartographer"
-    pkg = Package.objects.get(pk=created.data["id"])
-    assert pkg.preferred_role == "cartographer"
+    assert Package.objects.get(pk=created.data["id"]).preferred_role == "cartographer"
 
 
 def test_lab_chat_room_rejects_foreign_workspace(
-    authenticated_client, workspace, enable_ladya
+    authenticated_client, workspace
 ):
+    _enable(workspace)
     other = UserFactory(email="other-ws@example.com", username="otherws")
     other_ws = other.workspace_memberships.first().workspace
     foreign_room = ChatRoom.objects.create(

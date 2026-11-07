@@ -3,11 +3,6 @@ from django.urls import path
 from ladya import views
 
 urlpatterns = [
-    path(
-        "ladya/telegram/<str:secret>/",
-        views.LadyaTelegramWebhookView.as_view(),
-        name="ladya-telegram-webhook",
-    ),
     path("ladya/settings/", views.LadyaSettingsView.as_view(), name="ladya-settings"),
     path(
         "ladya/laboratories/",
@@ -18,6 +13,16 @@ urlpatterns = [
         "ladya/laboratories/<int:lab_id>/",
         views.LaboratoryDetailView.as_view(),
         name="ladya-lab-detail",
+    ),
+    path(
+        "ladya/laboratories/<int:lab_id>/ensure-chat/",
+        views.LaboratoryEnsureChatView.as_view(),
+        name="ladya-lab-ensure-chat",
+    ),
+    path(
+        "ladya/laboratories/<int:lab_id>/agents/",
+        views.LaboratoryAgentsView.as_view(),
+        name="ladya-lab-agents",
     ),
     path(
         "ladya/packages/",
@@ -55,6 +60,11 @@ urlpatterns = [
         name="ladya-package-manifest",
     ),
     path(
+        "ladya/packages/<int:package_id>/notify-chat/",
+        views.PackageNotifyChatView.as_view(),
+        name="ladya-package-notify-chat",
+    ),
+    path(
         "ladya/laboratories/<int:lab_id>/packages/",
         views.LaboratoryPackagesView.as_view(),
         name="ladya-lab-packages",
@@ -70,6 +80,11 @@ urlpatterns = [
         name="ladya-intake-list",
     ),
     path(
+        "ladya/intake/from-chat-message/",
+        views.IntakeFromChatMessageView.as_view(),
+        name="ladya-intake-from-chat",
+    ),
+    path(
         "ladya/intake/<int:intake_id>/triage/",
         views.IntakeTriageView.as_view(),
         name="ladya-intake-triage",
@@ -78,5 +93,25 @@ urlpatterns = [
         "ladya/intake/<int:intake_id>/convert/",
         views.IntakeConvertView.as_view(),
         name="ladya-intake-convert",
+    ),
+    path(
+        "ladya/chat-rooms/<int:room_id>/capabilities/",
+        views.ChatRoomLadyaCapabilitiesView.as_view(),
+        name="ladya-chat-capabilities",
+    ),
+    path(
+        "ladya/agents/",
+        views.LadyaAgentConnectView.as_view(),
+        name="ladya-agents",
+    ),
+    path(
+        "ladya/agents/<int:agent_id>/reissue/",
+        views.LadyaAgentReissueView.as_view(),
+        name="ladya-agent-reissue",
+    ),
+    path(
+        "ladya/agents/<int:agent_id>/revoke/",
+        views.LadyaAgentRevokeView.as_view(),
+        name="ladya-agent-revoke",
     ),
 ]
