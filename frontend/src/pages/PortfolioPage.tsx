@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { parseApiError } from "../api/errors";
 import type {
@@ -22,6 +22,11 @@ export function PortfolioPage() {
   const { workspaceEpoch, activeWorkspace } = useWorkspace();
   const { isAuthenticated } = useAuth();
   const { formatMoney, currency, baseCurrency } = useLocale();
+  const [searchParams] = useSearchParams();
+  const chatSectionRef = useRef<HTMLDivElement | null>(null);
+  const openChat = searchParams.get("chat") === "1" || searchParams.has("dm");
+  const dmRoomId = Number(searchParams.get("dm") || "");
+  const chatRoomId = Number.isFinite(dmRoomId) && dmRoomId > 0 ? dmRoomId : undefined;
   const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null);
   const [crossDeps, setCrossDeps] = useState<CrossProjectDependency[]>([]);
   const [scheduleActivities, setScheduleActivities] = useState<
@@ -64,6 +69,11 @@ export function PortfolioPage() {
   useEffect(() => {
     void load();
   }, [load, workspaceEpoch]);
+
+  useEffect(() => {
+    if (!openChat || !isAuthenticated) return;
+    chatSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [openChat, isAuthenticated, loading]);
 
   return (
     <div className="space-y-6">
@@ -317,9 +327,15 @@ export function PortfolioPage() {
           </section>
 
           {isAuthenticated && (
-            <div className="space-y-2">
-              <h2 className="text-base font-semibold text-text">Чат портфеля</h2>
-              <ChatPanel scope="workspace" />
+            <div ref={chatSectionRef} id="portfolio-chat" className="space-y-2">
+              <h2 className="text-base font-semibold text-text">
+                {chatRoomId ? "Чат (DM)" : "Чат портфеля"}
+              </h2>
+              {chatRoomId ? (
+                <ChatPanel scope="dm" roomId={chatRoomId} />
+              ) : (
+                <ChatPanel scope="workspace" />
+              )}
             </div>
           )}
         </>

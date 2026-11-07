@@ -697,7 +697,7 @@ function PackageDetailPanel() {
                 labs.find((l) => l.id === pkg.from_laboratory)?.chat_room !=
                   null && (
                   <Link
-                    to="/portfolio"
+                    to="/portfolio?chat=1"
                     className="text-xs text-primary hover:underline"
                   >
                     Чат отправителя
@@ -707,7 +707,7 @@ function PackageDetailPanel() {
                 labs.find((l) => l.id === pkg.to_laboratory)?.chat_room !=
                   null && (
                   <Link
-                    to="/portfolio"
+                    to="/portfolio?chat=1"
                     className="text-xs text-primary hover:underline"
                   >
                     Чат получателя
@@ -1086,7 +1086,7 @@ function LabDetailPanel() {
                 Создать комнату лаборатории
               </button>
               <Link
-                to="/portfolio"
+                to="/portfolio?chat=1"
                 className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-cream"
               >
                 Открыть чат

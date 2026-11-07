@@ -33,6 +33,7 @@
 - **Ladya Hub M1 (P0/P1)** — `LADYA_PACKAGE_MAX_BYTES` (default 256 MiB) + stream hash; transfer между lab; create DeliveryTask из пакета; Intake triage/queue + обязательный `to_laboratory` на convert; манифест+sha256; фильтры пакетов / карточка lab / лента событий
 - **Ladya Hub P2** — `AgentProfile.ladya_role` + `Package.preferred_role`; `Laboratory.chat_room` link; чеклист [`LADYA_PILOT_CHECKLIST.md`](docs/LADYA_PILOT_CHECKLIST.md), [`LADYA_ROLES.md`](docs/LADYA_ROLES.md)
 - **Ladya Hub chat intake** — вход через внутренний чат Fast Plan (`internal_chat`) + кнопка в ChatPanel; Telegram для Ladya снят; мастер «Подключить агента» на `/ladya/agents`; [`LADYA_CONNECT_AGENT.md`](docs/LADYA_CONNECT_AGENT.md)
+- **Portfolio chat deep-link** — `/portfolio?chat=1` и `&dm={roomId}` открывают/скроллят нужный ChatPanel (parity с notification links)
 
 - **Ladya branding** — light/dark mark PNG/SVG + hero; шапка `/ladya` и иконка сайдбара переключаются по теме сайта
 - **Agent Ops default-on** — `agent_ops_enabled=true` для новых и существующих workspace; env `AGENT_OPS_ENABLED_DEFAULT`

@@ -48,7 +48,7 @@ def test_ensure_lab_chat_and_intake_from_message(
     )
     assert ensured.status_code == 200
     assert ensured.data["chat_room_id"]
-    assert ensured.data["open_path"] == "/portfolio"
+    assert ensured.data["open_path"] == "/portfolio?chat=1"
     lab.refresh_from_db()
     assert lab.chat_room_id == ensured.data["chat_room_id"]
 

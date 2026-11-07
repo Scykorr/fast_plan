@@ -518,7 +518,7 @@ class LaboratoryEnsureChatView(WorkspaceMixin, APIView):
             {
                 "laboratory": LaboratorySerializer(lab).data,
                 "chat_room_id": room.id,
-                "open_path": "/portfolio",
+                "open_path": "/portfolio?chat=1",
             }
         )
 
