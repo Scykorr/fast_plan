@@ -8,14 +8,19 @@ ADR: [`adr-ladya-hub.md`](adr-ladya-hub.md)
 
 ## Брендинг (светлая тема)
 
-Ассеты в `frontend/public/ladya/`:
+Ассеты в `frontend/public/ladya/` (UI переключает по теме сайта):
 
-- `logo-mark.png` / `logo-mark.svg` — прозрачный знак ладьи для UI
-- `logo-light.png` — вариант mark для светлого фона
-- `hero-light.jpg` — баннер шапки раздела `/ladya`
-- `logo-dark.jpg` — исходный вид на тёмном фоне
+**Светлая**
+- `logo-mark.png` / `logo-mark.svg` — прозрачный знак
+- `logo-light.png` — вариант mark
+- `hero-light.jpg` — баннер шапки `/ladya`
 
-Пересборка из исходников: `python scripts/prepare_ladya_assets.py`.
+**Тёмная**
+- `logo-dark-mark.png` / `logo-dark-mark.svg` — прозрачный electric-blue знак
+- `logo-dark.jpg` — исходный вид на чёрном фоне
+- `hero-dark.jpg` — баннер шапки для dark mode
+
+Пересборка: `python scripts/prepare_ladya_assets.py`, `python scripts/prepare_ladya_dark_assets.py`.
 
 ## Включить флаг
 

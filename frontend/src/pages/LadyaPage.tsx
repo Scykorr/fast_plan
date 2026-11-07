@@ -20,6 +20,7 @@ import type {
 } from "../api/ladya";
 import type { DeliveryTask } from "../api/delivery";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useDeliveryApi } from "../hooks/useDeliveryApi";
 import { useLadyaApi } from "../hooks/useLadyaApi";
@@ -1157,9 +1158,14 @@ function IntakePanel() {
 
 export function LadyaPage() {
   const api = useLadyaApi();
+  const { theme } = useTheme();
   const { workspaceEpoch, activeWorkspace } = useWorkspace();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [error, setError] = useState("");
+  const isDark = theme === "dark";
+  const logoMark = isDark ? "/ladya/logo-dark-mark.png" : "/ladya/logo-mark.png";
+  const logoSvg = isDark ? "/ladya/logo-dark-mark.svg" : "/ladya/logo-mark.svg";
+  const heroSrc = isDark ? "/ladya/hero-dark.jpg" : "/ladya/hero-light.jpg";
 
   useEffect(() => {
     if (!api) return;
@@ -1175,12 +1181,7 @@ export function LadyaPage() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <img
-            src="/ladya/logo-mark.svg"
-            alt=""
-            className="h-10 w-10"
-            aria-hidden
-          />
+          <img src={logoSvg} alt="" className="h-10 w-10" aria-hidden />
           <h1 className="text-3xl font-bold text-text">Ладья</h1>
         </div>
         <p className="text-sm text-text-muted">
@@ -1197,14 +1198,19 @@ export function LadyaPage() {
       <section className="overflow-hidden rounded-2xl border border-border bg-surface">
         <div className="relative min-h-[9.5rem] md:min-h-[11rem]">
           <img
-            src="/ladya/hero-light.jpg"
+            src={heroSrc}
             alt=""
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/90 to-surface/40" />
+          <div
+            className={[
+              "absolute inset-0 bg-gradient-to-r from-surface via-surface/90",
+              isDark ? "to-surface/55" : "to-surface/40",
+            ].join(" ")}
+          />
           <div className="relative flex items-center gap-4 px-5 py-6 md:px-7">
             <img
-              src="/ladya/logo-mark.png"
+              src={logoMark}
               alt="Ладья"
               className="h-16 w-16 shrink-0 drop-shadow-sm md:h-20 md:w-20"
             />

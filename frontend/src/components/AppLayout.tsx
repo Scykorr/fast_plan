@@ -9,6 +9,7 @@ import { GlobalSearchBar } from "./search/GlobalSearchBar";
 import { notifyDataInvalidated } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLocale } from "../context/LocaleContext";
+import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useLadyaApi } from "../hooks/useLadyaApi";
 import { useWorkspaceEvents } from "../hooks/useWorkspaceEvents";
@@ -167,9 +168,12 @@ function NavItemLink({
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   const { t } = useLocale();
+  const { theme } = useTheme();
   const { workspaces, activeWorkspace, switchWorkspace, workspaceEpoch } =
     useWorkspace();
   const ladyaApi = useLadyaApi();
+  const ladyaNavIcon =
+    theme === "dark" ? "/ladya/logo-dark-mark.svg" : "/ladya/logo-mark.svg";
   const { pathname } = useLocation();
   const [switching, setSwitching] = useState(false);
   const [ladyaEnabled, setLadyaEnabled] = useState(false);
@@ -301,7 +305,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <span className="inline-flex items-center gap-2">
                   {group.id === "ladya" && (
                     <img
-                      src="/ladya/logo-mark.svg"
+                      src={ladyaNavIcon}
                       alt=""
                       className="h-4 w-4"
                       aria-hidden
