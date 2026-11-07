@@ -2,7 +2,22 @@ import { request, requestForm } from "./client";
 
 export type LadyaSettings = {
   ladya_hub_enabled: boolean;
+  package_max_bytes: number;
   updated_at: string;
+};
+
+export type LadyaStatusEvent = {
+  id: number;
+  from_status: string;
+  to_status: string;
+  from_laboratory: number | null;
+  to_laboratory: number | null;
+  reason: string;
+  changed_by: number | null;
+  created_at: string;
+  package_id?: number;
+  package_code?: string;
+  package_title?: string;
 };
 
 export type LaboratoryKind =
@@ -121,10 +136,20 @@ export function createLadyaApi() {
     deleteLaboratory: (id: number) =>
       request<void>(`/ladya/laboratories/${id}/`, { method: "DELETE" }),
 
-    listPackages: (status?: string) =>
-      request<LadyaPackage[]>(
-        status ? `/ladya/packages/?status=${encodeURIComponent(status)}` : "/ladya/packages/",
-      ),
+    listPackages: (params?: {
+      status?: string;
+      from_lab?: number;
+      to_lab?: number;
+      q?: string;
+    }) => {
+      const q = new URLSearchParams();
+      if (params?.status) q.set("status", params.status);
+      if (params?.from_lab != null) q.set("from_lab", String(params.from_lab));
+      if (params?.to_lab != null) q.set("to_lab", String(params.to_lab));
+      if (params?.q) q.set("q", params.q);
+      const suffix = q.toString() ? `?${q}` : "";
+      return request<LadyaPackage[]>(`/ladya/packages/${suffix}`);
+    },
     getPackage: (id: number) => request<LadyaPackage>(`/ladya/packages/${id}/`),
     createPackage: (data: {
       title: string;
@@ -170,8 +195,53 @@ export function createLadyaApi() {
       form.append("file", file);
       return requestForm<PackageFile>(`/ladya/packages/${id}/files/`, form);
     },
+    transferPackage: (
+      id: number,
+      data: { to_laboratory: number; reason?: string },
+    ) =>
+      request<LadyaPackage>(`/ladya/packages/${id}/transfer/`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    createDeliveryTask: (id: number) =>
+      request<{
+        package: LadyaPackage;
+        delivery_task: {
+          id: number;
+          title: string;
+          status: string;
+          assignee: number | null;
+        };
+      }>(`/ladya/packages/${id}/create-delivery-task/`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    buildManifest: (id: number) =>
+      request<{ manifest: Record<string, unknown>; manifest_sha256: string }>(
+        `/ladya/packages/${id}/manifest/`,
+        { method: "POST", body: JSON.stringify({}) },
+      ),
+    listLabPackages: (
+      labId: number,
+      params?: { direction?: string; status?: string },
+    ) => {
+      const q = new URLSearchParams();
+      if (params?.direction) q.set("direction", params.direction);
+      if (params?.status) q.set("status", params.status);
+      const suffix = q.toString() ? `?${q}` : "";
+      return request<{ laboratory: Laboratory; packages: LadyaPackage[] }>(
+        `/ladya/laboratories/${labId}/packages/${suffix}`,
+      );
+    },
+    listEvents: (limit = 30) =>
+      request<LadyaStatusEvent[]>(`/ladya/events/?limit=${limit}`),
 
-    listIntake: () => request<IntakeRequest[]>("/ladya/intake/"),
+    listIntake: (status?: string) =>
+      request<IntakeRequest[]>(
+        status
+          ? `/ladya/intake/?status=${encodeURIComponent(status)}`
+          : "/ladya/intake/",
+      ),
     createIntake: (data: {
       body: string;
       contact?: string;

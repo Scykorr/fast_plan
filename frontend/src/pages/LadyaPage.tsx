@@ -15,6 +15,7 @@ import type {
   Laboratory,
   LaboratoryKind,
   LadyaPackage,
+  LadyaStatusEvent,
   PackageStatus,
 } from "../api/ladya";
 import type { DeliveryTask } from "../api/delivery";
@@ -158,7 +159,14 @@ function LabsPanel() {
           <tbody>
             {labs.map((lab) => (
               <tr key={lab.id} className="border-b border-border/60">
-                <td className="px-4 py-3">{lab.title}</td>
+                <td className="px-4 py-3">
+                  <Link
+                    className="text-primary hover:underline"
+                    to={`/ladya/labs/${lab.id}`}
+                  >
+                    {lab.title}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-text-muted">{lab.slug}</td>
                 <td className="px-4 py-3">
                   {LAB_KINDS.find((k) => k.value === lab.kind)?.label ?? lab.kind}
@@ -186,26 +194,38 @@ function PackagesPanel() {
   const { workspaceEpoch } = useWorkspace();
   const [packages, setPackages] = useState<LadyaPackage[]>([]);
   const [labs, setLabs] = useState<Laboratory[]>([]);
+  const [events, setEvents] = useState<LadyaStatusEvent[]>([]);
   const [error, setError] = useState("");
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [fromLab, setFromLab] = useState<number | "">("");
   const [toLab, setToLab] = useState<number | "">("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterFrom, setFilterFrom] = useState<number | "">("");
+  const [filterTo, setFilterTo] = useState<number | "">("");
+  const [filterQ, setFilterQ] = useState("");
 
   const load = useCallback(async () => {
     if (!api) return;
     try {
-      const [pkgRows, labRows] = await Promise.all([
-        api.listPackages(),
+      const [pkgRows, labRows, eventRows] = await Promise.all([
+        api.listPackages({
+          status: filterStatus || undefined,
+          from_lab: filterFrom === "" ? undefined : filterFrom,
+          to_lab: filterTo === "" ? undefined : filterTo,
+          q: filterQ.trim() || undefined,
+        }),
         api.listLaboratories(),
+        api.listEvents(12),
       ]);
       setPackages(pkgRows);
       setLabs(labRows);
+      setEvents(eventRows);
       setError("");
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить пакеты"));
     }
-  }, [api]);
+  }, [api, filterFrom, filterQ, filterStatus, filterTo]);
 
   useEffect(() => {
     void load();
@@ -237,6 +257,25 @@ function PackagesPanel() {
   return (
     <div className="space-y-4">
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      {events.length > 0 && (
+        <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <h3 className="text-sm font-semibold">Лента событий контура</h3>
+          {events.map((event) => (
+            <button
+              key={event.id}
+              type="button"
+              className="block w-full text-left text-sm text-text-muted hover:text-primary"
+              onClick={() =>
+                event.package_id &&
+                navigate(`/ladya/packages/${event.package_id}`)
+              }
+            >
+              {event.package_code}: {event.from_status || "—"} → {event.to_status}
+              {event.reason ? ` — ${event.reason}` : ""}
+            </button>
+          ))}
+        </div>
+      )}
       <form
         onSubmit={(e) => void onCreate(e)}
         className="grid gap-3 rounded-xl border border-border bg-surface p-4 md:grid-cols-2"
@@ -291,6 +330,55 @@ function PackagesPanel() {
         </button>
       </form>
 
+      <div className="grid gap-2 rounded-xl border border-border bg-surface p-3 md:grid-cols-4">
+        <select
+          className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
+          <option value="">Все статусы</option>
+          {Object.entries(STATUS_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select
+          className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+          value={filterFrom}
+          onChange={(e) =>
+            setFilterFrom(e.target.value === "" ? "" : Number(e.target.value))
+          }
+        >
+          <option value="">От (фильтр)</option>
+          {labs.map((lab) => (
+            <option key={lab.id} value={lab.id}>
+              {lab.title}
+            </option>
+          ))}
+        </select>
+        <select
+          className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+          value={filterTo}
+          onChange={(e) =>
+            setFilterTo(e.target.value === "" ? "" : Number(e.target.value))
+          }
+        >
+          <option value="">Кому (фильтр)</option>
+          {labs.map((lab) => (
+            <option key={lab.id} value={lab.id}>
+              {lab.title}
+            </option>
+          ))}
+        </select>
+        <input
+          className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+          placeholder="Поиск по названию"
+          value={filterQ}
+          onChange={(e) => setFilterQ(e.target.value)}
+        />
+      </div>
+
       <div className="overflow-x-auto rounded-xl border border-border bg-surface">
         <table className="w-full text-sm">
           <thead>
@@ -341,6 +429,10 @@ function PackageDetailPanel() {
   const [linkedTask, setLinkedTask] = useState<DeliveryTask | null>(null);
   const [taskPick, setTaskPick] = useState<number | "">("");
   const [opsAvailable, setOpsAvailable] = useState(false);
+  const [packageMaxBytes, setPackageMaxBytes] = useState(256 * 1024 * 1024);
+  const [transferLab, setTransferLab] = useState<number | "">("");
+  const [transferReason, setTransferReason] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [reason, setReason] = useState("");
 
@@ -356,6 +448,13 @@ function PackageDetailPanel() {
       setPkg(row);
       setLabs(labRows);
       setError("");
+
+      try {
+        const ladyaSettings = await api.getSettings();
+        setPackageMaxBytes(ladyaSettings.package_max_bytes || 256 * 1024 * 1024);
+      } catch {
+        /* keep default */
+      }
 
       if (deliveryApi) {
         try {
@@ -411,11 +510,68 @@ function PackageDetailPanel() {
 
   const onUpload = async (file: File | null) => {
     if (!api || !pkg || !file) return;
+    if (file.size > packageMaxBytes) {
+      setError(
+        `Файл ${file.size} байт превышает лимит ${packageMaxBytes} (LADYA_PACKAGE_MAX_BYTES).`,
+      );
+      return;
+    }
+    setUploading(true);
     try {
       await api.uploadPackageFile(pkg.id, file);
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить файл"));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onCreateDeliveryTask = async () => {
+    if (!api || !pkg) return;
+    try {
+      const result = await api.createDeliveryTask(pkg.id);
+      setPkg(result.package);
+      if (deliveryApi) {
+        setLinkedTask(await deliveryApi.getTask(result.delivery_task.id));
+        setTaskPick(result.delivery_task.id);
+      }
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось создать DeliveryTask"));
+    }
+  };
+
+  const onTransfer = async () => {
+    if (!api || !pkg || transferLab === "") return;
+    try {
+      setPkg(
+        await api.transferPackage(pkg.id, {
+          to_laboratory: transferLab,
+          reason: transferReason,
+        }),
+      );
+      setTransferReason("");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось передать пакет"));
+    }
+  };
+
+  const onBuildManifest = async () => {
+    if (!api || !pkg) return;
+    try {
+      const result = await api.buildManifest(pkg.id);
+      setPkg({ ...pkg, manifest_sha256: result.manifest_sha256 });
+      const blob = new Blob([JSON.stringify(result.manifest, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${pkg.display_code}-manifest.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось собрать манифест"));
     }
   };
 
@@ -534,11 +690,21 @@ function PackageDetailPanel() {
               </div>
             ) : (
               <p className="text-sm text-text-muted">
-                Пакет ещё не связан с задачей агентов. Выберите DeliveryTask —
-                агенты продолжают брать работу только через inbox/handoff.
+                Пакет ещё не связан с задачей агентов. Можно создать новую
+                DeliveryTask из пакета или привязать существующую — без
+                auto-claim; агенты берут работу только через inbox/handoff.
               </p>
             )}
             <div className="flex flex-wrap items-center gap-2">
+              {!linkedTask && (
+                <button
+                  type="button"
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white"
+                  onClick={() => void onCreateDeliveryTask()}
+                >
+                  Создать задачу Agent Ops
+                </button>
+              )}
               <select
                 className="min-w-[16rem] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
                 value={taskPick}
@@ -555,7 +721,7 @@ function PackageDetailPanel() {
               </select>
               <button
                 type="button"
-                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-cream disabled:opacity-50"
                 disabled={taskPick === ""}
                 onClick={() => void onLinkTask()}
               >
@@ -564,6 +730,45 @@ function PackageDetailPanel() {
             </div>
           </>
         )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
+        <h3 className="text-sm font-semibold">Передать в лабораторию</h3>
+        <p className="text-xs text-text-muted">
+          Из статусов accepted / in_progress / returned. Пишет событие в историю.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <select
+            className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+            value={transferLab}
+            onChange={(e) =>
+              setTransferLab(e.target.value === "" ? "" : Number(e.target.value))
+            }
+          >
+            <option value="">Целевая лаборатория</option>
+            {labs
+              .filter((lab) => lab.is_active && lab.id !== pkg.to_laboratory)
+              .map((lab) => (
+                <option key={lab.id} value={lab.id}>
+                  {lab.title}
+                </option>
+              ))}
+          </select>
+          <input
+            className="min-w-[12rem] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+            placeholder="Причина передачи"
+            value={transferReason}
+            onChange={(e) => setTransferReason(e.target.value)}
+          />
+          <button
+            type="button"
+            className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            disabled={transferLab === ""}
+            onClick={() => void onTransfer()}
+          >
+            Передать
+          </button>
+        </div>
       </div>
 
       {next.length > 0 && (
@@ -592,10 +797,16 @@ function PackageDetailPanel() {
 
       <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
         <h3 className="text-sm font-semibold">Файлы</h3>
+        <p className="text-xs text-text-muted">
+          Лимит {Math.round(packageMaxBytes / (1024 * 1024))} МБ. Hash считается
+          потоково на сервере.
+        </p>
         <input
           type="file"
+          disabled={uploading}
           onChange={(e) => void onUpload(e.target.files?.[0] ?? null)}
         />
+        {uploading && <p className="text-sm text-text-muted">Загрузка…</p>}
         <ul className="space-y-2 text-sm">
           {pkg.files.map((file) => (
             <li key={file.id} className="rounded-lg border border-border/60 px-3 py-2">
@@ -609,6 +820,20 @@ function PackageDetailPanel() {
             <li className="text-text-muted">Файлов пока нет</li>
           )}
         </ul>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-cream"
+            onClick={() => void onBuildManifest()}
+          >
+            Собрать манифест
+          </button>
+          {pkg.manifest_sha256 && (
+            <span className="break-all text-xs text-text-muted">
+              manifest_sha256: {pkg.manifest_sha256}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
@@ -625,6 +850,102 @@ function PackageDetailPanel() {
   );
 }
 
+function LabDetailPanel() {
+  const { labId } = useParams();
+  const api = useLadyaApi();
+  const navigate = useNavigate();
+  const [lab, setLab] = useState<Laboratory | null>(null);
+  const [packages, setPackages] = useState<LadyaPackage[]>([]);
+  const [direction, setDirection] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [error, setError] = useState("");
+  const id = Number(labId);
+
+  const load = useCallback(async () => {
+    if (!api || !Number.isFinite(id)) return;
+    try {
+      const data = await api.listLabPackages(id, {
+        direction,
+        status: statusFilter || undefined,
+      });
+      setLab(data.laboratory);
+      setPackages(data.packages);
+      setError("");
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось загрузить лабораторию"));
+    }
+  }, [api, direction, id, statusFilter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!Number.isFinite(id)) {
+    return <Navigate to="/ladya/labs" replace />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        className="text-sm text-primary hover:underline"
+        onClick={() => navigate("/ladya/labs")}
+      >
+        ← К лабораториям
+      </button>
+      {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      {lab && (
+        <div className="rounded-xl border border-border bg-surface p-5">
+          <h2 className="text-2xl font-bold text-text">{lab.title}</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            {lab.slug} ·{" "}
+            {LAB_KINDS.find((k) => k.value === lab.kind)?.label ?? lab.kind} ·{" "}
+            {lab.is_active ? "активна" : "неактивна"}
+          </p>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <select
+          className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+          value={direction}
+          onChange={(e) => setDirection(e.target.value)}
+        >
+          <option value="all">Все пакеты</option>
+          <option value="incoming">Входящие</option>
+          <option value="outgoing">Исходящие</option>
+        </select>
+        <select
+          className="rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">Все статусы</option>
+          {Object.entries(STATUS_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <ul className="space-y-2">
+        {packages.map((pkg) => (
+          <li key={pkg.id}>
+            <Link
+              to={`/ladya/packages/${pkg.id}`}
+              className="block rounded-lg border border-border bg-surface px-4 py-3 text-sm hover:bg-cream"
+            >
+              {pkg.display_code} · {pkg.title} · {STATUS_LABELS[pkg.status]}
+            </Link>
+          </li>
+        ))}
+        {packages.length === 0 && (
+          <li className="text-sm text-text-muted">Пакетов нет</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 function IntakePanel() {
   const api = useLadyaApi();
   const navigate = useNavigate();
@@ -635,21 +956,27 @@ function IntakePanel() {
   const [body, setBody] = useState("");
   const [contact, setContact] = useState("");
   const [toLab, setToLab] = useState<number | "">("");
+  const [queueFilter, setQueueFilter] = useState<"" | "new" | "triaged">("new");
 
   const load = useCallback(async () => {
     if (!api) return;
     try {
       const [intakeRows, labRows] = await Promise.all([
-        api.listIntake(),
+        api.listIntake(queueFilter || undefined),
         api.listLaboratories(),
       ]);
       setRows(intakeRows);
       setLabs(labRows);
+      setToLab((current) => {
+        if (current !== "") return current;
+        const central = labRows.find((l) => l.kind === "central_lad" && l.is_active);
+        return central?.id ?? "";
+      });
       setError("");
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить обращения"));
     }
-  }, [api]);
+  }, [api, queueFilter]);
 
   useEffect(() => {
     void load();
@@ -662,18 +989,32 @@ function IntakePanel() {
       await api.createIntake({ body, contact, source: "web_form" });
       setBody("");
       setContact("");
+      setQueueFilter("new");
       await load();
     } catch (err) {
       setError(parseApiError(err, "Не удалось отправить обращение"));
     }
   };
 
-  const onConvert = async (id: number) => {
+  const onTriage = async (id: number, status: "triaged" | "closed") => {
     if (!api) return;
     try {
+      await api.triageIntake(id, status);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось обновить обращение"));
+    }
+  };
+
+  const onConvert = async (id: number) => {
+    if (!api) return;
+    if (toLab === "") {
+      setError("Выберите лабораторию-получателя (обычно central_lad)");
+      return;
+    }
+    try {
       const result = await api.convertIntake(id, {
-        title: `Из обращения #${id}`,
-        to_laboratory: toLab === "" ? null : toLab,
+        to_laboratory: toLab,
       });
       navigate(`/ladya/packages/${result.package.id}`);
     } catch (err) {
@@ -684,6 +1025,10 @@ function IntakePanel() {
   return (
     <div className="space-y-4">
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
+      <p className="text-sm text-text-muted">
+        Человек пишет во Вход; ЛАД принимает обращение и превращает его в Package.
+        Внутренние пакеты здесь не показываются.
+      </p>
       <form
         onSubmit={(e) => void onCreate(e)}
         className="space-y-3 rounded-xl border border-border bg-surface p-4"
@@ -716,15 +1061,27 @@ function IntakePanel() {
           <h3 className="text-sm font-semibold">Очередь обращений</h3>
           <select
             className="rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
+            value={queueFilter}
+            onChange={(e) =>
+              setQueueFilter(e.target.value as "" | "new" | "triaged")
+            }
+          >
+            <option value="new">new</option>
+            <option value="triaged">triaged</option>
+            <option value="">все</option>
+          </select>
+          <select
+            className="rounded-lg border border-border bg-cream px-3 py-1.5 text-sm"
             value={toLab}
             onChange={(e) =>
               setToLab(e.target.value === "" ? "" : Number(e.target.value))
             }
           >
-            <option value="">Лаборатория для convert</option>
+            <option value="">Лаборатория для convert (обязательно)</option>
             {labs.map((lab) => (
               <option key={lab.id} value={lab.id}>
                 {lab.title}
+                {lab.kind === "central_lad" ? " ★" : ""}
               </option>
             ))}
           </select>
@@ -749,23 +1106,43 @@ function IntakePanel() {
                     </div>
                   )}
                 </div>
-                {row.status !== "converted" && row.status !== "closed" && (
-                  <button
-                    type="button"
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-cream"
-                    onClick={() => void onConvert(row.id)}
-                  >
-                    Convert → Package
-                  </button>
-                )}
-                {row.package && (
-                  <Link
-                    to={`/ladya/packages/${row.package}`}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Пакет #{row.package}
-                  </Link>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {row.status === "new" && (
+                    <>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-cream"
+                        onClick={() => void onTriage(row.id, "triaged")}
+                      >
+                        Triage
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-cream"
+                        onClick={() => void onTriage(row.id, "closed")}
+                      >
+                        Close
+                      </button>
+                    </>
+                  )}
+                  {(row.status === "new" || row.status === "triaged") && (
+                    <button
+                      type="button"
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-cream"
+                      onClick={() => void onConvert(row.id)}
+                    >
+                      Convert → Package
+                    </button>
+                  )}
+                  {row.package && (
+                    <Link
+                      to={`/ladya/packages/${row.package}`}
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs text-primary hover:bg-cream"
+                    >
+                      Пакет #{row.package}
+                    </Link>
+                  )}
+                </div>
               </div>
             </li>
           ))}
@@ -820,6 +1197,7 @@ export function LadyaPage() {
       <Routes>
         <Route index element={<Navigate to="packages" replace />} />
         <Route path="labs" element={<LabsPanel />} />
+        <Route path="labs/:labId" element={<LabDetailPanel />} />
         <Route path="packages" element={<PackagesPanel />} />
         <Route path="packages/:packageId" element={<PackageDetailPanel />} />
         <Route path="intake" element={<IntakePanel />} />
