@@ -13,6 +13,9 @@
 6. **Файлы.** `PackageFile` + потоковый `sha256`; лимит **`LADYA_PACKAGE_MAX_BYTES`** (default 256 MiB), отдельно от attachments. Chunked/S3 — следующий этап (TODO).
 7. **Reuse.** workspaces (права/`X-Workspace-Id`), delivery (DeliveryTask), attachments (паттерн upload), chats не расширяем в M0.
 8. **M1 операции.** Transfer между lab — отдельный action + audit; DeliveryTask создаётся из Package без claim; convert Intake требует `to_laboratory`; manifest JSON → `manifest_sha256` (без volatile `updated_at` в каноне).
+9. **P2a Telegram.** Отдельный secret webhook `/api/ladya/telegram/<secret>/` → только `IntakeRequest` + notify editors. Не CRM Activity как единственный путь; никогда не создаёт DeliveryTask/claim.
+10. **P2b роли.** `AgentProfile.ladya_role` + `Package.preferred_role` — справочник/hint; ACL Agent Ops не ломаем.
+11. **P2c chat link.** `Laboratory.chat_room` → существующий ChatRoom. **Отложено:** E2E group lab rooms как Signal / свой Matrix — чат остаётся диспетчером, Package — истиной передачи; отдельный мессенджер не строим в этом контуре.
 
 ## Consequences
 

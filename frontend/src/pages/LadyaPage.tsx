@@ -15,6 +15,7 @@ import type {
   Laboratory,
   LaboratoryKind,
   LadyaPackage,
+  LadyaRole,
   LadyaStatusEvent,
   PackageStatus,
 } from "../api/ladya";
@@ -22,8 +23,17 @@ import type { DeliveryTask } from "../api/delivery";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useChatsApi } from "../hooks/useChatsApi";
 import { useDeliveryApi } from "../hooks/useDeliveryApi";
 import { useLadyaApi } from "../hooks/useLadyaApi";
+
+const LADYA_ROLES: Array<{ value: LadyaRole; label: string }> = [
+  { value: "", label: "—" },
+  { value: "lad", label: "ЛАД" },
+  { value: "cartographer", label: "Картограф" },
+  { value: "quest", label: "Квест" },
+  { value: "curator", label: "Куратор" },
+];
 
 const LAB_KINDS: Array<{ value: LaboratoryKind; label: string }> = [
   { value: "central_lad", label: "Центральный ЛАД" },
@@ -650,6 +660,31 @@ function PackageDetailPanel() {
               {labTitle(pkg.from_laboratory)} → {labTitle(pkg.to_laboratory)}
             </dd>
           </div>
+          <div>
+            <dt className="text-text-muted">Preferred role (hint)</dt>
+            <dd>
+              <select
+                className="mt-1 rounded-lg border border-border bg-cream px-2 py-1 text-sm"
+                value={pkg.preferred_role || ""}
+                onChange={(e) => {
+                  const preferred_role = e.target.value;
+                  if (!api) return;
+                  void api
+                    .patchPackage(pkg.id, { preferred_role })
+                    .then(setPkg)
+                    .catch((err) =>
+                      setError(parseApiError(err, "Не удалось сохранить роль")),
+                    );
+                }}
+              >
+                {LADYA_ROLES.map((row) => (
+                  <option key={row.value || "none"} value={row.value}>
+                    {row.label}
+                  </option>
+                ))}
+              </select>
+            </dd>
+          </div>
         </dl>
       </div>
 
@@ -854,11 +889,16 @@ function PackageDetailPanel() {
 function LabDetailPanel() {
   const { labId } = useParams();
   const api = useLadyaApi();
+  const chatsApi = useChatsApi();
   const navigate = useNavigate();
   const [lab, setLab] = useState<Laboratory | null>(null);
   const [packages, setPackages] = useState<LadyaPackage[]>([]);
   const [direction, setDirection] = useState("all");
   const [statusFilter, setStatusFilter] = useState("");
+  const [chatPick, setChatPick] = useState<number | "">("");
+  const [chatOptions, setChatOptions] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
   const [error, setError] = useState("");
   const id = Number(labId);
 
@@ -871,15 +911,64 @@ function LabDetailPanel() {
       });
       setLab(data.laboratory);
       setPackages(data.packages);
+      setChatPick(data.laboratory.chat_room ?? "");
       setError("");
+      if (chatsApi) {
+        try {
+          const rooms = await chatsApi.getMine();
+          setChatOptions(
+            rooms.map((room) => ({
+              id: room.id,
+              label: `${room.label || room.scope} (#${room.id})`,
+            })),
+          );
+        } catch {
+          setChatOptions([]);
+        }
+      }
     } catch (err) {
       setError(parseApiError(err, "Не удалось загрузить лабораторию"));
     }
-  }, [api, direction, id, statusFilter]);
+  }, [api, chatsApi, direction, id, statusFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const onSaveChat = async () => {
+    if (!api || !lab) return;
+    try {
+      const updated = await api.patchLaboratory(lab.id, {
+        chat_room: chatPick === "" ? null : chatPick,
+      });
+      setLab(updated);
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось привязать чат"));
+    }
+  };
+
+  const onEnsureWorkspaceChat = async () => {
+    if (!api || !lab || !chatsApi) return;
+    try {
+      const room = await chatsApi.resolveWorkspaceChat();
+      const updated = await api.patchLaboratory(lab.id, { chat_room: room.id });
+      setLab(updated);
+      setChatPick(room.id);
+      setChatOptions((prev) =>
+        prev.some((r) => r.id === room.id)
+          ? prev
+          : [
+              ...prev,
+              {
+                id: room.id,
+                label: `${room.label || "workspace"} (#${room.id})`,
+              },
+            ],
+      );
+    } catch (err) {
+      setError(parseApiError(err, "Не удалось открыть чат workspace"));
+    }
+  };
 
   if (!Number.isFinite(id)) {
     return <Navigate to="/ladya/labs" replace />;
@@ -896,13 +985,55 @@ function LabDetailPanel() {
       </button>
       {error && <ErrorMessage message={error} onDismiss={() => setError("")} />}
       {lab && (
-        <div className="rounded-xl border border-border bg-surface p-5">
+        <div className="rounded-xl border border-border bg-surface p-5 space-y-3">
           <h2 className="text-2xl font-bold text-text">{lab.title}</h2>
           <p className="mt-1 text-sm text-text-muted">
             {lab.slug} ·{" "}
             {LAB_KINDS.find((k) => k.value === lab.kind)?.label ?? lab.kind} ·{" "}
             {lab.is_active ? "активна" : "неактивна"}
           </p>
+          <div className="rounded-lg border border-border/60 bg-cream/40 p-3 space-y-2">
+            <p className="text-sm font-medium">Чат лаборатории</p>
+            <p className="text-xs text-text-muted">
+              Ссылка на существующий ChatRoom workspace/project. Не новый
+              мессенджер; Intake внешний по-прежнему не видит пакеты.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <select
+                className="min-w-[14rem] flex-1 rounded-lg border border-border bg-cream px-3 py-2 text-sm"
+                value={chatPick}
+                onChange={(e) =>
+                  setChatPick(e.target.value === "" ? "" : Number(e.target.value))
+                }
+              >
+                <option value="">Без привязки</option>
+                {chatOptions.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-cream"
+                onClick={() => void onSaveChat()}
+              >
+                Сохранить
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white"
+                onClick={() => void onEnsureWorkspaceChat()}
+              >
+                Открыть чат workspace
+              </button>
+            </div>
+            {lab.chat_room != null && (
+              <p className="text-xs text-text-muted">
+                Привязан room #{lab.chat_room}
+              </p>
+            )}
+          </div>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
@@ -1096,7 +1227,7 @@ function IntakePanel() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <div className="font-medium">
-                    #{row.id} · {row.status}
+                    #{row.id} · {row.status} · {row.source}
                   </div>
                   <div className="mt-1 whitespace-pre-wrap text-text-muted">
                     {row.body}

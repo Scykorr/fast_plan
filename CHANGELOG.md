@@ -31,6 +31,7 @@
 - **Ladya Hub (M0)** — операционный контур лабораторий за флагом `ladya_hub_enabled` (default off): app `ladya`, лаборатории, пакеты со статусами и sha256-файлами, Intake→Package; UI «Ладья»; docs [`LADYA_HUB.md`](docs/LADYA_HUB.md), ADR [`adr-ladya-hub.md`](docs/adr-ladya-hub.md)
 - **Ladya ↔ Agent Ops** — в карточке пакета ручная привязка/отвязка `linked_delivery_task` (без auto-claim; агенты через inbox)
 - **Ladya Hub M1 (P0/P1)** — `LADYA_PACKAGE_MAX_BYTES` (default 256 MiB) + stream hash; transfer между lab; create DeliveryTask из пакета; Intake triage/queue + обязательный `to_laboratory` на convert; манифест+sha256; фильтры пакетов / карточка lab / лента событий
+- **Ladya Hub P2** — Telegram webhook → Intake (+ notify editors, без DeliveryTask); `AgentProfile.ladya_role` + `Package.preferred_role`; `Laboratory.chat_room` link; чеклист [`LADYA_PILOT_CHECKLIST.md`](docs/LADYA_PILOT_CHECKLIST.md), [`LADYA_ROLES.md`](docs/LADYA_ROLES.md)
 - **Ladya branding** — light/dark mark PNG/SVG + hero; шапка `/ladya` и иконка сайдбара переключаются по теме сайта
 - **Agent Ops default-on** — `agent_ops_enabled=true` для новых и существующих workspace; env `AGENT_OPS_ENABLED_DEFAULT`
 - **Docker profile `agents`** — сервис `agent-runner` (фоновый poll inbox без чата Cursor)
