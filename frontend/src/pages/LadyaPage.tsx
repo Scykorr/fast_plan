@@ -1164,7 +1164,6 @@ export function LadyaPage() {
   const [error, setError] = useState("");
   const isDark = theme === "dark";
   const logoMark = isDark ? "/ladya/logo-dark-mark.png" : "/ladya/logo-mark.png";
-  const logoSvg = isDark ? "/ladya/logo-dark-mark.svg" : "/ladya/logo-mark.svg";
   const heroSrc = isDark ? "/ladya/hero-dark.jpg" : "/ladya/hero-light.jpg";
 
   useEffect(() => {
@@ -1181,7 +1180,7 @@ export function LadyaPage() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <img src={logoSvg} alt="" className="h-10 w-10" aria-hidden />
+          <img src={logoMark} alt="" className="h-10 w-10" aria-hidden />
           <h1 className="text-3xl font-bold text-text">Ладья</h1>
         </div>
         <p className="text-sm text-text-muted">
